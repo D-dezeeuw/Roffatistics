@@ -82,35 +82,51 @@ Phases are sequential. Each has a clear "done when" definition so there's no amb
 
 ---
 
-## Phase 4 — Crime overlay (Politie via CBS)
+## Phase 4 — Crime overlay (CBS 83648NED)
 
 **Goal:** second dataset layer — crime rate per 1,000 residents per province.
 
-### Tasks
-- [ ] Research exact OData table ID on `politieopendata.cbs.nl` for geregistreerde criminaliteit per regio (verify endpoint works from browser)
-- [ ] Add `fetchPolitie(tableId, filter)` to `datasets.js` — same pattern as `fetchCBS` but different base URL (`opendata.cbs.nl/ODataApi/odata/` pointing at the Politie table)
-- [ ] Normalize to `{ regionCode, crimeRate, totalCrimes, topCategories[] }`
-- [ ] Wire into `applyDataset` — add "Crime rate" to the dataset switcher
-- [ ] Extend the click panel: show crime rate/1,000, total crimes, and a short list of the top 3 crime categories for the province using a Spektrum `data-each` list
-- [ ] Legend updates automatically (same component, new min/max)
+### CBS OData details
+- **Table:** `83648NED` on `opendata.cbs.nl` (same base as 70072ned — no separate politie endpoint needed)
+- **Filter (one request):** `startswith(RegioS,'PV') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000')`
+- **Select:** `RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3`
+- **Key columns:** `GeregistreerdeMisdrijvenPer1000Inw_3` (choropleth, range 31.9–57.1), `TotaalGeregistreerdeMisdrijven_1` (panel)
+- **Top 3 categories:** CRI1000 Vermogen, CRI2000 Vernieling, CRI3000 Geweld — fetched in the same request and split client-side
+- **Note:** PV99 has null crimeRate — filter it out in normalizeCrime
 
-**Done when:** selecting "Crime rate" re-colors the provinces by crime intensity, clicking a province shows crime breakdown in the panel.
+### Tasks
+- [ ] `normalizeCrime(rows)` in `datasets.js`: split rows by SoortMisdrijf; return `[{ regionCode, crimeRate, totalCrimes, categories: [{ label, count }] }]`; exclude rows where crimeRate is null
+- [ ] Fetch `83648NED` in `app.js` using `fetchCBS` (same function, different tableId); merge crime result into `provinceRows` by regionCode
+- [ ] Add `crimeRate` to DATASETS config and a third switcher button ("Criminaliteit")
+- [ ] Extend `formatPanelData` in `panel.js`: crimeRate (1 decimal), totalCrimes, catVermogen, catVernieling, catGeweld
+- [ ] Add crime stats section to panel HTML and new `setValue` calls in `showPanel`
+- [ ] Legend updates automatically (same updateLegend call, new min/max)
+
+**Done when:** selecting "Criminaliteit" re-colors provinces by crime rate; clicking a province shows rate, total, and the 3 category counts in the panel.
 
 ---
 
-## Phase 5 — Education overlay (DUO)
+## Phase 5 — Education overlay (CBS 70072ned)
 
-**Goal:** third dataset — school density or dropout rate per province.
+**Goal:** third dataset — education attainment level per province, using CBS data exclusively.
+
+### Data source decision
+DUO open data (`duo.nl/open_onderwijsdata/`) returns an HTML 404 page — not accessible. Education data is sourced entirely from CBS `70072ned` columns already fetched in Phase 3 (extended select).
+
+### CBS columns (added to Phase 3 select, same request)
+- `BasisonderwijsVmboMbo1_113` — % low education (vmbo/mbo1 or below), 15+ year olds
+- `HavoVwoMbo24_114` — % medium education (havo/vwo/mbo2–4)
+- `HboWo_115` — % high education (hbo/wo); used as choropleth metric
 
 ### Tasks
-- [ ] Verify DUO data endpoint CORS behaviour from a browser (fetch `api.duo.nl` or direct CSV URL from `duo.nl/open_onderwijsdata/`)
-- [ ] If CORS is blocked: download the relevant DUO CSV (e.g. VSV dropout by province, school counts by municipality) and commit to `data/duo_vsv.json` as a pre-processed JSON snapshot
-- [ ] Normalize to `{ regionCode, dropoutRate, schoolCount, studentCount }`
-- [ ] Aggregate municipality-level DUO data up to province using the CBS gemeente→provincie lookup (available in `70072ned` or a separate reference table)
-- [ ] Add "Dropout rate" and "Schools / 10k residents" to the dataset switcher
-- [ ] Extend click panel: education breakdown — % low / medium / high education attainment (from CBS `70072ned`) + DUO dropout rate side by side
+- [ ] Extend `CBS_PROV_SELECT` in `app.js` to include the three education columns
+- [ ] Extend `normalizeProvinces` in `datasets.js` to map `lowEdu`, `medEdu`, `highEdu` from the new columns (null-safe — rows without these columns return null)
+- [ ] Add `highEdu` to DATASETS config and a fourth switcher button ("Opleiding")
+- [ ] Extend `formatPanelData` in `panel.js`: lowEdu%, medEdu%, highEdu%
+- [ ] Add education stats section to panel HTML and new `setValue` calls in `showPanel`
+- [ ] Switcher is now a 2×2 grid (4 buttons: Bevolking, Inkomen, Criminaliteit, Opleiding)
 
-**Done when:** three datasets are selectable, all color the province map, all populate the panel on click.
+**Done when:** four datasets are selectable, all color the province map, clicking a province shows all four dataset stats in the panel simultaneously.
 
 ---
 
