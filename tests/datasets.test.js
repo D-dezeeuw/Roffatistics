@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCBSUrl, fetchCBS, normalizeProvinces } from '../modules/datasets.js';
+import { buildCBSUrl, fetchCBS, normalizeProvinces, normalizeCrime } from '../modules/datasets.js';
 
 describe('buildCBSUrl', () => {
   it('includes tableId and TypedDataSet', () => {
@@ -93,5 +93,52 @@ describe('normalizeProvinces', () => {
   it('sets density to null when area is null', () => {
     const [r] = normalizeProvinces([{ ...row, TotaleOppervlakte_248: null }]);
     assert.equal(r.density, null);
+  });
+});
+
+describe('normalizeCrime', () => {
+  const baseRow = (soort, rate = null, total = null) => ({
+    RegioS:                              'PV20  ',
+    SoortMisdrijf:                       soort,
+    GeregistreerdeMisdrijvenPer1000Inw_3: rate,
+    TotaalGeregistreerdeMisdrijven_1:    total,
+  });
+
+  const rows = [
+    { ...baseRow('T001161', 45.2, 26973) },
+    { ...baseRow('CRI1000', null, 14000) },
+    { ...baseRow('CRI2000', null,  4800) },
+    { ...baseRow('CRI3000', null,  3200) },
+  ];
+
+  it('returns one entry per province (totals row)', () => {
+    const result = normalizeCrime(rows);
+    assert.equal(result.length, 1);
+  });
+
+  it('maps regionCode, crimeRate, totalCrimes', () => {
+    const [r] = normalizeCrime(rows);
+    assert.equal(r.regionCode,  'PV20');
+    assert.equal(r.crimeRate,   45.2);
+    assert.equal(r.totalCrimes, 26973);
+  });
+
+  it('builds categories array with label and count', () => {
+    const [r] = normalizeCrime(rows);
+    assert.equal(r.categories.length, 3);
+    const vermogen = r.categories.find(c => c.label === 'Vermogen');
+    assert.equal(vermogen.count, 14000);
+  });
+
+  it('excludes rows where crimeRate is null (e.g. PV99)', () => {
+    const withNull = [{ ...baseRow('T001161', null, 0) }];
+    const result   = normalizeCrime(withNull);
+    assert.equal(result.length, 0);
+  });
+
+  it('sets category count to null when category is missing', () => {
+    const onlyTotal = [{ ...baseRow('T001161', 45.2, 26973) }];
+    const [r]       = normalizeCrime(onlyTotal);
+    assert.equal(r.categories.find(c => c.label === 'Vermogen').count, null);
   });
 });

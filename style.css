@@ -227,6 +227,19 @@ footer {
 #panel.has-region .panel-placeholder { display: none; }
 #panel.has-region .panel-region      { display: block; }
 
+/* ─── Panel section title ───────────────────────────────── */
+
+.panel-section-title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-top: 1.1rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid rgba(124, 58, 237, 0.2);
+}
+
 /* ─── Panel stats ────────────────────────────────────────── */
 
 .panel-stats {

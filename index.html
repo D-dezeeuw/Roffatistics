@@ -34,6 +34,7 @@
       <div class="panel-switcher">
         <button class="switcher-btn active" data-dataset="population">Bevolking</button>
         <button class="switcher-btn" data-dataset="avgIncome">Inkomen</button>
+        <button class="switcher-btn" data-dataset="crimeRate">Criminaliteit</button>
       </div>
 
       <p class="panel-placeholder">Klik op een provincie</p>
@@ -48,6 +49,19 @@
           <dd data-bind="panel.density"></dd>
           <dt>Gem. inkomen</dt>
           <dd data-bind="panel.avgIncome"></dd>
+        </dl>
+        <p class="panel-section-title">Criminaliteit</p>
+        <dl class="panel-stats">
+          <dt>Per 1.000 inw.</dt>
+          <dd data-bind="panel.crimeRate"></dd>
+          <dt>Totaal</dt>
+          <dd data-bind="panel.totalCrimes"></dd>
+          <dt>Vermogen</dt>
+          <dd data-bind="panel.catVermogen"></dd>
+          <dt>Vernieling</dt>
+          <dd data-bind="panel.catVernieling"></dd>
+          <dt>Geweld</dt>
+          <dd data-bind="panel.catGeweld"></dd>
         </dl>
       </div>
     </aside>

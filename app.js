@@ -1,18 +1,23 @@
 import { bindDOM, run, setValue } from 'spektrum';
 import { initMap }                        from './modules/map.js';
 import { initOverlays, setProvinceData, applyDataset } from './modules/overlays.js';
-import { fetchCBS, normalizeProvinces }   from './modules/datasets.js';
+import { fetchCBS, normalizeProvinces, normalizeCrime } from './modules/datasets.js';
 import { updateLegend }                   from './modules/legend.js';
 
-setValue('panel.visible',    false);
-setValue('panel.name',       '');
-setValue('panel.code',       '');
-setValue('panel.population', '');
-setValue('panel.density',    '');
-setValue('panel.avgIncome',  '');
-setValue('legend.title',     '');
-setValue('legend.min',       '');
-setValue('legend.max',       '');
+setValue('panel.visible',       false);
+setValue('panel.name',          '');
+setValue('panel.code',          '');
+setValue('panel.population',    '');
+setValue('panel.density',       '');
+setValue('panel.avgIncome',     '');
+setValue('panel.crimeRate',     '');
+setValue('panel.totalCrimes',   '');
+setValue('panel.catVermogen',   '');
+setValue('panel.catVernieling', '');
+setValue('panel.catGeweld',     '');
+setValue('legend.title',        '');
+setValue('legend.min',          '');
+setValue('legend.max',          '');
 
 bindDOM();
 run();
@@ -23,17 +28,25 @@ await initOverlays();
 const DATASETS = {
   population: { key: 'population', title: 'Inwoners' },
   avgIncome:  { key: 'avgIncome',  title: 'Gem. inkomen (×€1k)' },
+  crimeRate:  { key: 'crimeRate',  title: 'Misdrijven per 1.000 inw.' },
 };
 
-const CBS_FILTER = "startswith(RegioS,'PV') and Perioden eq '2023JJ00'";
-const CBS_SELECT = 'RegioS,TotaleBevolking_1,BronInkomenAlsWerknemer_141,TotaleOppervlakte_248';
+const CBS_FILTER   = "startswith(RegioS,'PV') and Perioden eq '2023JJ00'";
+const CBS_SELECT   = 'RegioS,TotaleBevolking_1,BronInkomenAlsWerknemer_141,TotaleOppervlakte_248';
+const CRIME_FILTER = "startswith(RegioS,'PV') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000')";
+const CRIME_SELECT = 'RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3';
 
 let provinceRows  = [];
 let activeDataset = 'population';
 
 try {
-  const raw    = await fetchCBS('70072ned', CBS_FILTER, CBS_SELECT);
-  provinceRows = normalizeProvinces(raw);
+  const [raw, crimeRaw] = await Promise.all([
+    fetchCBS('70072ned',   CBS_FILTER,   CBS_SELECT),
+    fetchCBS('83648NED',   CRIME_FILTER, CRIME_SELECT),
+  ]);
+  const crimeRows   = normalizeCrime(crimeRaw);
+  const crimeLookup = Object.fromEntries(crimeRows.map(r => [r.regionCode, r]));
+  provinceRows = normalizeProvinces(raw).map(r => ({ ...r, ...crimeLookup[r.regionCode] }));
   setProvinceData(provinceRows);
   await activateDataset('population');
 } catch {
