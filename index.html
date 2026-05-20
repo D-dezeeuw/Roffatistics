@@ -35,6 +35,7 @@
         <button class="switcher-btn active" data-dataset="population">Bevolking</button>
         <button class="switcher-btn" data-dataset="avgIncome">Inkomen</button>
         <button class="switcher-btn" data-dataset="crimeRate">Criminaliteit</button>
+        <button class="switcher-btn" data-dataset="highEdu">Opleiding</button>
       </div>
 
       <p class="panel-placeholder">Klik op een provincie</p>
@@ -62,6 +63,15 @@
           <dd data-bind="panel.catVernieling"></dd>
           <dt>Geweld</dt>
           <dd data-bind="panel.catGeweld"></dd>
+        </dl>
+        <p class="panel-section-title">Opleiding (15+ jaar)</p>
+        <dl class="panel-stats">
+          <dt>Laag</dt>
+          <dd data-bind="panel.lowEdu"></dd>
+          <dt>Midden</dt>
+          <dd data-bind="panel.medEdu"></dd>
+          <dt>Hoog</dt>
+          <dd data-bind="panel.highEdu"></dd>
         </dl>
       </div>
     </aside>

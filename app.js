@@ -15,6 +15,9 @@ setValue('panel.totalCrimes',   '');
 setValue('panel.catVermogen',   '');
 setValue('panel.catVernieling', '');
 setValue('panel.catGeweld',     '');
+setValue('panel.lowEdu',        '');
+setValue('panel.medEdu',        '');
+setValue('panel.highEdu',       '');
 setValue('legend.title',        '');
 setValue('legend.min',          '');
 setValue('legend.max',          '');
@@ -29,10 +32,11 @@ const DATASETS = {
   population: { key: 'population', title: 'Inwoners' },
   avgIncome:  { key: 'avgIncome',  title: 'Gem. inkomen (×€1k)' },
   crimeRate:  { key: 'crimeRate',  title: 'Misdrijven per 1.000 inw.' },
+  highEdu:    { key: 'highEdu',    title: 'Hoog opgeleid (%)' },
 };
 
 const CBS_FILTER   = "startswith(RegioS,'PV') and Perioden eq '2023JJ00'";
-const CBS_SELECT   = 'RegioS,TotaleBevolking_1,BronInkomenAlsWerknemer_141,TotaleOppervlakte_248';
+const CBS_SELECT   = 'RegioS,TotaleBevolking_1,BronInkomenAlsWerknemer_141,TotaleOppervlakte_248,BasisonderwijsVmboMbo1_113,HavoVwoMbo24_114,HboWo_115';
 const CRIME_FILTER = "startswith(RegioS,'PV') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000')";
 const CRIME_SELECT = 'RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3';
 

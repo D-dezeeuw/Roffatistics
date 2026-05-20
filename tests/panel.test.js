@@ -64,4 +64,18 @@ describe('formatPanelData', () => {
     assert.ok(result.catVernieling.includes('4'));
     assert.ok(result.catGeweld.includes('3'));
   });
+
+  it('formats education percentages with 1 decimal and % suffix', () => {
+    const result = formatPanelData({ lowEdu: 28.4, medEdu: 38.1, highEdu: 33.5 });
+    assert.equal(result.lowEdu,  '28.4%');
+    assert.equal(result.medEdu,  '38.1%');
+    assert.equal(result.highEdu, '33.5%');
+  });
+
+  it('returns dashes for null education fields', () => {
+    const result = formatPanelData({ lowEdu: null, medEdu: null, highEdu: null });
+    assert.equal(result.lowEdu,  '—');
+    assert.equal(result.medEdu,  '—');
+    assert.equal(result.highEdu, '—');
+  });
 });

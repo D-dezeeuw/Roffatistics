@@ -71,6 +71,9 @@ describe('normalizeProvinces', () => {
     TotaleBevolking_1:           596075,
     BronInkomenAlsWerknemer_141: 37.5,
     TotaleOppervlakte_248:       2955.18,
+    BasisonderwijsVmboMbo1_113:  28.4,
+    HavoVwoMbo24_114:            38.1,
+    HboWo_115:                   33.5,
   };
 
   it('trims region code', () => {
@@ -93,6 +96,23 @@ describe('normalizeProvinces', () => {
   it('sets density to null when area is null', () => {
     const [r] = normalizeProvinces([{ ...row, TotaleOppervlakte_248: null }]);
     assert.equal(r.density, null);
+  });
+
+  it('maps education fields', () => {
+    const [r] = normalizeProvinces([row]);
+    assert.equal(r.lowEdu,  28.4);
+    assert.equal(r.medEdu,  38.1);
+    assert.equal(r.highEdu, 33.5);
+  });
+
+  it('sets education fields to null when columns are missing', () => {
+    const [r] = normalizeProvinces([{
+      RegioS: 'PV20  ', TotaleBevolking_1: 0,
+      BronInkomenAlsWerknemer_141: 0, TotaleOppervlakte_248: 1,
+    }]);
+    assert.equal(r.lowEdu,  null);
+    assert.equal(r.medEdu,  null);
+    assert.equal(r.highEdu, null);
   });
 });
 

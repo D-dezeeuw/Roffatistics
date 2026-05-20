@@ -3,6 +3,8 @@ function cat(data, label) {
   return entry?.count != null ? entry.count.toLocaleString('nl-NL') : '—';
 }
 
+function pct(v) { return v != null ? `${v.toFixed(1)}%` : '—'; }
+
 export function formatPanelData(data) {
   return {
     population:    data?.population  != null ? data.population.toLocaleString('nl-NL')           : '—',
@@ -13,6 +15,9 @@ export function formatPanelData(data) {
     catVermogen:   cat(data, 'Vermogen'),
     catVernieling: cat(data, 'Vernieling'),
     catGeweld:     cat(data, 'Geweld'),
+    lowEdu:        pct(data?.lowEdu),
+    medEdu:        pct(data?.medEdu),
+    highEdu:       pct(data?.highEdu),
   };
 }
 
@@ -29,6 +34,9 @@ export async function showPanel({ name, code, data }) {
   setValue('panel.catVermogen',  fmt.catVermogen);
   setValue('panel.catVernieling', fmt.catVernieling);
   setValue('panel.catGeweld',    fmt.catGeweld);
+  setValue('panel.lowEdu',       fmt.lowEdu);
+  setValue('panel.medEdu',       fmt.medEdu);
+  setValue('panel.highEdu',      fmt.highEdu);
   setValue('panel.visible',      true);
   const el = document.getElementById('panel');
   el.setAttribute('aria-hidden', 'false');
