@@ -20,9 +20,36 @@
 
   <div id="app">
     <div id="map"></div>
-    <aside id="panel" aria-label="Province details" aria-hidden="true">
-      <h2 class="panel-title" data-bind="panel.name"></h2>
-      <p class="panel-code" data-bind="panel.code"></p>
+
+    <div id="legend">
+      <div class="legend-title" data-bind="legend.title"></div>
+      <div class="legend-strip"></div>
+      <div class="legend-labels">
+        <span data-bind="legend.min"></span>
+        <span data-bind="legend.max"></span>
+      </div>
+    </div>
+
+    <aside id="panel" aria-label="Regio details" aria-hidden="true">
+      <div class="panel-switcher">
+        <button class="switcher-btn active" data-dataset="population">Bevolking</button>
+        <button class="switcher-btn" data-dataset="avgIncome">Inkomen</button>
+      </div>
+
+      <p class="panel-placeholder">Klik op een provincie</p>
+
+      <div class="panel-region">
+        <h2 class="panel-title" data-bind="panel.name"></h2>
+        <p class="panel-code" data-bind="panel.code"></p>
+        <dl class="panel-stats">
+          <dt>Bevolking</dt>
+          <dd data-bind="panel.population"></dd>
+          <dt>Dichtheid</dt>
+          <dd data-bind="panel.density"></dd>
+          <dt>Gem. inkomen</dt>
+          <dd data-bind="panel.avgIncome"></dd>
+        </dl>
+      </div>
     </aside>
   </div>
 

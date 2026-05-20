@@ -28,6 +28,15 @@ const STYLE_HOVER = {
   opacity:     1,
 };
 
+// Low → #2e1065 (deep purple)  High → #ea580c (orange)
+export function interpolateColor(value, min, max) {
+  const t = max === min ? 0 : (value - min) / (max - min);
+  const r = Math.round(46  + t * (234 - 46));
+  const g = Math.round(16  + t * (88  - 16));
+  const b = Math.round(101 + t * (12  - 101));
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
 export function resolveZoomTier(zoom) {
   if (zoom <= ZOOM_NATIONAL)     return 'national';
   if (zoom >= ZOOM_MUNICIPALITY) return 'municipality';
@@ -36,7 +45,31 @@ export function resolveZoomTier(zoom) {
 
 const layers   = { national: null, province: null, municipality: null };
 let activeTier = null;
+let provinceData = [];
 const geoCache = {};
+
+export function setProvinceData(data) {
+  provinceData = data;
+}
+
+export function applyDataset(data, valueKey) {
+  const values = data.map(d => d[valueKey]).filter(v => v != null);
+  const min    = Math.min(...values);
+  const max    = Math.max(...values);
+  const lookup = Object.fromEntries(data.map(d => [d.regionCode, d[valueKey]]));
+
+  layers.province.eachLayer(fl => {
+    const code  = fl.feature?.properties?.statcode;
+    const value = lookup[code];
+    fl.setStyle(
+      value != null
+        ? { fillColor: interpolateColor(value, min, max), fillOpacity: 0.7 }
+        : { ...STYLE_DEFAULT },
+    );
+  });
+
+  return { min, max };
+}
 
 async function loadGeoJSON(url) {
   if (geoCache[url]) return geoCache[url];
@@ -68,8 +101,8 @@ function makeInteractiveLayer(geojson) {
           getMap().closePopup();
         },
         click() {
-          console.log(name, code);
-          import('./panel.js').then(({ showPanel }) => showPanel({ name, code }));
+          const data = provinceData.find(d => d.regionCode === code) ?? null;
+          import('./panel.js').then(({ showPanel }) => showPanel({ name, code, data }));
         },
       });
     },
