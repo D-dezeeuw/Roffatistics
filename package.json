@@ -1,0 +1,21 @@
+{
+  "name": "roffatistics",
+  "version": "0.1.0",
+  "description": "Interactive map-based data visualization for the Netherlands",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude='tests/**' tests/*.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/D-dezeeuw/Roffatistics.git"
+  },
+  "homepage": "https://d-dezeeuw.github.io/Roffatistics",
+  "author": "Danny de Zeeuw <danny@nekomedia.nl>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  }
+}
