@@ -46,6 +46,7 @@ export function resolveZoomTier(zoom) {
 const layers   = { national: null, province: null, municipality: null };
 let activeTier = null;
 let provinceData = [];
+let activeColorState = null; // { lookup, min, max } — set by applyDataset
 const geoCache = {};
 
 export function setProvinceData(data) {
@@ -58,6 +59,8 @@ export function applyDataset(data, valueKey) {
   const max    = Math.max(...values);
   const lookup = Object.fromEntries(data.map(d => [d.regionCode, d[valueKey]]));
 
+  activeColorState = { lookup, min, max };
+
   layers.province.eachLayer(fl => {
     const code  = fl.feature?.properties?.statcode;
     const value = lookup[code];
@@ -69,6 +72,14 @@ export function applyDataset(data, valueKey) {
   });
 
   return { min, max };
+}
+
+function restoreStyle(code) {
+  if (!activeColorState) return { ...STYLE_DEFAULT };
+  const value = activeColorState.lookup[code];
+  return value != null
+    ? { ...STYLE_DEFAULT, fillColor: interpolateColor(value, activeColorState.min, activeColorState.max), fillOpacity: 0.7 }
+    : { ...STYLE_DEFAULT };
 }
 
 async function loadGeoJSON(url) {
@@ -97,7 +108,7 @@ function makeInteractiveLayer(geojson) {
             .openOn(getMap());
         },
         mouseout(e) {
-          geoLayer.resetStyle(e.target);
+          e.target.setStyle(restoreStyle(code));
           getMap().closePopup();
         },
         click() {
