@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roffatistics</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:        #0d0a14;
+      --bg-surface:     #141020;
+      --accent-purple:  #7c3aed;
+      --accent-orange:  #ea580c;
+      --text-primary:   #f1f0f5;
+      --text-muted:     #8b8a96;
+      --radius:         8px;
+    }
+
+    body {
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #0d0a14 0%, #110d1c 100%);
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      color: var(--text-primary);
+    }
+
+    .card {
+      position: relative;
+      padding: 3rem 4rem;
+      background: linear-gradient(135deg, #141020 0%, #0f0d1a 100%);
+      border-radius: var(--radius);
+      text-align: center;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius);
+      padding: 1px;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-orange));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-orange));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .status {
+      display: inline-block;
+      margin-top: 2rem;
+      padding: 0.35rem 0.9rem;
+      border-radius: 99px;
+      border: 1px solid var(--accent-purple);
+      color: var(--accent-purple);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Roffatistics</h1>
+    <p>Interactieve kaart · Nederlandse open data</p>
+    <span class="status">In ontwikkeling</span>
+  </div>
+</body>
+</html>
