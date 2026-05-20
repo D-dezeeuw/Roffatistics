@@ -20,7 +20,10 @@
 
   <div id="app">
     <div id="map"></div>
-    <aside id="panel"></aside>
+    <aside id="panel" aria-label="Province details" aria-hidden="true">
+      <h2 class="panel-title" data-bind="panel.name"></h2>
+      <p class="panel-code" data-bind="panel.code"></p>
+    </aside>
   </div>
 
   <footer>
