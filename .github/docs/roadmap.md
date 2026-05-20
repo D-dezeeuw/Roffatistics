@@ -58,16 +58,27 @@ Phases are sequential. Each has a clear "done when" definition so there's no amb
 
 **Goal:** province choropleth showing population and average income from CBS `70072ned`. First working data overlay.
 
-### Tasks
-- [ ] `modules/datasets.js` — generic `fetchCBS(tableId, filter)` function: constructs OData URL, fetches JSON, returns parsed rows. Use `sessionStorage` to cache by URL key.
-- [ ] Fetch `70072ned` filtered to province codes (`RegioS eq 'PV20'` … `PV31`, or `startswith(RegioS,'PV')`)
-- [ ] Normalize response to `{ regionCode, label, population, avgIncome }` — extract the relevant columns from `TypedDataSet`
-- [ ] `modules/overlays.js` — `applyDataset(data, valueKey)`: compute min/max, map each feature's `RegioS` code to a fill color interpolated between `#2e1065` (low) and `#ea580c` (high) using a linear scale
-- [ ] `modules/legend.js` — render a gradient legend strip (purple → orange) with min/max labels using Spektrum `setValue` + `bindDOM`
-- [ ] `modules/panel.js` — on province click, populate the Spektrum-bound panel with: province name, population, avg income, and population density (pop / km², km² derived from GeoJSON area)
-- [ ] Dataset switcher: two buttons ("Population", "Income") that call `applyDataset` with a different value key and re-color the map
+### CBS OData details
+- **Table:** `70072ned` ("Regionale kerncijfers Nederland")
+- **Base URL:** `https://opendata.cbs.nl/ODataApi/odata/70072ned/TypedDataSet`
+- **Filter:** `startswith(RegioS,'PV') and Perioden eq '2023JJ00'`
+- **Columns used:**
+  - `RegioS` — province code (e.g. `'PV20  '`, must be `.trim()`'d)
+  - `TotaleBevolking_1` — total population (persons)
+  - `BronInkomenAlsWerknemer_141` — avg income from employment (×€1,000; range 37.5–44.4 across provinces)
+  - `TotaleOppervlakte_248` — total area (km²); density = `TotaleBevolking_1 / TotaleOppervlakte_248`
 
-**Done when:** map shows a colored province choropleth, clicking a province populates the panel, the legend updates to match the active dataset.
+### Tasks
+- [ ] `modules/datasets.js` — `buildCBSUrl(tableId, filter, select)`, `fetchCBS(tableId, filter, select, fetcher, storage)` with injected `fetcher` (defaults `globalThis.fetch`) and `storage` (defaults `globalThis.sessionStorage`) for testability; cache response by URL key
+- [ ] Fetch `70072ned` with the filter and select above
+- [ ] `normalizeProvinces(rows)` → `[{ regionCode, population, avgIncome, areaSqKm, density }]`
+- [ ] `modules/overlays.js` — export `interpolateColor(value, min, max)` (pure, testable): linear RGB between `#2e1065` (low) and `#ea580c` (high); export `applyDataset(data, valueKey)`: eachLayer on province layer, set fill via interpolateColor; export `setProvinceData(data)` so click handler can look up stats by region code
+- [ ] `modules/legend.js` — export `formatLegendValue(value, dataset)` (pure, testable); `updateLegend({ title, min, max, dataset })` uses dynamic `import('spektrum')` so the module is importable in Node.js tests
+- [ ] `modules/panel.js` — export `formatPanelData(data)` (pure, testable); `showPanel` updated to accept `{ name, code, data }` and display population, density, avgIncome; uses dynamic `import('spektrum')` at function call time so module is importable in Node.js
+- [ ] Dataset switcher: two buttons ("Bevolking", "Inkomen") in the panel sidebar; active state toggled via CSS class; click calls `applyDataset` + `updateLegend`
+- [ ] `app.js` — `await initOverlays()`, then `await fetchCBS(...)`, then `setProvinceData`, then `applyDataset` + `updateLegend` for initial state
+
+**Done when:** map shows a colored province choropleth, clicking a province populates the panel with name/population/density/income, the legend updates to match the active dataset.
 
 ---
 
@@ -121,6 +132,8 @@ Phases are sequential. Each has a clear "done when" definition so there's no amb
 - [ ] Track active gemeente: when a gemeente is clicked, store its `statcode` (`GM*`) as `activeGemeente`
 - [ ] Add `ZOOM_BUURT = 13` threshold to `overlays.js`
 - [ ] On first entry into zoom ≥ 13, lazy-fetch `buurt_2023.geojson`, filter features to those whose `statcode` starts with `BU` + the active gemeente code (stripped of `GM` prefix), build and swap in a buurt layer
+- [ ] **GM→PV lookup:** on first zoom ≥ 10, build a runtime lookup `{ gmCode → pvCode }` by iterating gemeente features and checking which province layer's `getBounds()` contains the gemeente feature's bounding box centre (Leaflet `LatLngBounds.contains()`). No extra files or API calls needed — both GeoJSONs are already in memory. Cache result in module state.
+- [ ] Use GM→PV lookup to filter gemeente layer to active province when entering zoom ≥ 10
 - [ ] If no gemeente is active when zoom ≥ 13 is reached, derive the active gemeente from the map centre using a bounding-box lookup against the cached gemeente layer
 - [ ] Buurt hover + tooltip (name only); click logs name + code — no CBS data at buurt level in this phase
 - [ ] On zoom-out back below 13, remove buurt layer and restore gemeente layer
