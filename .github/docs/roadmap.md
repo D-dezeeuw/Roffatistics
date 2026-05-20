@@ -103,18 +103,29 @@ Phases are sequential. Each has a clear "done when" definition so there's no amb
 
 ---
 
-## Phase 6 — Municipality tier data
+## Phase 6 — Municipality and neighbourhood tier data
 
-**Goal:** zooming into zoom ≥ 10 shows municipality-level data, not just outlines.
+**Goal:** zooming into zoom ≥ 10 shows municipality-level data; zooming into zoom ≥ 13 shows neighbourhood (buurt) outlines within the active municipality.
+
+### Data sources
+- **Gemeente data:** CBS `70072ned` filtered to `GM*` codes (same OData table as province tier)
+- **Buurt geometry:** `https://cartomap.github.io/nl/wgs84/buurt_2023.geojson` — 14,421 features, ~1 MB, lazy-fetched once and cached. `statcode` format: `BU{GM_CODE}{WIJK_IDX}{BUURT_IDX}` (e.g. `BU03630101`). Filter client-side by active gemeente: `statcode.startsWith('BU' + gmCode.replace('GM', ''))`.
+- **Note:** no wijk (district) layer exists in cartomap/nl — the hierarchy goes gemeente → buurt directly. Wijk groupings are derivable from the statcode but are not needed for this phase.
 
 ### Tasks
 - [ ] Extend `fetchCBS` filter to handle `GM*` codes for the same datasets (`70072ned` has municipality rows)
-- [ ] On first entry into zoom ≥ 10, fetch municipality data for the active dataset (or for the visible province's municipalities only — filter by bounding box if response size is a concern)
-- [ ] Choropleth and panel work the same way; only the region granularity changes
+- [ ] On first entry into zoom ≥ 10, fetch municipality data for the active dataset
+- [ ] Choropleth and panel work the same way at gemeente tier; only the region granularity changes
 - [ ] Municipality click panel: name, population, crime rate, number of schools — same layout as province panel, different data
-- [ ] Update legend label to reflect current tier ("per provincie" / "per gemeente")
+- [ ] Update legend label to reflect current tier ("per provincie" / "per gemeente" / "per buurt")
+- [ ] Track active gemeente: when a gemeente is clicked, store its `statcode` (`GM*`) as `activeGemeente`
+- [ ] Add `ZOOM_BUURT = 13` threshold to `overlays.js`
+- [ ] On first entry into zoom ≥ 13, lazy-fetch `buurt_2023.geojson`, filter features to those whose `statcode` starts with `BU` + the active gemeente code (stripped of `GM` prefix), build and swap in a buurt layer
+- [ ] If no gemeente is active when zoom ≥ 13 is reached, derive the active gemeente from the map centre using a bounding-box lookup against the cached gemeente layer
+- [ ] Buurt hover + tooltip (name only); click logs name + code — no CBS data at buurt level in this phase
+- [ ] On zoom-out back below 13, remove buurt layer and restore gemeente layer
 
-**Done when:** zooming past zoom 9 into a province shows its municipalities colored by the active dataset; clicking a gemeente shows its stats.
+**Done when:** zooming past zoom 9 shows municipalities colored by the active dataset; zooming past zoom 12 within a municipality shows its neighbourhood outlines; clicking a gemeente shows its stats.
 
 ---
 
@@ -146,5 +157,5 @@ Phases are sequential. Each has a clear "done when" definition so there's no amb
 | 3 | CBS choropleth + panel live |
 | 4 | Crime overlay added |
 | 5 | Education overlay added — all three datasets selectable |
-| 6 | Municipality drill-down works |
+| 6 | Municipality drill-down + neighbourhood outlines within active gemeente |
 | 7 | Deployed to GitHub Pages, mobile-ready |
