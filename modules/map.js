@@ -5,12 +5,13 @@ const TILE_OPTS  = {
   maxZoom:     19,
 };
 
-const NL_CENTER  = [52.3, 5.3];
-const NL_BOUNDS  = L.latLngBounds([50.5, 3.2], [53.7, 7.3]);
+const NL_CENTER = [52.3, 5.3];
 
 let map;
 
 export function initMap() {
+  const NL_BOUNDS = L.latLngBounds([50.5, 3.2], [53.7, 7.3]);
+
   map = L.map('map', {
     center:    NL_CENTER,
     zoom:      7,
