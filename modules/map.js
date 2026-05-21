@@ -23,6 +23,8 @@ export function initMap() {
 
   L.tileLayer(TILE_URL, TILE_OPTS).addTo(map);
 
+  window.addEventListener('resize', () => map.invalidateSize());
+
   return map;
 }
 

@@ -256,6 +256,7 @@ async function swapToTier(tier) {
       }
     }
     layers.municipality.addTo(map);
+    addKeyboardNav(layers.municipality);
     activeTier = 'municipality';
     document.dispatchEvent(new CustomEvent('tier-change', { detail: { tier: 'municipality' } }));
     return;
