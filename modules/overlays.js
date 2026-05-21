@@ -59,7 +59,8 @@ let activeTier = null;
 let provinceData     = [];
 let municipalityData = [];
 let activeColorState = null; // { lookup, min, max } — set by applyDataset
-let activeGemeente   = null; // GM code of the last clicked gemeente
+let activeGemeente     = null; // GM code of the last clicked gemeente
+let activeGemeenteName = null; // display name of the last clicked gemeente
 const geoCache = {};
 
 export function setProvinceData(data) {
@@ -70,9 +71,9 @@ export function setMunicipalityData(data) {
   municipalityData = data;
 }
 
-export function getActiveTier() {
-  return activeTier;
-}
+export function getActiveTier()       { return activeTier; }
+export function getActiveGemeente()   { return activeGemeente; }
+export function getActiveGemeenteName() { return activeGemeenteName; }
 
 export function applyDataset(data, valueKey) {
   const values = data.map(d => d[valueKey]).filter(v => v != null);
@@ -167,7 +168,8 @@ function makeGemeenteLayer(geojson) {
           getMap().closePopup();
         },
         click() {
-          activeGemeente = code;
+          activeGemeente     = code;
+          activeGemeenteName = name;
           const data = municipalityData.find(d => d.regionCode === code) ?? null;
           import('./panel.js').then(({ showPanel }) => showPanel({ name, code, data }));
         },

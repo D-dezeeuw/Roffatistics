@@ -1,6 +1,6 @@
 import { bindDOM, run, setValue } from 'spektrum';
 import { initMap, getMap }                from './modules/map.js';
-import { initOverlays, setProvinceData, setMunicipalityData, applyDataset, getActiveTier } from './modules/overlays.js';
+import { initOverlays, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName } from './modules/overlays.js';
 import { fetchCBS, normalizeProvinces, normalizeCrime } from './modules/datasets.js';
 import { updateLegend }                   from './modules/legend.js';
 
@@ -73,16 +73,33 @@ fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
 // Start fetching in the background immediately so it is ready by the time the
 // user zooms to municipality level. Stored in gemeenteRows + overlays module.
 
+// Called after each setMunicipalityData to re-apply coloring and refresh the
+// panel if the user is already at municipality tier.
+function refreshMunicipalityView() {
+  if (getActiveTier() !== 'municipality') return;
+  activateDataset(activeDataset);
+  const code = getActiveGemeente();
+  const name = getActiveGemeenteName();
+  if (!code) return;
+  const panelEl = document.getElementById('panel');
+  if (!panelEl.classList.contains('has-region')) return;
+  const data = gemeenteRows.find(d => d.regionCode === code) ?? null;
+  if (!data) return;
+  import('./modules/panel.js').then(({ showPanel }) => showPanel({ name, code, data }));
+}
+
 fetchCBS('70072ned', GM_FILTER, CBS_SELECT)
   .then(rawGM => {
     gemeenteRows = normalizeProvinces(rawGM).filter(r => r.regionCode);
     setMunicipalityData(gemeenteRows);
+    refreshMunicipalityView();
     // Merge municipality crime in the background.
     return fetchCBS('83648NED', GM_CRIME_FILTER, CRIME_SELECT, undefined, undefined, 2000)
       .then(crimeRawGM => {
         const crimeLookup = Object.fromEntries(normalizeCrime(crimeRawGM).map(r => [r.regionCode, r]));
         gemeenteRows = gemeenteRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] }));
         setMunicipalityData(gemeenteRows);
+        refreshMunicipalityView();
       })
       .catch(() => { /* crime unavailable at gemeente level */ });
   })
