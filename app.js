@@ -126,18 +126,31 @@ document.addEventListener('tier-change', async ({ detail: { tier } }) => {
   if (tier === 'buurt') return; // buurt has no CBS data — legend stays as-is
 
   if (tier === 'municipality' && !gemeenteRows.length) {
+    // Fetch demographic data first — this is what drives map coloring.
+    // Crime data is fetched separately so its failure cannot block coloring.
     try {
-      const [rawGM, crimeRawGM] = await Promise.all([
-        fetchCBS('70072ned',   GM_FILTER,       CBS_SELECT),
-        fetchCBS('83648NED',   GM_CRIME_FILTER, CRIME_SELECT),
-      ]);
-      const crimeRowsGM   = normalizeCrime(crimeRawGM);
-      const crimeLookupGM = Object.fromEntries(crimeRowsGM.map(r => [r.regionCode, r]));
-      gemeenteRows = normalizeProvinces(rawGM).map(r => ({ ...r, ...crimeLookupGM[r.regionCode] }));
+      const rawGM = await fetchCBS('70072ned', GM_FILTER, CBS_SELECT);
+      gemeenteRows = normalizeProvinces(rawGM).filter(r => r.regionCode);
       setMunicipalityData(gemeenteRows);
     } catch {
-      // CBS unavailable at municipality level — gemeente layer renders with flat fill
+      // CBS demographic data unavailable — gemeente layer renders with flat fill
+      return;
     }
+
+    // Color map immediately with demographic data, then merge crime if available.
+    await activateDataset(activeDataset);
+
+    try {
+      // 342 municipalities × 4 crime types = 1368 rows — request 2000 to avoid truncation.
+      const crimeRawGM   = await fetchCBS('83648NED', GM_CRIME_FILTER, CRIME_SELECT, undefined, undefined, 2000);
+      const crimeRowsGM  = normalizeCrime(crimeRawGM);
+      const crimeLookup  = Object.fromEntries(crimeRowsGM.map(r => [r.regionCode, r]));
+      gemeenteRows       = gemeenteRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] }));
+      setMunicipalityData(gemeenteRows);
+    } catch {
+      // Crime data unavailable — crime fields will show dashes in the panel
+    }
+    return;
   }
 
   await activateDataset(activeDataset);

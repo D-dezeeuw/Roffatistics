@@ -24,6 +24,16 @@ describe('buildCBSUrl', () => {
     const url = buildCBSUrl('70072ned', 'filter');
     assert.ok(!url.includes('$select'));
   });
+
+  it('appends $top when provided', () => {
+    const url = buildCBSUrl('70072ned', 'filter', null, 2000);
+    assert.ok(url.includes('2000'));
+  });
+
+  it('omits $top when not provided', () => {
+    const url = buildCBSUrl('70072ned', 'filter');
+    assert.ok(!url.includes('$top'));
+  });
 });
 
 describe('fetchCBS', () => {

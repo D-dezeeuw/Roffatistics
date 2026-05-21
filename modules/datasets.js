@@ -1,8 +1,9 @@
 const CBS_BASE = 'https://opendata.cbs.nl/ODataApi/odata';
 
-export function buildCBSUrl(tableId, filter, select) {
+export function buildCBSUrl(tableId, filter, select, top = null) {
   const params = new URLSearchParams({ $filter: filter });
   if (select) params.set('$select', select);
+  if (top)    params.set('$top', top);
   return `${CBS_BASE}/${tableId}/TypedDataSet?${params}`;
 }
 
@@ -12,8 +13,9 @@ export async function fetchCBS(
   select  = null,
   fetcher = globalThis.fetch,
   storage = globalThis.sessionStorage,
+  top     = null,
 ) {
-  const url    = buildCBSUrl(tableId, filter, select);
+  const url    = buildCBSUrl(tableId, filter, select, top);
   const cached = storage?.getItem(url);
   if (cached) return JSON.parse(cached);
 
