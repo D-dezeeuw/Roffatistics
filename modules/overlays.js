@@ -79,6 +79,14 @@ export function getActiveTier()         { return activeTier; }
 export function getActiveGemeente()     { return activeGemeente; }
 export function getActiveGemeenteName() { return activeGemeenteName; }
 
+// Choropleth fill opacity scales down as the user zooms in so map tiles remain
+// visible at city and neighbourhood level.
+function choroplethOpacity() {
+  if (activeTier === 'buurt')        return 0.25;
+  if (activeTier === 'municipality') return 0.45;
+  return 0.65;
+}
+
 export function applyDataset(data, valueKey) {
   const values = data.map(d => d[valueKey]).filter(v => v != null);
   const min    = Math.min(...values);
@@ -93,12 +101,13 @@ export function applyDataset(data, valueKey) {
     : layers.province;
 
   if (targetLayer) {
+    const fillOpacity = choroplethOpacity();
     targetLayer.eachLayer(fl => {
       const code  = fl.feature?.properties?.statcode;
       const value = lookup[code];
       fl.setStyle(
         value != null
-          ? { fillColor: interpolateColor(value, min, max), fillOpacity: 0.7 }
+          ? { fillColor: interpolateColor(value, min, max), fillOpacity }
           : { ...STYLE_DEFAULT },
       );
     });
@@ -111,7 +120,7 @@ function restoreStyle(code) {
   if (!activeColorState) return { ...STYLE_DEFAULT };
   const value = activeColorState.lookup[code];
   return value != null
-    ? { ...STYLE_DEFAULT, fillColor: interpolateColor(value, activeColorState.min, activeColorState.max), fillOpacity: 0.7 }
+    ? { ...STYLE_DEFAULT, fillColor: interpolateColor(value, activeColorState.min, activeColorState.max), fillOpacity: choroplethOpacity() }
     : { ...STYLE_DEFAULT };
 }
 

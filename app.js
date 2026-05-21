@@ -76,7 +76,8 @@ fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
 // Called after each setMunicipalityData to re-apply coloring and refresh the
 // panel if the user is already at municipality tier.
 function refreshMunicipalityView() {
-  if (getActiveTier() !== 'municipality') return;
+  const tier = getActiveTier();
+  if (tier !== 'municipality' && tier !== 'buurt') return;
   activateDataset(activeDataset);
   const code = getActiveGemeente();
   const name = getActiveGemeenteName();
