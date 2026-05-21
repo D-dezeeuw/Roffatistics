@@ -31,11 +31,11 @@ const STYLE_HOVER = {
 };
 
 const STYLE_BUURT = {
-  fillColor:   '#7c3aed',
-  fillOpacity: 0.1,
-  color:       '#7c3aed',
-  weight:      0.5,
-  opacity:     0.4,
+  fillColor:   'transparent',
+  fillOpacity: 0,
+  color:       '#ea580c',
+  weight:      0.75,
+  opacity:     0.5,
 };
 
 // Low → #2e1065 (deep purple)  High → #ea580c (orange)
@@ -63,6 +63,10 @@ let activeGemeente     = null; // GM code of the last clicked gemeente
 let activeGemeenteName = null; // display name of the last clicked gemeente
 const geoCache = {};
 
+// Swap guard — prevents concurrent swaps from leaving the map in an inconsistent state.
+let isSwapping  = false;
+let pendingTier = null;
+
 export function setProvinceData(data) {
   provinceData = data;
 }
@@ -71,8 +75,8 @@ export function setMunicipalityData(data) {
   municipalityData = data;
 }
 
-export function getActiveTier()       { return activeTier; }
-export function getActiveGemeente()   { return activeGemeente; }
+export function getActiveTier()         { return activeTier; }
+export function getActiveGemeente()     { return activeGemeente; }
 export function getActiveGemeenteName() { return activeGemeenteName; }
 
 export function applyDataset(data, valueKey) {
@@ -83,6 +87,7 @@ export function applyDataset(data, valueKey) {
 
   activeColorState = { lookup, min, max };
 
+  // Color the municipality layer — it is visible at both municipality and buurt tiers.
   const targetLayer = (activeTier === 'municipality' || activeTier === 'buurt')
     ? layers.municipality
     : layers.province;
@@ -189,19 +194,25 @@ function makeBuurtLayer(geojson, gmCode) {
   return L.geoJSON(filtered, {
     style: () => ({ ...STYLE_BUURT }),
     onEachFeature(feature, featureLayer) {
-      const name = feature.properties?.statnaam ?? '';
+      const buurtName = feature.properties?.statnaam ?? '';
       featureLayer.on({
         mouseover(e) {
-          e.target.setStyle({ ...STYLE_HOVER, fillOpacity: 0.25 });
+          e.target.setStyle({ ...STYLE_BUURT, color: '#f97316', weight: 1.5, opacity: 1 });
           e.target.bringToFront();
           L.popup({ closeButton: false, offset: [0, -4] })
             .setLatLng(e.latlng)
-            .setContent(`<strong>${name}</strong>`)
+            .setContent(`<strong>${buurtName}</strong>`)
             .openOn(getMap());
         },
         mouseout(e) {
           e.target.setStyle({ ...STYLE_BUURT });
           getMap().closePopup();
+        },
+        // Clicking a buurt shows the parent gemeente data.
+        click() {
+          const data = municipalityData.find(d => d.regionCode === activeGemeente) ?? null;
+          import('./panel.js').then(({ showPanel }) =>
+            showPanel({ name: activeGemeenteName, code: activeGemeente, data }));
         },
       });
     },
@@ -241,56 +252,73 @@ function deriveGemeenteFromMapCentre() {
   return found;
 }
 
-async function swapToTier(tier) {
-  if (tier === activeTier) return;
+// Ensure the gemeente layer is loaded and on the map.
+async function ensureGemeenteLayer(map) {
+  if (!layers.municipality) {
+    const data = await loadGeoJSON(GEMEENTE_URL);
+    layers.municipality = makeGemeenteLayer(data);
+    addKeyboardNav(layers.municipality);
+  }
+  if (!map.hasLayer(layers.municipality)) {
+    layers.municipality.addTo(map);
+  }
+}
+
+async function _doSwap(tier) {
   const map = getMap();
 
-  if (layers[activeTier]) map.removeLayer(layers[activeTier]);
-
   if (tier === 'municipality') {
-    if (!layers.municipality) {
-      try {
-        const data = await loadGeoJSON(GEMEENTE_URL);
-        layers.municipality = makeGemeenteLayer(data);
-      } catch {
-        if (layers[activeTier]) layers[activeTier].addTo(map);
-        return;
-      }
+    // Remove province/national if that was active; remove buurt overlay if present.
+    if (activeTier === 'province' || activeTier === 'national') {
+      if (layers[activeTier]) map.removeLayer(layers[activeTier]);
     }
-    layers.municipality.addTo(map);
-    addKeyboardNav(layers.municipality);
+    if (layers.buurt) {
+      map.removeLayer(layers.buurt);
+      layers.buurt = null;
+    }
+    try {
+      await ensureGemeenteLayer(map);
+    } catch {
+      // Reload previous layer on failure.
+      if (layers[activeTier]) layers[activeTier].addTo(map);
+      return;
+    }
     activeTier = 'municipality';
     document.dispatchEvent(new CustomEvent('tier-change', { detail: { tier: 'municipality' } }));
     return;
   }
 
   if (tier === 'buurt') {
-    // Ensure gemeente layer exists for centre-lookup fallback
-    if (!layers.municipality) {
-      try {
-        const data = await loadGeoJSON(GEMEENTE_URL);
-        layers.municipality = makeGemeenteLayer(data);
-      } catch {
-        if (layers[activeTier]) layers[activeTier].addTo(map);
-        return;
-      }
+    // Remove province/national if that was active.
+    if (activeTier === 'province' || activeTier === 'national') {
+      if (layers[activeTier]) map.removeLayer(layers[activeTier]);
+    }
+    // Keep the gemeente layer on the map as the choropleth background.
+    try {
+      await ensureGemeenteLayer(map);
+    } catch {
+      if (layers[activeTier]) layers[activeTier].addTo(map);
+      return;
     }
 
     const gmCode = activeGemeente ?? deriveGemeenteFromMapCentre();
     if (!gmCode) {
-      // No gemeente context — stay at municipality tier
-      layers.municipality.addTo(map);
+      // No gemeente context — show municipality tier instead.
       activeTier = 'municipality';
       document.dispatchEvent(new CustomEvent('tier-change', { detail: { tier: 'municipality' } }));
       return;
     }
 
     activeGemeente = gmCode;
+    // Remove stale buurt layer (gemeente may have changed).
+    if (layers.buurt) {
+      map.removeLayer(layers.buurt);
+      layers.buurt = null;
+    }
     try {
       const buurtData = await loadGeoJSON(BUURT_URL);
       layers.buurt = makeBuurtLayer(buurtData, gmCode);
     } catch {
-      layers.municipality.addTo(map);
       activeTier = 'municipality';
       return;
     }
@@ -300,15 +328,39 @@ async function swapToTier(tier) {
     return;
   }
 
-  // province or national — clean up buurt layer if present
+  // province or national — tear down the municipality/buurt layers.
   if (layers.buurt) {
     map.removeLayer(layers.buurt);
     layers.buurt = null;
   }
-
+  if (layers.municipality && map.hasLayer(layers.municipality)) {
+    map.removeLayer(layers.municipality);
+  }
   layers[tier].addTo(map);
   activeTier = tier;
   document.dispatchEvent(new CustomEvent('tier-change', { detail: { tier } }));
+}
+
+async function swapToTier(tier) {
+  if (tier === activeTier) return;
+  if (isSwapping) {
+    pendingTier = tier; // remember the latest requested tier
+    return;
+  }
+  isSwapping = true;
+  try {
+    await _doSwap(tier);
+  } finally {
+    isSwapping = false;
+  }
+  // Process the latest pending tier change, if any.
+  if (pendingTier !== null && pendingTier !== activeTier) {
+    const next = pendingTier;
+    pendingTier = null;
+    swapToTier(next);
+  } else {
+    pendingTier = null;
+  }
 }
 
 export async function initOverlays() {

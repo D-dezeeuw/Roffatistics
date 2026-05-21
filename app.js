@@ -166,8 +166,7 @@ document.querySelectorAll('.layer-opt').forEach(btn => {
   });
 });
 
-document.addEventListener('tier-change', async ({ detail: { tier } }) => {
-  if (tier === 'buurt') return; // buurt has no CBS data — legend stays as-is
+document.addEventListener('tier-change', async () => {
   await activateDataset(activeDataset);
 });
 
