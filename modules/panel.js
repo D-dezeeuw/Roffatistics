@@ -40,7 +40,8 @@ export async function showPanel({ name, code, data }) {
   setValue('panel.visible',      true);
   const el = document.getElementById('panel');
   el.setAttribute('aria-hidden', 'false');
-  el.classList.add('has-region');
+  el.classList.add('panel-open', 'has-region');
+  document.dispatchEvent(new CustomEvent('panel-toggle', { detail: { open: true } }));
 }
 
 export async function hidePanel() {
@@ -48,5 +49,6 @@ export async function hidePanel() {
   setValue('panel.visible', false);
   const el = document.getElementById('panel');
   el.setAttribute('aria-hidden', 'true');
-  el.classList.remove('has-region');
+  el.classList.remove('panel-open', 'has-region');
+  document.dispatchEvent(new CustomEvent('panel-toggle', { detail: { open: false } }));
 }

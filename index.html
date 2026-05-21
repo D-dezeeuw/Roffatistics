@@ -20,7 +20,15 @@
 
   <nav id="topnav" aria-label="Hoofdnavigatie">
     <span class="nav-title">Roffatistics</span>
-    <div class="nav-layers">
+    <div class="nav-actions">
+      <button class="panel-toggle-btn" aria-label="Regio details" aria-pressed="false">
+        <svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="1" y="1" width="14" height="12" rx="1.5"/>
+          <line x1="11" y1="1.5" x2="11" y2="12.5"/>
+        </svg>
+        Info
+      </button>
+      <div class="nav-layers">
       <button class="layers-btn" aria-haspopup="listbox" aria-expanded="false">
         Layers
         <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -33,6 +41,7 @@
         <li><button class="layer-opt" data-dataset="crimeRate" role="option">Criminaliteit</button></li>
         <li><button class="layer-opt" data-dataset="highEdu" role="option">Opleiding</button></li>
       </ul>
+      </div>
     </div>
   </nav>
 
@@ -49,44 +58,46 @@
     </div>
 
     <aside id="panel" aria-label="Regio details" aria-hidden="true">
-      <div class="panel-handle" aria-hidden="true"></div>
-      <button class="panel-close" aria-label="Sluit paneel">&#x2715;</button>
+      <div class="panel-inner">
+        <div class="panel-handle" aria-hidden="true"></div>
+        <button class="panel-close" aria-label="Sluit paneel">&#x2715;</button>
 
-      <p class="panel-placeholder">Klik op een regio</p>
+        <p class="panel-placeholder">Klik op een regio</p>
 
-      <div class="panel-region" aria-live="polite">
-        <h2 class="panel-title" data-bind="panel.name"></h2>
-        <p class="panel-code" data-bind="panel.code"></p>
-        <dl class="panel-stats">
-          <dt>Bevolking</dt>
-          <dd data-bind="panel.population"></dd>
-          <dt>Dichtheid</dt>
-          <dd data-bind="panel.density"></dd>
-          <dt>Gem. inkomen</dt>
-          <dd data-bind="panel.avgIncome"></dd>
-        </dl>
-        <p class="panel-section-title">Criminaliteit</p>
-        <dl class="panel-stats">
-          <dt>Per 1.000 inw.</dt>
-          <dd data-bind="panel.crimeRate"></dd>
-          <dt>Totaal</dt>
-          <dd data-bind="panel.totalCrimes"></dd>
-          <dt>Vermogen</dt>
-          <dd data-bind="panel.catVermogen"></dd>
-          <dt>Vernieling</dt>
-          <dd data-bind="panel.catVernieling"></dd>
-          <dt>Geweld</dt>
-          <dd data-bind="panel.catGeweld"></dd>
-        </dl>
-        <p class="panel-section-title">Opleiding (15+ jaar)</p>
-        <dl class="panel-stats">
-          <dt>Laag</dt>
-          <dd data-bind="panel.lowEdu"></dd>
-          <dt>Midden</dt>
-          <dd data-bind="panel.medEdu"></dd>
-          <dt>Hoog</dt>
-          <dd data-bind="panel.highEdu"></dd>
-        </dl>
+        <div class="panel-region" aria-live="polite">
+          <h2 class="panel-title" data-bind="panel.name"></h2>
+          <p class="panel-code" data-bind="panel.code"></p>
+          <dl class="panel-stats">
+            <dt>Bevolking</dt>
+            <dd data-bind="panel.population"></dd>
+            <dt>Dichtheid</dt>
+            <dd data-bind="panel.density"></dd>
+            <dt>Gem. inkomen</dt>
+            <dd data-bind="panel.avgIncome"></dd>
+          </dl>
+          <p class="panel-section-title">Criminaliteit</p>
+          <dl class="panel-stats">
+            <dt>Per 1.000 inw.</dt>
+            <dd data-bind="panel.crimeRate"></dd>
+            <dt>Totaal</dt>
+            <dd data-bind="panel.totalCrimes"></dd>
+            <dt>Vermogen</dt>
+            <dd data-bind="panel.catVermogen"></dd>
+            <dt>Vernieling</dt>
+            <dd data-bind="panel.catVernieling"></dd>
+            <dt>Geweld</dt>
+            <dd data-bind="panel.catGeweld"></dd>
+          </dl>
+          <p class="panel-section-title">Opleiding (15+ jaar)</p>
+          <dl class="panel-stats">
+            <dt>Laag</dt>
+            <dd data-bind="panel.lowEdu"></dd>
+            <dt>Midden</dt>
+            <dd data-bind="panel.medEdu"></dd>
+            <dt>Hoog</dt>
+            <dd data-bind="panel.highEdu"></dd>
+          </dl>
+        </div>
       </div>
     </aside>
   </div>

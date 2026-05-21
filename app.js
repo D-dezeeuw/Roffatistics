@@ -1,5 +1,5 @@
 import { bindDOM, run, setValue } from 'spektrum';
-import { initMap }                        from './modules/map.js';
+import { initMap, getMap }                from './modules/map.js';
 import { initOverlays, setProvinceData, setMunicipalityData, applyDataset, getActiveTier } from './modules/overlays.js';
 import { fetchCBS, normalizeProvinces, normalizeCrime } from './modules/datasets.js';
 import { updateLegend }                   from './modules/legend.js';
@@ -70,6 +70,26 @@ document.addEventListener('keydown', e => {
 
 document.querySelector('.panel-close').addEventListener('click', () => {
   import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
+});
+
+// ── Panel toggle ──────────────────────────────────────────────────────────────
+
+const panelEl        = document.getElementById('panel');
+const panelToggleBtn = document.querySelector('.panel-toggle-btn');
+
+panelEl.addEventListener('transitionend', e => {
+  if (e.propertyName === 'width') getMap().invalidateSize();
+});
+
+panelToggleBtn.addEventListener('click', () => {
+  const opening = !panelEl.classList.contains('panel-open');
+  panelEl.classList.toggle('panel-open', opening);
+  panelEl.setAttribute('aria-hidden', opening ? 'false' : 'true');
+  panelToggleBtn.setAttribute('aria-pressed', opening);
+});
+
+document.addEventListener('panel-toggle', ({ detail: { open } }) => {
+  panelToggleBtn.setAttribute('aria-pressed', open);
 });
 
 // ── Layers dropdown ───────────────────────────────────────────────────────────
