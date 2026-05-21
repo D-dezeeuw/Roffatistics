@@ -1,6 +1,6 @@
 import { bindDOM, run, setValue } from 'spektrum';
 import { initMap }                        from './modules/map.js';
-import { initOverlays, setProvinceData, applyDataset } from './modules/overlays.js';
+import { initOverlays, setProvinceData, setMunicipalityData, applyDataset, getActiveTier } from './modules/overlays.js';
 import { fetchCBS, normalizeProvinces, normalizeCrime } from './modules/datasets.js';
 import { updateLegend }                   from './modules/legend.js';
 
@@ -40,7 +40,11 @@ const CBS_SELECT   = 'RegioS,TotaleBevolking_1,BronInkomenAlsWerknemer_141,Total
 const CRIME_FILTER = "startswith(RegioS,'PV') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000')";
 const CRIME_SELECT = 'RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3';
 
+const GM_FILTER       = "startswith(RegioS,'GM') and Perioden eq '2023JJ00'";
+const GM_CRIME_FILTER = "startswith(RegioS,'GM') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000')";
+
 let provinceRows  = [];
+let gemeenteRows  = [];
 let activeDataset = 'population';
 
 try {
@@ -67,9 +71,34 @@ document.querySelectorAll('.switcher-btn').forEach(btn => {
   });
 });
 
+document.addEventListener('tier-change', async ({ detail: { tier } }) => {
+  if (tier === 'buurt') return; // buurt has no CBS data — legend stays as-is
+
+  if (tier === 'municipality' && !gemeenteRows.length) {
+    try {
+      const [rawGM, crimeRawGM] = await Promise.all([
+        fetchCBS('70072ned',   GM_FILTER,       CBS_SELECT),
+        fetchCBS('83648NED',   GM_CRIME_FILTER, CRIME_SELECT),
+      ]);
+      const crimeRowsGM   = normalizeCrime(crimeRawGM);
+      const crimeLookupGM = Object.fromEntries(crimeRowsGM.map(r => [r.regionCode, r]));
+      gemeenteRows = normalizeProvinces(rawGM).map(r => ({ ...r, ...crimeLookupGM[r.regionCode] }));
+      setMunicipalityData(gemeenteRows);
+    } catch {
+      // CBS unavailable at municipality level — gemeente layer renders with flat fill
+    }
+  }
+
+  await activateDataset(activeDataset);
+});
+
 async function activateDataset(key) {
-  if (!provinceRows.length) return;
-  const ds       = DATASETS[key];
-  const { min, max } = applyDataset(provinceRows, ds.key);
-  await updateLegend({ title: ds.title, min, max, dataset: key });
+  const tier       = getActiveTier();
+  const useGemeente = tier === 'municipality' || tier === 'buurt';
+  const rows       = useGemeente ? gemeenteRows : provinceRows;
+  if (!rows.length) return;
+  const ds    = DATASETS[key];
+  const title = useGemeente ? `${ds.title} · gemeente` : ds.title;
+  const { min, max } = applyDataset(rows, ds.key);
+  await updateLegend({ title, min, max, dataset: key });
 }

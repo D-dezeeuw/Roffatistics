@@ -15,10 +15,16 @@ describe('resolveZoomTier', () => {
     assert.equal(resolveZoomTier(9), 'province');
   });
 
-  it('returns municipality at zoom ≥ 10', () => {
+  it('returns municipality at zoom 10–12', () => {
     assert.equal(resolveZoomTier(10), 'municipality');
-    assert.equal(resolveZoomTier(15), 'municipality');
-    assert.equal(resolveZoomTier(17), 'municipality');
+    assert.equal(resolveZoomTier(11), 'municipality');
+    assert.equal(resolveZoomTier(12), 'municipality');
+  });
+
+  it('returns buurt at zoom ≥ 13', () => {
+    assert.equal(resolveZoomTier(13), 'buurt');
+    assert.equal(resolveZoomTier(15), 'buurt');
+    assert.equal(resolveZoomTier(17), 'buurt');
   });
 });
 
