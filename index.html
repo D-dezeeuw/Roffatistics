@@ -49,11 +49,11 @@
     <div id="map" role="application" aria-label="Interactieve kaart van Nederland"></div>
 
     <div id="legend" role="complementary" aria-label="Legenda">
-      <div class="legend-title" data-bind="legend.title"></div>
+      <div class="legend-title">{{ legend.title }}</div>
       <div class="legend-strip"></div>
       <div class="legend-labels">
-        <span data-bind="legend.min"></span>
-        <span data-bind="legend.max"></span>
+        <span>{{ legend.min }}</span>
+        <span>{{ legend.max }}</span>
       </div>
     </div>
 
@@ -65,37 +65,37 @@
         <p class="panel-placeholder">Klik op een regio</p>
 
         <div class="panel-region" aria-live="polite">
-          <h2 class="panel-title" data-bind="panel.name"></h2>
-          <p class="panel-code" data-bind="panel.code"></p>
+          <h2 class="panel-title">{{ panel.name }}</h2>
+          <p class="panel-code">{{ panel.code }}</p>
           <dl class="panel-stats">
             <dt>Bevolking</dt>
-            <dd data-bind="panel.population"></dd>
+            <dd>{{ panel.population }}</dd>
             <dt>Dichtheid</dt>
-            <dd data-bind="panel.density"></dd>
+            <dd>{{ panel.density }}</dd>
             <dt>Gem. inkomen</dt>
-            <dd data-bind="panel.avgIncome"></dd>
+            <dd>{{ panel.avgIncome }}</dd>
           </dl>
           <p class="panel-section-title">Criminaliteit</p>
           <dl class="panel-stats">
             <dt>Per 1.000 inw.</dt>
-            <dd data-bind="panel.crimeRate"></dd>
+            <dd>{{ panel.crimeRate }}</dd>
             <dt>Totaal</dt>
-            <dd data-bind="panel.totalCrimes"></dd>
+            <dd>{{ panel.totalCrimes }}</dd>
             <dt>Vermogen</dt>
-            <dd data-bind="panel.catVermogen"></dd>
+            <dd>{{ panel.catVermogen }}</dd>
             <dt>Vernieling</dt>
-            <dd data-bind="panel.catVernieling"></dd>
+            <dd>{{ panel.catVernieling }}</dd>
             <dt>Geweld</dt>
-            <dd data-bind="panel.catGeweld"></dd>
+            <dd>{{ panel.catGeweld }}</dd>
           </dl>
           <p class="panel-section-title">Opleiding (15+ jaar)</p>
           <dl class="panel-stats">
             <dt>Laag</dt>
-            <dd data-bind="panel.lowEdu"></dd>
+            <dd>{{ panel.lowEdu }}</dd>
             <dt>Midden</dt>
-            <dd data-bind="panel.medEdu"></dd>
+            <dd>{{ panel.medEdu }}</dd>
             <dt>Hoog</dt>
-            <dd data-bind="panel.highEdu"></dd>
+            <dd>{{ panel.highEdu }}</dd>
           </dl>
         </div>
       </div>
