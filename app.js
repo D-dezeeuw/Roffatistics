@@ -1,26 +1,57 @@
 import { bindDOM, run, setValue } from 'spektrum';
 import { initMap, getMap }                from './modules/map.js';
-import { initOverlays, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName } from './modules/overlays.js';
+import { initOverlays, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente } from './modules/overlays.js';
 import { fetchCBS, normalizeProvinces, normalizeCrime } from './modules/datasets.js';
 import { updateLegend }                   from './modules/legend.js';
 
-setValue('panel.visible',       false);
-setValue('panel.name',          '');
-setValue('panel.code',          '');
-setValue('panel.population',    '');
-setValue('panel.density',       '');
-setValue('panel.avgIncome',     '');
-setValue('panel.crimeRate',     '');
-setValue('panel.totalCrimes',   '');
-setValue('panel.catVermogen',   '');
-setValue('panel.catVernieling', '');
-setValue('panel.catGeweld',     '');
-setValue('panel.lowEdu',        '');
-setValue('panel.medEdu',        '');
-setValue('panel.highEdu',       '');
-setValue('legend.title',        '');
-setValue('legend.min',          '');
-setValue('legend.max',          '');
+// ── Slot A (primary) ─────────────────────────────────────────────────────────
+setValue('panel.visible',          false);
+setValue('panel.pinned',           false);
+setValue('panel.name',             '');
+setValue('panel.code',             '');
+setValue('panel.population',       '');
+setValue('panel.density',          '');
+setValue('panel.avgIncome',        '');
+setValue('panel.crimeRate',        '');
+setValue('panel.totalCrimes',      '');
+setValue('panel.catVermogen',      '');
+setValue('panel.catDiefstalInbraak', '');
+setValue('panel.catVernieling',    '');
+setValue('panel.catGeweld',        '');
+setValue('panel.catMishandeling',  '');
+setValue('panel.lowEdu',           '');
+setValue('panel.medEdu',           '');
+setValue('panel.highEdu',          '');
+setValue('panel.wozValue',         '');
+setValue('panel.totalJobs',        '');
+setValue('panel.pop65plus',        '');
+setValue('panel.migrationBalance', '');
+setValue('panel.nonWesternPct',    '');
+// ── Slot B (compare) ─────────────────────────────────────────────────────────
+setValue('panel2.name',             '');
+setValue('panel2.code',             '');
+setValue('panel2.population',       '');
+setValue('panel2.density',          '');
+setValue('panel2.avgIncome',        '');
+setValue('panel2.crimeRate',        '');
+setValue('panel2.totalCrimes',      '');
+setValue('panel2.catVermogen',      '');
+setValue('panel2.catDiefstalInbraak', '');
+setValue('panel2.catVernieling',    '');
+setValue('panel2.catGeweld',        '');
+setValue('panel2.catMishandeling',  '');
+setValue('panel2.lowEdu',           '');
+setValue('panel2.medEdu',           '');
+setValue('panel2.highEdu',          '');
+setValue('panel2.wozValue',         '');
+setValue('panel2.totalJobs',        '');
+setValue('panel2.pop65plus',        '');
+setValue('panel2.migrationBalance', '');
+setValue('panel2.nonWesternPct',    '');
+// ── Legend ────────────────────────────────────────────────────────────────────
+setValue('legend.title',           '');
+setValue('legend.min',             '');
+setValue('legend.max',             '');
 
 bindDOM();
 run();
@@ -29,19 +60,22 @@ initMap();
 await initOverlays();
 
 const DATASETS = {
-  population: { key: 'population', title: 'Inwoners' },
-  avgIncome:  { key: 'avgIncome',  title: 'Gem. inkomen (×€1k)' },
-  crimeRate:  { key: 'crimeRate',  title: 'Misdrijven per 1.000 inw.' },
-  highEdu:    { key: 'highEdu',    title: 'Hoog opgeleid (%)' },
+  population:       { key: 'population',       title: 'Inwoners' },
+  avgIncome:        { key: 'avgIncome',         title: 'Gem. inkomen (×€1k)' },
+  crimeRate:        { key: 'crimeRate',         title: 'Misdrijven per 1.000 inw.' },
+  highEdu:          { key: 'highEdu',           title: 'Hoog opgeleid (%)' },
+  wozValue:         { key: 'wozValue',          title: 'Gem. WOZ waarde (×€1k)' },
+  pop65plus:        { key: 'pop65plus',         title: '65+ (%)' },
+  nonWesternPct:    { key: 'nonWesternPct',     title: 'Niet-westers (%)' },
 };
 
+const CBS_SELECT   = 'RegioS,TotaleBevolking_1,BronInkomenAlsWerknemer_141,TotaleOppervlakte_248,BasisonderwijsVmboMbo1_113,HavoVwoMbo24_114,HboWo_115,GemiddeldeWOZWaardeVanWoningen_98,TotaalBanen_116,k_65Tot80Jaar_11,k_80JaarOfOuder_12,Migratiesaldo_76,TotaalNietWesterseMigratieachtergrond_37,TotaalNietWesterseMigratieachtergrond_46';
 const CBS_FILTER   = "startswith(RegioS,'PV') and Perioden eq '2023JJ00'";
-const CBS_SELECT   = 'RegioS,TotaleBevolking_1,BronInkomenAlsWerknemer_141,TotaleOppervlakte_248,BasisonderwijsVmboMbo1_113,HavoVwoMbo24_114,HboWo_115';
-const CRIME_FILTER = "startswith(RegioS,'PV') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000')";
 const CRIME_SELECT = 'RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3';
+const CRIME_FILTER = "startswith(RegioS,'PV') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI1100' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000' or SoortMisdrijf eq 'CRI3100')";
 
 const GM_FILTER       = "startswith(RegioS,'GM') and Perioden eq '2023JJ00'";
-const GM_CRIME_FILTER = "startswith(RegioS,'GM') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000')";
+const GM_CRIME_FILTER = "startswith(RegioS,'GM') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI1100' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000' or SoortMisdrijf eq 'CRI3100')";
 
 let provinceRows  = [];
 let gemeenteRows  = [];
@@ -114,7 +148,21 @@ document.addEventListener('keydown', e => {
 });
 
 document.querySelector('.panel-close').addEventListener('click', () => {
+  clearPinnedGemeente();
   import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
+});
+
+document.querySelector('.panel-pin-btn').addEventListener('click', () => {
+  const code = getActiveGemeente();
+  const name = getActiveGemeenteName();
+  if (!code) return;
+  setPinnedGemeente(code, name);
+  import('./modules/panel.js').then(({ pinPanel }) => pinPanel());
+});
+
+document.querySelector('.panel-compare-close').addEventListener('click', () => {
+  clearPinnedGemeente();
+  import('./modules/panel.js').then(({ clearCompare }) => clearCompare());
 });
 
 // ── Panel toggle ──────────────────────────────────────────────────────────────

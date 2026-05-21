@@ -63,6 +63,19 @@ let activeGemeente     = null; // GM code of the last clicked gemeente
 let activeGemeenteName = null; // display name of the last clicked gemeente
 const geoCache = {};
 
+let pinnedGemeente     = null;
+let pinnedGemeenteName = null;
+
+export function getPinnedGemeente()   { return pinnedGemeente; }
+export function setPinnedGemeente(code, name) {
+  pinnedGemeente     = code;
+  pinnedGemeenteName = name;
+}
+export function clearPinnedGemeente() {
+  pinnedGemeente     = null;
+  pinnedGemeenteName = null;
+}
+
 // Swap guard — prevents concurrent swaps from leaving the map in an inconsistent state.
 let isSwapping  = false;
 let pendingTier = null;
@@ -182,10 +195,16 @@ function makeGemeenteLayer(geojson) {
           getMap().closePopup();
         },
         click() {
-          activeGemeente     = code;
-          activeGemeenteName = name;
-          const data = municipalityData.find(d => d.regionCode === code) ?? null;
-          import('./panel.js').then(({ showPanel }) => showPanel({ name, code, data }));
+          if (pinnedGemeente) {
+            // Slot A is pinned — fill slot B with this gemeente.
+            const data = municipalityData.find(d => d.regionCode === code) ?? null;
+            import('./panel.js').then(({ showCompareSlot }) => showCompareSlot({ name, code, data }));
+          } else {
+            activeGemeente     = code;
+            activeGemeenteName = name;
+            const data = municipalityData.find(d => d.regionCode === code) ?? null;
+            import('./panel.js').then(({ showPanel }) => showPanel({ name, code, data }));
+          }
         },
       });
     },

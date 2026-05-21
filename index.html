@@ -36,10 +36,13 @@
         </svg>
       </button>
       <ul class="layers-dropdown" role="listbox" aria-label="Kies dataset">
-        <li><button class="layer-opt active" data-dataset="population" role="option">Bevolking</button></li>
-        <li><button class="layer-opt" data-dataset="avgIncome" role="option">Inkomen</button></li>
-        <li><button class="layer-opt" data-dataset="crimeRate" role="option">Criminaliteit</button></li>
-        <li><button class="layer-opt" data-dataset="highEdu" role="option">Opleiding</button></li>
+        <li><button class="layer-opt active" data-dataset="population"    role="option">Bevolking</button></li>
+        <li><button class="layer-opt"         data-dataset="avgIncome"    role="option">Inkomen</button></li>
+        <li><button class="layer-opt"         data-dataset="crimeRate"    role="option">Criminaliteit</button></li>
+        <li><button class="layer-opt"         data-dataset="highEdu"      role="option">Opleiding</button></li>
+        <li><button class="layer-opt"         data-dataset="wozValue"     role="option">WOZ waarde</button></li>
+        <li><button class="layer-opt"         data-dataset="pop65plus"    role="option">65+ (%)</button></li>
+        <li><button class="layer-opt"         data-dataset="nonWesternPct" role="option">Niet-westers (%)</button></li>
       </ul>
       </div>
     </div>
@@ -58,46 +61,141 @@
     </div>
 
     <aside id="panel" aria-label="Regio details" aria-hidden="true">
-      <div class="panel-inner">
-        <div class="panel-handle" aria-hidden="true"></div>
-        <button class="panel-close" aria-label="Sluit paneel">&#x2715;</button>
+      <div class="panel-compare-inner">
 
-        <p class="panel-placeholder">Klik op een regio</p>
+        <!-- ── Slot A (primary) ── -->
+        <div class="panel-slot panel-slot-a">
+          <div class="panel-inner">
+            <div class="panel-handle" aria-hidden="true"></div>
+            <div class="panel-slot-actions">
+              <button class="panel-pin-btn" aria-label="Vergelijk gemeente">
+                <svg width="12" height="14" viewBox="0 0 12 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M6 1v8M3 4l3-3 3 3M2 13h8"/>
+                </svg>
+                Vergelijk
+              </button>
+              <button class="panel-close" aria-label="Sluit paneel">&#x2715;</button>
+            </div>
 
-        <div class="panel-region" aria-live="polite">
-          <h2 class="panel-title">{{ panel.name }}</h2>
-          <p class="panel-code">{{ panel.code }}</p>
-          <dl class="panel-stats">
-            <dt>Bevolking</dt>
-            <dd>{{ panel.population }}</dd>
-            <dt>Dichtheid</dt>
-            <dd>{{ panel.density }}</dd>
-            <dt>Gem. inkomen</dt>
-            <dd>{{ panel.avgIncome }}</dd>
-          </dl>
-          <p class="panel-section-title">Criminaliteit</p>
-          <dl class="panel-stats">
-            <dt>Per 1.000 inw.</dt>
-            <dd>{{ panel.crimeRate }}</dd>
-            <dt>Totaal</dt>
-            <dd>{{ panel.totalCrimes }}</dd>
-            <dt>Vermogen</dt>
-            <dd>{{ panel.catVermogen }}</dd>
-            <dt>Vernieling</dt>
-            <dd>{{ panel.catVernieling }}</dd>
-            <dt>Geweld</dt>
-            <dd>{{ panel.catGeweld }}</dd>
-          </dl>
-          <p class="panel-section-title">Opleiding (15+ jaar)</p>
-          <dl class="panel-stats">
-            <dt>Laag</dt>
-            <dd>{{ panel.lowEdu }}</dd>
-            <dt>Midden</dt>
-            <dd>{{ panel.medEdu }}</dd>
-            <dt>Hoog</dt>
-            <dd>{{ panel.highEdu }}</dd>
-          </dl>
+            <p class="panel-placeholder">Klik op een regio</p>
+
+            <div class="panel-region" aria-live="polite">
+              <h2 class="panel-title">{{ panel.name }}</h2>
+              <p class="panel-code">{{ panel.code }}</p>
+              <dl class="panel-stats">
+                <dt>Bevolking</dt>
+                <dd>{{ panel.population }}</dd>
+                <dt>Dichtheid</dt>
+                <dd>{{ panel.density }}</dd>
+                <dt>Gem. inkomen</dt>
+                <dd>{{ panel.avgIncome }}</dd>
+              </dl>
+              <p class="panel-section-title">Wonen &amp; Werk</p>
+              <dl class="panel-stats">
+                <dt>WOZ waarde</dt>
+                <dd>{{ panel.wozValue }}</dd>
+                <dt>Banen</dt>
+                <dd>{{ panel.totalJobs }}</dd>
+              </dl>
+              <p class="panel-section-title">Demografie</p>
+              <dl class="panel-stats">
+                <dt>65+ (%)</dt>
+                <dd>{{ panel.pop65plus }}</dd>
+                <dt>Niet-westers (%)</dt>
+                <dd>{{ panel.nonWesternPct }}</dd>
+                <dt>Migratiesaldo</dt>
+                <dd>{{ panel.migrationBalance }}</dd>
+              </dl>
+              <p class="panel-section-title">Criminaliteit</p>
+              <dl class="panel-stats">
+                <dt>Per 1.000 inw.</dt>
+                <dd>{{ panel.crimeRate }}</dd>
+                <dt>Totaal</dt>
+                <dd>{{ panel.totalCrimes }}</dd>
+                <dt>Diefstal/inbraak</dt>
+                <dd>{{ panel.catDiefstalInbraak }}</dd>
+                <dt>Vernieling</dt>
+                <dd>{{ panel.catVernieling }}</dd>
+                <dt>Geweld</dt>
+                <dd>{{ panel.catGeweld }}</dd>
+                <dt>Mishandeling</dt>
+                <dd>{{ panel.catMishandeling }}</dd>
+              </dl>
+              <p class="panel-section-title">Opleiding (15+ jaar)</p>
+              <dl class="panel-stats">
+                <dt>Laag</dt>
+                <dd>{{ panel.lowEdu }}</dd>
+                <dt>Midden</dt>
+                <dd>{{ panel.medEdu }}</dd>
+                <dt>Hoog</dt>
+                <dd>{{ panel.highEdu }}</dd>
+              </dl>
+            </div>
+          </div>
         </div>
+
+        <!-- ── Slot B (compare) ── -->
+        <div class="panel-slot panel-slot-b">
+          <div class="panel-inner">
+            <div class="panel-slot-actions">
+              <button class="panel-compare-close" aria-label="Stop vergelijken">&#x2715;</button>
+            </div>
+            <p class="panel-placeholder">Klik een gemeente om te vergelijken</p>
+            <div class="panel-region" aria-live="polite">
+              <h2 class="panel-title">{{ panel2.name }}</h2>
+              <p class="panel-code">{{ panel2.code }}</p>
+              <dl class="panel-stats">
+                <dt>Bevolking</dt>
+                <dd>{{ panel2.population }}</dd>
+                <dt>Dichtheid</dt>
+                <dd>{{ panel2.density }}</dd>
+                <dt>Gem. inkomen</dt>
+                <dd>{{ panel2.avgIncome }}</dd>
+              </dl>
+              <p class="panel-section-title">Wonen &amp; Werk</p>
+              <dl class="panel-stats">
+                <dt>WOZ waarde</dt>
+                <dd>{{ panel2.wozValue }}</dd>
+                <dt>Banen</dt>
+                <dd>{{ panel2.totalJobs }}</dd>
+              </dl>
+              <p class="panel-section-title">Demografie</p>
+              <dl class="panel-stats">
+                <dt>65+ (%)</dt>
+                <dd>{{ panel2.pop65plus }}</dd>
+                <dt>Niet-westers (%)</dt>
+                <dd>{{ panel2.nonWesternPct }}</dd>
+                <dt>Migratiesaldo</dt>
+                <dd>{{ panel2.migrationBalance }}</dd>
+              </dl>
+              <p class="panel-section-title">Criminaliteit</p>
+              <dl class="panel-stats">
+                <dt>Per 1.000 inw.</dt>
+                <dd>{{ panel2.crimeRate }}</dd>
+                <dt>Totaal</dt>
+                <dd>{{ panel2.totalCrimes }}</dd>
+                <dt>Diefstal/inbraak</dt>
+                <dd>{{ panel2.catDiefstalInbraak }}</dd>
+                <dt>Vernieling</dt>
+                <dd>{{ panel2.catVernieling }}</dd>
+                <dt>Geweld</dt>
+                <dd>{{ panel2.catGeweld }}</dd>
+                <dt>Mishandeling</dt>
+                <dd>{{ panel2.catMishandeling }}</dd>
+              </dl>
+              <p class="panel-section-title">Opleiding (15+ jaar)</p>
+              <dl class="panel-stats">
+                <dt>Laag</dt>
+                <dd>{{ panel2.lowEdu }}</dd>
+                <dt>Midden</dt>
+                <dd>{{ panel2.medEdu }}</dd>
+                <dt>Hoog</dt>
+                <dd>{{ panel2.highEdu }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+
       </div>
     </aside>
   </div>

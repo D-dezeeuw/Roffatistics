@@ -4,13 +4,17 @@ import { formatPanelData } from '../modules/panel.js';
 
 describe('formatPanelData', () => {
   const categories = [
-    { label: 'Vermogen',   count: 14000 },
-    { label: 'Vernieling', count: 4800  },
-    { label: 'Geweld',     count: 3200  },
+    { label: 'Vermogen',         count: 14000 },
+    { label: 'Diefstal/inbraak', count: 9000  },
+    { label: 'Vernieling',       count: 4800  },
+    { label: 'Geweld',           count: 3200  },
+    { label: 'Mishandeling',     count: 2100  },
   ];
   const data = {
     population: 596075, density: 202, avgIncome: 37.5,
     crimeRate: 45.2, totalCrimes: 26973, categories,
+    wozValue: 350, totalJobs: 280000, pop65plus: 18.3,
+    migrationBalance: -420, nonWesternPct: 12.5,
   };
 
   it('formats income with euro and k suffix', () => {
@@ -30,14 +34,21 @@ describe('formatPanelData', () => {
 
   it('returns dashes for null data', () => {
     const result = formatPanelData(null);
-    assert.equal(result.population,    '—');
-    assert.equal(result.density,       '—');
-    assert.equal(result.avgIncome,     '—');
-    assert.equal(result.crimeRate,     '—');
-    assert.equal(result.totalCrimes,   '—');
-    assert.equal(result.catVermogen,   '—');
-    assert.equal(result.catVernieling, '—');
-    assert.equal(result.catGeweld,     '—');
+    assert.equal(result.population,         '—');
+    assert.equal(result.density,            '—');
+    assert.equal(result.avgIncome,          '—');
+    assert.equal(result.crimeRate,          '—');
+    assert.equal(result.totalCrimes,        '—');
+    assert.equal(result.catVermogen,        '—');
+    assert.equal(result.catDiefstalInbraak, '—');
+    assert.equal(result.catVernieling,      '—');
+    assert.equal(result.catGeweld,          '—');
+    assert.equal(result.catMishandeling,    '—');
+    assert.equal(result.wozValue,           '—');
+    assert.equal(result.totalJobs,          '—');
+    assert.equal(result.pop65plus,          '—');
+    assert.equal(result.migrationBalance,   '—');
+    assert.equal(result.nonWesternPct,      '—');
   });
 
   it('returns dashes for missing individual fields', () => {
@@ -61,8 +72,37 @@ describe('formatPanelData', () => {
   it('extracts category counts from categories array', () => {
     const result = formatPanelData(data);
     assert.ok(result.catVermogen.includes('14'));
+    assert.ok(result.catDiefstalInbraak.includes('9'));
     assert.ok(result.catVernieling.includes('4'));
     assert.ok(result.catGeweld.includes('3'));
+    assert.ok(result.catMishandeling.includes('2'));
+  });
+
+  it('formats WOZ value with euro and k suffix', () => {
+    const result = formatPanelData(data);
+    assert.ok(result.wozValue.startsWith('€'));
+    assert.ok(result.wozValue.includes('350'));
+  });
+
+  it('formats pop65plus as percentage', () => {
+    const result = formatPanelData(data);
+    assert.equal(result.pop65plus, '18.3%');
+  });
+
+  it('formats negative migrationBalance with minus sign', () => {
+    const result = formatPanelData(data);
+    assert.ok(result.migrationBalance.includes('-'));
+    assert.ok(result.migrationBalance.includes('420'));
+  });
+
+  it('formats positive migrationBalance with plus sign', () => {
+    const result = formatPanelData({ migrationBalance: 512 });
+    assert.ok(result.migrationBalance.startsWith('+'));
+  });
+
+  it('formats nonWesternPct as percentage', () => {
+    const result = formatPanelData(data);
+    assert.equal(result.nonWesternPct, '12.5%');
   });
 
   it('formats education percentages with 1 decimal and % suffix', () => {

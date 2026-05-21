@@ -28,23 +28,42 @@ export async function fetchCBS(
 
 export function normalizeProvinces(rows) {
   return rows.map(r => ({
-    regionCode: r.RegioS.trim(),
-    population: r.TotaleBevolking_1,
-    avgIncome:  r.BronInkomenAlsWerknemer_141,  // ×€1,000
-    areaSqKm:   r.TotaleOppervlakte_248,
-    density:    r.TotaleOppervlakte_248
-      ? Math.round(r.TotaleBevolking_1 / r.TotaleOppervlakte_248)
-      : null,
-    lowEdu:  r.BasisonderwijsVmboMbo1_113 ?? null,  // % vmbo/mbo1 or below
-    medEdu:  r.HavoVwoMbo24_114           ?? null,  // % havo/vwo/mbo2-4
-    highEdu: r.HboWo_115                  ?? null,  // % hbo/wo
+    regionCode:       r.RegioS.trim(),
+    population:       r.TotaleBevolking_1,
+    avgIncome:        r.BronInkomenAlsWerknemer_141 ?? null,  // ×€1,000
+    areaSqKm:         r.TotaleOppervlakte_248,
+    density:          r.TotaleOppervlakte_248
+                        ? Math.round(r.TotaleBevolking_1 / r.TotaleOppervlakte_248)
+                        : null,
+    lowEdu:           r.BasisonderwijsVmboMbo1_113 ?? null,  // % vmbo/mbo1 or below
+    medEdu:           r.HavoVwoMbo24_114           ?? null,  // % havo/vwo/mbo2-4
+    highEdu:          r.HboWo_115                  ?? null,  // % hbo/wo
+    // Housing
+    wozValue:         r.GemiddeldeWOZWaardeVanWoningen_98 ?? null,  // ×€1,000
+    // Employment
+    totalJobs:        r.TotaalBanen_116            ?? null,
+    // Demographics
+    pop65plus:        r.TotaleBevolking_1 && r.k_65Tot80Jaar_11 != null
+                        ? +(
+                            ((r.k_65Tot80Jaar_11 ?? 0) + (r.k_80JaarOfOuder_12 ?? 0))
+                            / r.TotaleBevolking_1 * 100
+                          ).toFixed(1)
+                        : null,
+    // Migration
+    migrationBalance: r.Migratiesaldo_76 ?? null,
+    // Non-western migration background (absolute count)
+    nonWestern:       r.TotaalNietWesterseMigratieachtergrond_37 ?? null,
+    // Non-western %, relative column _46
+    nonWesternPct:    r.TotaalNietWesterseMigratieachtergrond_46 ?? null,
   }));
 }
 
 const CRIME_CATEGORY_LABELS = {
   CRI1000: 'Vermogen',
+  CRI1100: 'Diefstal/inbraak',
   CRI2000: 'Vernieling',
   CRI3000: 'Geweld',
+  CRI3100: 'Mishandeling',
 };
 
 export function normalizeCrime(rows) {

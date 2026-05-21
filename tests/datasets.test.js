@@ -137,8 +137,10 @@ describe('normalizeCrime', () => {
   const rows = [
     { ...baseRow('T001161', 45.2, 26973) },
     { ...baseRow('CRI1000', null, 14000) },
+    { ...baseRow('CRI1100', null,  9000) },
     { ...baseRow('CRI2000', null,  4800) },
     { ...baseRow('CRI3000', null,  3200) },
+    { ...baseRow('CRI3100', null,  2100) },
   ];
 
   it('returns one entry per province (totals row)', () => {
@@ -155,9 +157,11 @@ describe('normalizeCrime', () => {
 
   it('builds categories array with label and count', () => {
     const [r] = normalizeCrime(rows);
-    assert.equal(r.categories.length, 3);
+    assert.equal(r.categories.length, 5);
     const vermogen = r.categories.find(c => c.label === 'Vermogen');
     assert.equal(vermogen.count, 14000);
+    const diefstal = r.categories.find(c => c.label === 'Diefstal/inbraak');
+    assert.equal(diefstal.count, 9000);
   });
 
   it('excludes rows where crimeRate is null (e.g. PV99)', () => {

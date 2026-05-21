@@ -5,7 +5,7 @@ const TILE_OPTS  = {
   maxZoom:     19,
 };
 
-const NL_CENTER = [52.3, 5.3];
+const NL_CENTER = [51.9225, 4.4792]; // Rotterdam centre
 
 let map;
 
@@ -14,7 +14,7 @@ export function initMap() {
 
   map = L.map('map', {
     center:    NL_CENTER,
-    zoom:      7,
+    zoom:      12,
     minZoom:   6,
     maxZoom:   17,
     maxBounds: NL_BOUNDS,

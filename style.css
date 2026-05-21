@@ -200,9 +200,36 @@ body {
   transition: width 0.25s ease;
 }
 
-#panel.panel-open {
-  width: var(--panel-w);
+#panel.panel-open  { width: var(--panel-w); }
+#panel.comparing   { width: calc(var(--panel-w) * 2 + 1px); }
+
+/* ── Compare layout ──────────────────────────────────────── */
+
+.panel-compare-inner {
+  display: flex;
+  height: 100%;
 }
+
+.panel-slot {
+  width: var(--panel-w);
+  flex-shrink: 0;
+}
+
+/* Slot B hidden until comparing class is present */
+.panel-slot-b {
+  display: none;
+  border-left: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+#panel.comparing .panel-slot-b {
+  display: block;
+}
+
+/* Slot B placeholder: shown until has-compare */
+#panel.comparing:not(.has-compare) .panel-slot-b .panel-region    { display: none; }
+#panel.comparing:not(.has-compare) .panel-slot-b .panel-placeholder { display: block; }
+#panel.comparing.has-compare       .panel-slot-b .panel-placeholder { display: none; }
+#panel.comparing.has-compare       .panel-slot-b .panel-region      { display: block; }
 
 .panel-inner {
   position: relative;
@@ -224,6 +251,42 @@ body {
   mask-composite: exclude;
   pointer-events: none;
 }
+
+/* ── Panel slot action row (close + pin buttons) ─────────── */
+
+.panel-slot-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Pin / compare button */
+.panel-pin-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.7rem;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.panel-pin-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-orange);
+}
+
+/* Hide pin button once comparing */
+#panel.comparing .panel-pin-btn { display: none; }
 
 /* ─── Footer ─────────────────────────────────────────────── */
 
@@ -411,10 +474,8 @@ footer {
   display: none;
 }
 
-.panel-close {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
+.panel-close,
+.panel-compare-close {
   width: 28px;
   height: 28px;
   display: flex;
@@ -428,9 +489,11 @@ footer {
   color: var(--text-muted);
   cursor: pointer;
   transition: color 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
 }
 
-.panel-close:hover {
+.panel-close:hover,
+.panel-compare-close:hover {
   color: var(--text-primary);
   border-color: rgba(124, 58, 237, 0.6);
 }
@@ -443,7 +506,7 @@ footer {
     bottom: var(--footer-h);
     left: 0;
     right: 0;
-    width: 100%;
+    width: 100% !important;      /* override desktop width in all modes */
     height: 72vh;
     overflow: hidden;
     transform: translateY(100%);
@@ -452,13 +515,31 @@ footer {
     z-index: 1001;
   }
 
-  #panel.panel-open {
-    width: 100%;
+  #panel.panel-open,
+  #panel.comparing {
     transform: translateY(0);
+  }
+
+  /* Stack slots vertically on mobile */
+  .panel-compare-inner {
+    flex-direction: column;
+    overflow-y: auto;
+    height: 100%;
+  }
+
+  .panel-slot {
+    width: 100%;
+  }
+
+  .panel-slot-b {
+    border-left: none;
+    border-top: 1px solid rgba(124, 58, 237, 0.2);
   }
 
   .panel-inner {
     width: 100%;
+    height: auto;
+    overflow-y: visible;
     padding-top: 0.75rem;
     border-radius: var(--radius) var(--radius) 0 0;
   }
