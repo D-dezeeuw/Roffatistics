@@ -210,6 +210,22 @@ function makeNationalLayer(geojson) {
   return L.geoJSON(geojson, { style: () => ({ ...STYLE_NATIONAL }) });
 }
 
+function addKeyboardNav(geoLayer) {
+  geoLayer.eachLayer(fl => {
+    const el = fl.getElement?.();
+    if (!el) return;
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', fl.feature?.properties?.statnaam ?? '');
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fl.fire('click');
+      }
+    });
+  });
+}
+
 function deriveGemeenteFromMapCentre() {
   if (!layers.municipality) return null;
   const centre = getMap().getCenter();
@@ -301,6 +317,7 @@ export async function initOverlays() {
 
   activeTier = 'province';
   layers.province.addTo(map);
+  addKeyboardNav(layers.province);
 
   map.on('zoomend', () => swapToTier(resolveZoomTier(map.getZoom())));
 }

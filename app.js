@@ -61,6 +61,14 @@ try {
   // CBS unavailable — map renders with flat fill, no legend
 }
 
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
+});
+
+document.querySelector('.panel-close').addEventListener('click', () => {
+  import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
+});
+
 document.querySelectorAll('.switcher-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     if (btn.dataset.dataset === activeDataset) return;

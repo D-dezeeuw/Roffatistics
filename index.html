@@ -19,9 +19,9 @@
 <body>
 
   <div id="app">
-    <div id="map"></div>
+    <div id="map" role="application" aria-label="Interactieve kaart van Nederland"></div>
 
-    <div id="legend">
+    <div id="legend" role="complementary" aria-label="Legenda">
       <div class="legend-title" data-bind="legend.title"></div>
       <div class="legend-strip"></div>
       <div class="legend-labels">
@@ -31,7 +31,9 @@
     </div>
 
     <aside id="panel" aria-label="Regio details" aria-hidden="true">
-      <div class="panel-switcher">
+      <div class="panel-handle" aria-hidden="true"></div>
+      <button class="panel-close" aria-label="Sluit paneel">&#x2715;</button>
+      <div class="panel-switcher" role="group" aria-label="Kies dataset">
         <button class="switcher-btn active" data-dataset="population">Bevolking</button>
         <button class="switcher-btn" data-dataset="avgIncome">Inkomen</button>
         <button class="switcher-btn" data-dataset="crimeRate">Criminaliteit</button>
@@ -40,7 +42,7 @@
 
       <p class="panel-placeholder">Klik op een regio</p>
 
-      <div class="panel-region">
+      <div class="panel-region" aria-live="polite">
         <h2 class="panel-title" data-bind="panel.name"></h2>
         <p class="panel-code" data-bind="panel.code"></p>
         <dl class="panel-stats">
