@@ -4,7 +4,7 @@ const ZOOM_NATIONAL     = 6;
 const ZOOM_MUNICIPALITY = 10;
 const ZOOM_BUURT        = 13;
 
-const GEMEENTE_URL = 'https://cartomap.github.io/nl/wgs84/gemeente_2023.geojson';
+const GEMEENTE_URL = 'https://service.pdok.nl/cbs/gebiedsindelingen/2024/wfs/v1_0?request=GetFeature&service=WFS&version=2.0.0&typeName=gemeente_gegeneraliseerd&outputFormat=json&srsName=urn:ogc:def:crs:OGC:1.3:CRS84';
 const BUURT_URL    = 'https://cartomap.github.io/nl/wgs84/buurt_2023.geojson';
 
 const STYLE_DEFAULT = {
