@@ -1,5 +1,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { createGzip } from 'node:zlib';
+import { Readable } from 'node:stream';
 import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,8 +24,15 @@ createServer(async (req, res) => {
 
   try {
     const body = await readFile(filepath);
-    res.writeHead(200, { 'Content-Type': mime });
-    res.end(body);
+    const acceptsGzip = (req.headers['accept-encoding'] ?? '').includes('gzip');
+
+    if (acceptsGzip && mime === 'application/json') {
+      res.writeHead(200, { 'Content-Type': mime, 'Content-Encoding': 'gzip' });
+      Readable.from(body).pipe(createGzip()).pipe(res);
+    } else {
+      res.writeHead(200, { 'Content-Type': mime });
+      res.end(body);
+    }
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('404 Not found');

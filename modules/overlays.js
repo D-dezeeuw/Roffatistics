@@ -5,7 +5,7 @@ const ZOOM_MUNICIPALITY = 10;
 const ZOOM_BUURT        = 13;
 
 const GEMEENTE_URL = 'https://service.pdok.nl/cbs/gebiedsindelingen/2024/wfs/v1_0?request=GetFeature&service=WFS&version=2.0.0&typeName=gebiedsindelingen:gemeente_gegeneraliseerd&outputFormat=json&srsName=EPSG:4326';
-const BUURT_URL    = 'https://cartomap.github.io/nl/wgs84/buurt_2023.geojson';
+const BUURT_URL    = './data/buurt_2024.geojson';
 
 const STYLE_DEFAULT = {
   fillColor:   '#7c3aed',
