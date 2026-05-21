@@ -62,18 +62,41 @@ try {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
+  if (e.key === 'Escape') {
+    closeDropdown();
+    import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
+  }
 });
 
 document.querySelector('.panel-close').addEventListener('click', () => {
   import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
 });
 
-document.querySelectorAll('.switcher-btn').forEach(btn => {
+// ── Layers dropdown ───────────────────────────────────────────────────────────
+
+const layersBtn      = document.querySelector('.layers-btn');
+const layersDropdown = document.querySelector('.layers-dropdown');
+
+function closeDropdown() {
+  layersDropdown.classList.remove('open');
+  layersBtn.setAttribute('aria-expanded', 'false');
+}
+
+layersBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  const opening = !layersDropdown.classList.contains('open');
+  layersDropdown.classList.toggle('open', opening);
+  layersBtn.setAttribute('aria-expanded', opening);
+});
+
+document.addEventListener('click', closeDropdown);
+
+document.querySelectorAll('.layer-opt').forEach(btn => {
   btn.addEventListener('click', () => {
+    closeDropdown();
     if (btn.dataset.dataset === activeDataset) return;
     activeDataset = btn.dataset.dataset;
-    document.querySelectorAll('.switcher-btn')
+    document.querySelectorAll('.layer-opt')
       .forEach(b => b.classList.toggle('active', b === btn));
     activateDataset(activeDataset);
   });

@@ -18,6 +18,24 @@
 </head>
 <body>
 
+  <nav id="topnav" aria-label="Hoofdnavigatie">
+    <span class="nav-title">Roffatistics</span>
+    <div class="nav-layers">
+      <button class="layers-btn" aria-haspopup="listbox" aria-expanded="false">
+        Layers
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M1 1l4 4 4-4"/>
+        </svg>
+      </button>
+      <ul class="layers-dropdown" role="listbox" aria-label="Kies dataset">
+        <li><button class="layer-opt active" data-dataset="population" role="option">Bevolking</button></li>
+        <li><button class="layer-opt" data-dataset="avgIncome" role="option">Inkomen</button></li>
+        <li><button class="layer-opt" data-dataset="crimeRate" role="option">Criminaliteit</button></li>
+        <li><button class="layer-opt" data-dataset="highEdu" role="option">Opleiding</button></li>
+      </ul>
+    </div>
+  </nav>
+
   <div id="app">
     <div id="map" role="application" aria-label="Interactieve kaart van Nederland"></div>
 
@@ -33,12 +51,6 @@
     <aside id="panel" aria-label="Regio details" aria-hidden="true">
       <div class="panel-handle" aria-hidden="true"></div>
       <button class="panel-close" aria-label="Sluit paneel">&#x2715;</button>
-      <div class="panel-switcher" role="group" aria-label="Kies dataset">
-        <button class="switcher-btn active" data-dataset="population">Bevolking</button>
-        <button class="switcher-btn" data-dataset="avgIncome">Inkomen</button>
-        <button class="switcher-btn" data-dataset="crimeRate">Criminaliteit</button>
-        <button class="switcher-btn" data-dataset="highEdu">Opleiding</button>
-      </div>
 
       <p class="panel-placeholder">Klik op een regio</p>
 

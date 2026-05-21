@@ -10,6 +10,7 @@
   --text-primary:   #f1f0f5;
   --text-muted:     #8b8a96;
   --radius:         8px;
+  --nav-h:          48px;
   --footer-h:       48px;
   --panel-w:        320px;
   --font-ui:        -apple-system, 'Segoe UI', sans-serif;
@@ -28,6 +29,117 @@ body {
   background: linear-gradient(135deg, var(--bg-base) 0%, #110d1c 100%);
   color: var(--text-primary);
   font-family: var(--font-ui);
+}
+
+/* ─── Top navigation ─────────────────────────────────────── */
+
+#topnav {
+  height: var(--nav-h);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
+  border-bottom: 1px solid rgba(124, 58, 237, 0.25);
+  position: relative;
+  z-index: 1002;
+}
+
+.nav-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nav-layers {
+  position: relative;
+}
+
+.layers-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.layers-btn:hover,
+.layers-btn[aria-expanded="true"] {
+  color: var(--text-primary);
+  border-color: rgba(124, 58, 237, 0.6);
+}
+
+.layers-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.layers-btn[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.layers-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  list-style: none;
+  background: var(--bg-surface);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: var(--radius);
+  padding: 0.3rem 0;
+  z-index: 1100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.layers-dropdown.open {
+  display: block;
+}
+
+.layer-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-family: var(--font-ui);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.layer-opt:hover {
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--text-primary);
+}
+
+.layer-opt.active {
+  color: var(--text-primary);
+}
+
+.layer-opt.active::after {
+  content: '✓';
+  font-size: 0.7rem;
+  color: var(--accent-purple);
 }
 
 /* ─── App shell ──────────────────────────────────────────── */
@@ -182,40 +294,6 @@ footer {
   margin-bottom: 1.25rem;
 }
 
-/* ─── Panel switcher ─────────────────────────────────────── */
-
-.panel-switcher {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.4rem;
-  margin-bottom: 1.25rem;
-}
-
-.switcher-btn {
-  flex: 1;
-  padding: 0.35rem 0.5rem;
-  font-size: 0.7rem;
-  font-family: var(--font-ui);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  border-radius: 4px;
-  border: 1px solid rgba(124, 58, 237, 0.3);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-}
-
-.switcher-btn:hover {
-  color: var(--text-primary);
-  border-color: rgba(124, 58, 237, 0.6);
-}
-
-.switcher-btn.active {
-  background: rgba(124, 58, 237, 0.15);
-  border-color: var(--accent-purple);
-  color: var(--text-primary);
-}
 
 /* ─── Panel region / placeholder ────────────────────────── */
 
