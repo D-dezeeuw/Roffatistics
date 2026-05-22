@@ -39,22 +39,19 @@ export function normalizeProvinces(rows) {
     medEdu:           r.HavoVwoMbo24_114           ?? null,  // % havo/vwo/mbo2-4
     highEdu:          r.HboWo_115                  ?? null,  // % hbo/wo
     // Housing
-    wozValue:         r.GemiddeldeWOZWaardeVanWoningen_98 ?? null,  // ×€1,000
-    // Employment
-    totalJobs:        r.TotaalBanen_116            ?? null,
-    // Demographics
-    pop65plus:        r.TotaleBevolking_1 && r.k_65Tot80Jaar_11 != null
-                        ? +(
-                            ((r.k_65Tot80Jaar_11 ?? 0) + (r.k_80JaarOfOuder_12 ?? 0))
-                            / r.TotaleBevolking_1 * 100
-                          ).toFixed(1)
+    wozValue:         r.GemiddeldeWOZWaardeVanWoningen_98 ?? null,         // ×€1,000
+    // Employment — column is ×1,000 so multiply back to actual jobs
+    totalJobs:        r.TotaalBanen_116 != null ? Math.round(r.TotaalBanen_116 * 1000) : null,
+    // Demographics — _20 and _21 are already %, just add the two 65+ bands
+    pop65plus:        r.k_65Tot80Jaar_20 != null && r.k_80JaarOfOuder_21 != null
+                        ? +((r.k_65Tot80Jaar_20 + r.k_80JaarOfOuder_21).toFixed(1))
                         : null,
     // Migration
     migrationBalance: r.Migratiesaldo_76 ?? null,
-    // Non-western migration background (absolute count)
-    nonWestern:       r.TotaalNietWesterseMigratieachtergrond_37 ?? null,
-    // Non-western %, relative column _46
-    nonWesternPct:    r.TotaalNietWesterseMigratieachtergrond_46 ?? null,
+    // Non-western %: _46 is null for 2023, compute from count / population
+    nonWesternPct:    r.TotaalNietWesterseMigratieachtergrond_37 != null && r.TotaleBevolking_1
+                        ? +(r.TotaalNietWesterseMigratieachtergrond_37 / r.TotaleBevolking_1 * 100).toFixed(1)
+                        : null,
   }));
 }
 

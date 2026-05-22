@@ -69,7 +69,7 @@ const DATASETS = {
   nonWesternPct:    { key: 'nonWesternPct',     title: 'Niet-westers (%)' },
 };
 
-const CBS_SELECT   = 'RegioS,TotaleBevolking_1,BronInkomenAlsWerknemer_141,TotaleOppervlakte_248,BasisonderwijsVmboMbo1_113,HavoVwoMbo24_114,HboWo_115,GemiddeldeWOZWaardeVanWoningen_98,TotaalBanen_116,k_65Tot80Jaar_11,k_80JaarOfOuder_12,Migratiesaldo_76,TotaalNietWesterseMigratieachtergrond_37,TotaalNietWesterseMigratieachtergrond_46';
+const CBS_SELECT   = 'RegioS,TotaleBevolking_1,BronInkomenAlsWerknemer_141,TotaleOppervlakte_248,BasisonderwijsVmboMbo1_113,HavoVwoMbo24_114,HboWo_115,GemiddeldeWOZWaardeVanWoningen_98,TotaalBanen_116,k_65Tot80Jaar_20,k_80JaarOfOuder_21,Migratiesaldo_76,TotaalNietWesterseMigratieachtergrond_37';
 const CBS_FILTER   = "startswith(RegioS,'PV') and Perioden eq '2023JJ00'";
 const CRIME_SELECT = 'RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3';
 const CRIME_FILTER = "startswith(RegioS,'PV') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI1100' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000' or SoortMisdrijf eq 'CRI3100')";

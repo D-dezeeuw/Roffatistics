@@ -92,10 +92,11 @@ export function getActiveTier()         { return activeTier; }
 export function getActiveGemeente()     { return activeGemeente; }
 export function getActiveGemeenteName() { return activeGemeenteName; }
 
-// Choropleth fill opacity scales down as the user zooms in so map tiles remain
-// visible at city and neighbourhood level.
+// Choropleth fill opacity by tier.
+// At buurt zoom the gemeente fill drops to 0 — buurt outlines provide the
+// visual structure and a solid fill would just show one flat city colour.
 function choroplethOpacity() {
-  if (activeTier === 'buurt')        return 0.25;
+  if (activeTier === 'buurt')        return 0;
   if (activeTier === 'municipality') return 0.45;
   return 0.65;
 }
@@ -130,11 +131,14 @@ export function applyDataset(data, valueKey) {
 }
 
 function restoreStyle(code) {
-  if (!activeColorState) return { ...STYLE_DEFAULT };
+  const base = activeTier === 'buurt'
+    ? { ...STYLE_DEFAULT, fillOpacity: 0 }
+    : { ...STYLE_DEFAULT };
+  if (!activeColorState) return base;
   const value = activeColorState.lookup[code];
   return value != null
-    ? { ...STYLE_DEFAULT, fillColor: interpolateColor(value, activeColorState.min, activeColorState.max), fillOpacity: choroplethOpacity() }
-    : { ...STYLE_DEFAULT };
+    ? { ...base, fillColor: interpolateColor(value, activeColorState.min, activeColorState.max), fillOpacity: choroplethOpacity() }
+    : base;
 }
 
 async function loadGeoJSON(url) {
