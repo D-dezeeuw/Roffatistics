@@ -18,7 +18,7 @@
 // Run: node scripts/build-nl-kwb.mjs   (needs network; ~2–4 minutes)
 import { mkdir, writeFile } from 'node:fs/promises';
 import {
-  WIJK_TABLE, WIJK_FALLBACK_TABLE, WIJK_SELECT, NABIJ_TABLE, NABIJ_FALLBACK_TABLE, NABIJ_SELECT,
+  WIJK_TABLE, WIJK_FALLBACK_TABLE, WIJK_SELECT, NABIJ_TABLE, NABIJ_FALLBACK_TABLE, NABIJ_SELECT, GROEN_TABLE, GROEN_SELECT,
   CRIME_TABLE, CRIME_PERIOD, CRIME_PREV_PERIOD, CRIME_TOTAL, CRIME_COLUMN, CRIME_CATEGORIES,
   joinAreas, mergeCrime, normalizeAreaCode,
 } from '../modules/areas.js';
@@ -59,6 +59,8 @@ async function feed(base, table, entity, params) {
 
 const kerncijfers = (table, prefix) => feed(FEED, table, 'TypedDataSet', { $filter: `startswith(WijkenEnBuurten,'${prefix}')`, $select: WIJK_SELECT });
 const nabijheid   = (table, prefix) => feed(FEED, table, 'TypedDataSet', { $filter: `startswith(WijkenEnBuurten,'${prefix}')`, $select: NABIJ_SELECT });
+// 2017 green distances (areas.js GROEN_TABLE); buurten also need the wijk rows for the parent fallback.
+const groen       = prefix => feed(FEED, GROEN_TABLE, 'TypedDataSet', { $filter: `startswith(WijkenEnBuurten,'${prefix}')`, $select: GROEN_SELECT });
 const best = p => p.catch(err => { console.warn('\nskipped:', err.message); return []; });
 
 // One query per (period, kind): 47018NED answers a combined or-filter over the
@@ -99,16 +101,17 @@ async function buildLevel(level) {
   const oldRows   = await best(kerncijfers(WIJK_FALLBACK_TABLE, prefix));
   const nabijRows = await best(nabijheid(NABIJ_TABLE, prefix));
   const nabijOld  = await best(nabijheid(NABIJ_FALLBACK_TABLE, prefix));
+  const groenRows = [...await best(groen(prefix)), ...(level === 'buurt' ? await best(groen('WK')) : [])];
   const crimeRows = await best(crime(prefix));
   const adjacency = await neighbours(level);
   const incomeRows = await best(feed(FEED, INCOME_FALLBACK_TABLE, 'TypedDataSet', { $filter: `startswith(WijkenEnBuurten,'${prefix}')`, $select: `WijkenEnBuurten,${INCOME_FALLBACK_COLUMN}` }));
   const features = names
     .map(n => ({ properties: { statcode: normalizeAreaCode(n.Key), statnaam: String(n.Title ?? '').trim() } }))
     .sort((a, b) => a.properties.statcode.localeCompare(b.properties.statcode));
-  const areas = mergeCrime(addIncomeFallback(joinAreas(features, rows, oldRows, { rows: nabijRows, fallbackRows: nabijOld }), incomeRows), crimeRows, { minPopulation: minPopulationFor(level) });
+  const areas = mergeCrime(addIncomeFallback(joinAreas(features, rows, oldRows, { rows: nabijRows, fallbackRows: nabijOld, groenRows }), incomeRows), crimeRows, { minPopulation: minPopulationFor(level) });
   const data = encodeLevel(areas, {
     level, year: NL_DATA_YEAR, built: new Date().toISOString().slice(0, 10), neighbours: adjacency,
-    sources: { kerncijfers: `${WIJK_TABLE} (fallback ${WIJK_FALLBACK_TABLE})`, nabijheid: `${NABIJ_TABLE} (fallback ${NABIJ_FALLBACK_TABLE})`, inkomen: `fallback ${INCOME_FALLBACK_TABLE}`, misdrijven: `${CRIME_TABLE} ${CRIME_PERIOD}`, buren: `PDOK gebiedsindelingen ${NL_DATA_YEAR} ${NL_GEO_TYPES[level]}` },
+    sources: { kerncijfers: `${WIJK_TABLE} (fallback ${WIJK_FALLBACK_TABLE})`, nabijheid: `${NABIJ_TABLE} (fallback ${NABIJ_FALLBACK_TABLE})`, groen: `${GROEN_TABLE} (2017)`, inkomen: `fallback ${INCOME_FALLBACK_TABLE}`, misdrijven: `${CRIME_TABLE} ${CRIME_PERIOD}`, buren: `PDOK gebiedsindelingen ${NL_DATA_YEAR} ${NL_GEO_TYPES[level]}` },
   });
   const file = new URL(`${level === 'wijk' ? 'wijken' : 'buurten'}-${NL_DATA_YEAR}.json`, OUT);
   const text = JSON.stringify(data);

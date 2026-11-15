@@ -22,7 +22,40 @@ import { DETAIL_GROUPS } from './herkomst-gemeente.js';
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
-export const STEPS = Object.freeze(['levensfase', 'budget', 'vervoer', 'sfeer', 'veiligheid', 'situatie', 'gemeenschap']);
+export const STEPS = Object.freeze(['levensfase', 'budget', 'vervoer', 'sfeer', 'dichtbij', 'veiligheid', 'situatie', 'gemeenschap']);
+
+/**
+ * "Wat wil je dichtbij?" (v0.35): per item an importance level 0–4
+ * (DICHTBIJ_LEVELS; 0 = maakt niet uit = not used). Each item adds its CBS
+ * distances to the theme Dichtbij as `lower` (closer = better), never a
+ * minus weight. Complements Sfeer (drukte ↔ rustig), which it leaves alone.
+ * `code`: stable hash letter; `metrics`: [key, share inside the item, factor name].
+ * Green and nature are the 2017 CBS distances (areas.js GROEN_TABLE).
+ */
+export const DICHTBIJ = Object.freeze({
+  uitgaan: Object.freeze({ label: 'Cafés en uitgaan',  hint: 'café, kroeg', code: 'c', metrics: Object.freeze([['distCafe', 1, 'Nabijheid cafés']]) }),
+  station: Object.freeze({ label: 'Treinstation',      hint: 'alle treinstations', code: 't', metrics: Object.freeze([['distStation', 1, 'Nabijheid treinstation']]) }),
+  winkels: Object.freeze({ label: 'Winkels',           hint: 'grote supermarkt, warenhuis', code: 'w', metrics: Object.freeze([['distSupermarket', 1, 'Nabijheid supermarkt'], ['distWarenhuis', 1, 'Nabijheid warenhuis']]) }),
+  cultuur: Object.freeze({ label: 'Cultuur en uitjes', hint: 'bioscoop, theater of podium, attractie', code: 'k', metrics: Object.freeze([['distBioscoop', 1, 'Nabijheid bioscoop'], ['distPodium', 1, 'Nabijheid theater/podium'], ['distAttractie', 1, 'Nabijheid attractie']]) }),
+  park:    Object.freeze({ label: 'Park of groen om de hoek', hint: 'park, plantsoen, recreatiegebied', code: 'p', metrics: Object.freeze([['distGroen', 2, 'Nabijheid park/groen'], ['distRecreatie', 1, 'Nabijheid recreatiegebied']]) }),
+  natuur:  Object.freeze({ label: 'Bos en natuur',     hint: 'bos, heide, duinen (zoals het Kralingse Bos)', code: 'n', metrics: Object.freeze([['distBos', 2, 'Nabijheid bos'], ['distOpenNatuur', 1, 'Nabijheid open natuur']]) }),
+});
+export const DICHTBIJ_LEVELS = Object.freeze(['Maakt niet uit', 'Beetje', 'Gemiddeld', 'Belangrijk', 'Heel belangrijk']);
+/** Theme weight per importance step, summed over the items and capped (one item on "Heel belangrijk" = 20, as Sfeer). */
+export const DICHTBIJ_PER_LEVEL = 5;
+export const DICHTBIJ_MAX_WEIGHT = 40;
+export const DICHTBIJ_KEYS = Object.freeze([...new Set(Object.values(DICHTBIJ).flatMap(i => i.metrics.map(([k]) => k)))]);
+
+/** { item: 1–4 } with only known items and levels above 0, or null when nothing is chosen. */
+export function normalizeDichtbij(d) {
+  if (!d || typeof d !== 'object') return null;
+  const out = {};
+  for (const k of Object.keys(DICHTBIJ)) {
+    const v = d[k];
+    if (isNum(v) && Math.round(v) > 0) out[k] = Math.min(Math.round(v), DICHTBIJ_LEVELS.length - 1);
+  }
+  return Object.keys(out).length ? out : null;
+}
 
 /**
  * Old broad groups (hash letter after `g`, before v0.26.0). Only read, never
@@ -181,7 +214,7 @@ export const STRESS_W = 3;
 
 export const EMPTY_ANSWERS = Object.freeze({
   levensfase: null, bouw: null, budget: null, vervoer: Object.freeze([]), sfeer: null, veiligheid: Object.freeze([]), weights: Object.freeze({}),
-  gemeenschap: null, situatie: null, importance: Object.freeze({}),
+  gemeenschap: null, situatie: null, importance: Object.freeze({}), dichtbij: null,
 });
 
 /**
@@ -240,13 +273,14 @@ export function normalizeAnswers(a = {}) {
     gemeenschap: normalizeGemeenschap(a?.gemeenschap),
     situatie: normalizeSituatie(a?.situatie),
     importance,
+    dichtbij: normalizeDichtbij(a?.dichtbij),
   };
 }
 
 /** True when no step was answered and no theme weight was moved (= Standaard). */
 export function isEmptyAnswers(a) {
   const n = normalizeAnswers(a);
-  return !n.levensfase && !n.bouw && !n.budget && !n.vervoer.length && n.sfeer == null && !n.veiligheid.length && !Object.keys(n.weights).length && !n.gemeenschap && !n.situatie && !Object.keys(n.importance).length;
+  return !n.levensfase && !n.bouw && !n.budget && !n.vervoer.length && n.sfeer == null && !n.veiligheid.length && !Object.keys(n.weights).length && !n.gemeenschap && !n.situatie && !Object.keys(n.importance).length && !n.dichtbij;
 }
 
 /** Koop budget ceiling in ×€1.000 (the WOZ unit): max price, else income × 4.5; null otherwise. */
@@ -351,6 +385,22 @@ export const APPLY = Object.freeze({
     d.targets.density = { quantile: clamp(1 - s, 0.05, 0.95) };
     d.targets.distCentrum = { quantile: clamp(s, 0.05, 0.95) };
     if (s <= 0.35) metric(d, 'sfeer', 'horeca1km', 'higher', 1, S);   // uitgaan nearby at the busy end
+  },
+  // Positive-only: every metric is `lower` with a share > 0; a level 0 item is absent.
+  dichtbij(d, a) {
+    const items = Object.entries(a.dichtbij ?? {});
+    if (!items.length) return;
+    const total = items.reduce((s, [, lvl]) => s + lvl, 0);
+    const t = theme(d, 'dichtbij', Math.min(total * DICHTBIJ_PER_LEVEL, DICHTBIJ_MAX_WEIGHT));
+    for (const [item, lvl] of items) {
+      const ms = DICHTBIJ[item].metrics, sum = ms.reduce((s, [, w]) => s + w, 0);
+      for (const [key, w, label] of ms) {
+        const share = Math.round((lvl * w / sum) * 100) / 100;
+        const m = t.metrics.get(key);
+        if (m) m.w += share;
+        else t.metrics.set(key, { key, pref: 'lower', w: share, label });
+      }
+    }
   },
   veiligheid(d, a) {
     for (const c of a.veiligheid) metric(d, 'veiligheid', CRIMES[c].key, 'lower', STRESS_W);
@@ -497,16 +547,19 @@ export function guardOrigin(preset) {
 // What goes into a link is decided by shareableAnswers(): by default no
 // Gemeenschap, opleiding or inkomen.
 //   i<theme letter><0-4>…  importance level per theme (5-step scale); wins over w.
+//   d<item letter><1-4>…   Wat wil je dichtbij? (v0.35): DICHTBIJ code + level; 0 is left out.
 
 const LF = { student: 's', stel: 'p', gezin: 'g', '50plus': 'v', senior: 'r', soloMensen: 'o', soloRust: 'm' };
 const BOUW = { karakter: 'k', modern: 'm' };
 const VV = { fiets: 'f', ov: 'o', auto: 'a', lopen: 'l' };
 const CR = { inbraak: 'in', geweld: 'gw', straatroof: 'sr', fiets: 'fd', auto: 'ad', vandalisme: 'vd', drugs: 'dr', omgeving: 'om' };
-const TH = { veiligheid: 'v', welvaart: 'e', voorzieningen: 'z', opleiding: 'o', woningmarkt: 'm', leeftijd: 'l', nieuwbouw: 'n', budget: 'b', sfeer: 's', situatie: 't' };
+const TH = { veiligheid: 'v', welvaart: 'e', voorzieningen: 'z', opleiding: 'o', woningmarkt: 'm', leeftijd: 'l', nieuwbouw: 'n', budget: 'b', sfeer: 's', situatie: 't', dichtbij: 'd' };
 const inv = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [v, k]));
 const ED = Object.fromEntries(Object.entries(SITUATIE_EDU).map(([k, e]) => [k, e.code]));
 const INC = Object.fromEntries(Object.entries(SITUATIE_INCOME).map(([k, b]) => [k, b.code]));
 const DG = Object.fromEntries(Object.entries(DETAIL_GROUPS).map(([k, d]) => [k, d.code]));
+const DB = Object.fromEntries(Object.entries(DICHTBIJ).map(([k, d]) => [k, d.code]));
+const DB_ = inv(DB);
 const LF_ = inv(LF), BOUW_ = inv(BOUW), VV_ = inv(VV), CR_ = inv(CR), TH_ = inv(TH), ED_ = inv(ED), INC_ = inv(INC), DG_ = inv(DG);
 
 export const SCORE_RE = /^[a-z0-9.]{1,200}$/;
@@ -522,6 +575,7 @@ export function encodeAnswers(answers) {
   if (a.vervoer.length) seg.push(`v${a.vervoer.map(v => VV[v]).join('')}`);
   if (a.sfeer != null) seg.push(`s${a.sfeer}`);
   if (a.veiligheid.length) seg.push(`c${a.veiligheid.map(c => CR[c]).join('')}`);
+  if (a.dichtbij) seg.push(`d${Object.keys(DICHTBIJ).filter(k => a.dichtbij[k]).map(k => `${DB[k]}${a.dichtbij[k]}`).join('')}`);
   const w = Object.keys(TH).filter(k => k in a.weights).map(k => `${TH[k]}${a.weights[k]}`).join('');
   if (w) seg.push(`w${w}`);
   const imp = Object.keys(TH).filter(k => k in a.importance).map(k => `${TH[k]}${a.importance[k]}`).join('');
@@ -545,6 +599,7 @@ export function decodeAnswers(str) {
       if (m) out.budget = { mode: m[1] === 'h' ? 'huur' : 'koop', income: m[2] ? +m[2] : null, maxPrice: m[3] ? +m[3] : null, hide: m[4] === 'x' };
     } else if (head === 'v') out.vervoer = [...body].map(c => VV_[c]).filter(Boolean);
     else if (head === 's' && /^\d{1,3}$/.test(body)) out.sfeer = +body;
+    else if (head === 'd') { const d = {}; for (const [, c, n] of body.matchAll(/([a-z])([1-4])/g)) if (DB_[c]) d[DB_[c]] = +n; out.dichtbij = d; }
     else if (head === 'c') out.veiligheid = (body.match(/../g) ?? []).map(c => CR_[c]).filter(Boolean);
     else if (head === 'w') for (const [, t, n] of body.matchAll(/([a-z])(\d{1,3})/g)) { if (TH_[t]) out.weights[TH_[t]] = +n; }
     else if (head === 'i') for (const [, t, n] of body.matchAll(/([a-z])([0-4])/g)) { if (TH_[t]) out.importance[TH_[t]] = +n; }
@@ -690,6 +745,7 @@ export function describeAnswers(answers) {
   }
   if (a.vervoer.length) parts.push(a.vervoer.map(v => VERVOER[v].toLowerCase()).join('/'));
   if (a.sfeer != null) parts.push(a.sfeer < 35 ? 'levendig' : a.sfeer > 65 ? 'rustig' : 'tussen druk en rustig');
+  if (a.dichtbij) parts.push(`dichtbij: ${Object.keys(DICHTBIJ).filter(k => a.dichtbij[k]).sort((x, y) => a.dichtbij[y] - a.dichtbij[x]).map(k => DICHTBIJ[k].label.toLowerCase()).join(', ')}`);
   if (a.veiligheid.length) parts.push(`let op ${a.veiligheid.map(c => CRIMES[c].label.toLowerCase()).join(', ')}`);
   if (a.situatie) parts.push(`vergelijkbare situatie: ${[a.situatie.edu ? `opleiding ${SITUATIE_EDU[a.situatie.edu].short}` : '', a.situatie.income ? `inkomen ${SITUATIE_INCOME[a.situatie.income].short}` : ''].filter(Boolean).join(', ')}`);
   if (a.gemeenschap) {

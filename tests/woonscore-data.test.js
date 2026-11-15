@@ -50,9 +50,10 @@ describe('W2 nabijheid (86270NED → 86134NED)', () => {
     assert.deepEqual(u.searchParams.get('$select').split(','), Object.values(N));
   });
   it('extracts station, café and horeca within 1 km (cafés + restaurants)', () => {
-    assert.deepEqual(extractNabijValues(nrow()), { distStation: 1.2, distCafe: 0.3, horeca1km: 98.4 });
+    const { distStation, distCafe, horeca1km } = extractNabijValues(nrow());
+    assert.deepEqual({ distStation, distCafe, horeca1km }, { distStation: 1.2, distCafe: 0.3, horeca1km: 98.4 });
     assert.equal(extractNabijValues(nrow({ [N.restaurants1km]: null })).horeca1km, null);
-    assert.deepEqual(extractNabijValues(null), { distStation: null, distCafe: null, horeca1km: null });
+    assert.ok(Object.values(extractNabijValues(null)).every(v => v === null));
   });
   it('falls back per field to 2024', () => {
     const { values, years } = mergeNabijValues(nrow({ [N.distStation]: null }), nrow({ [N.distStation]: 2.2, [N.distCafe]: 9 }));

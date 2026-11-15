@@ -12,7 +12,7 @@ import { DATASETS } from './datasets.js';
 import { THEME_LABELS, ORIGIN_KEYS, scoreWithPreset } from './presets.js';
 import {
   normalizeAnswers, answersToPreset, themeImportance, gemeenschapLevel, budgetCeiling, describeAnswers,
-  CRIMES, SITUATIE_EDU, SITUATIE_INCOME, incomeTarget, DETAIL_GROUPS, GEMEENSCHAP_LABEL, IMPORTANCE_DEFAULT,
+  CRIMES, SITUATIE_EDU, SITUATIE_INCOME, incomeTarget, DETAIL_GROUPS, GEMEENSCHAP_LABEL, IMPORTANCE_DEFAULT, DICHTBIJ,
 } from './wizard-model.js';
 import {
   CATEGORIES, PANEL_BUILDERS, listEligible, histogram, niceHistogram, aggregateAreas, bouwParts, gemeenteCodeOf,
@@ -34,7 +34,7 @@ export const PERSONAL_CATEGORIES = Object.freeze({
   veiligheid:     { title: 'Veiligheid · jouw punten', themes: ['veiligheid'], replaces: 'criminaliteit' },
   levenstype:     { title: 'Levenstype', themes: ['leeftijd'], replaces: 'leeftijd' },
   wonen:          { title: 'Wonen en budget', themes: ['budget', 'woningmarkt', 'nieuwbouw'], replaces: 'welvaart' },
-  bereikbaarheid: { title: 'Vervoer en sfeer', themes: ['voorzieningen', 'sfeer'], replaces: null },
+  bereikbaarheid: { title: 'Vervoer en sfeer', themes: ['voorzieningen', 'sfeer', 'dichtbij'], replaces: null },
   situatie:       { title: 'Jouw situatie', themes: ['situatie'], replaces: 'opleiding' },
   gemeenschap:    { title: GEMEENSCHAP_LABEL, themes: ['gemeenschap'], replaces: 'herkomst' },
 });
@@ -84,6 +84,8 @@ function personalRows(a) {
   else if (a.sfeer != null && a.sfeer > 65) reach.push(m('density', 'lower'), m('distCentrum', 'higher'));
   else if (a.sfeer != null) reach.push(m('density', 'target', { quantile: 0.5 }));
   if (vv.has('auto') && a.sfeer == null) reach.push(m('density', 'lower'));
+  // "Wat wil je dichtbij?": most important item first, its main distance (closer = better).
+  for (const [item] of Object.entries(a.dichtbij ?? {}).sort((x, y) => y[1] - x[1])) reach.push(m(DICHTBIJ[item].metrics[0][0], 'lower'));
   if (reach.length) out.bereikbaarheid = { panels: ['pf-match', 'pf-rank', 'pf-hist'], focus: { metrics: uniqMetrics(reach) } };
   const s = a.situatie;
   if (s) {

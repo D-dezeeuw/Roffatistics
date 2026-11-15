@@ -1,4 +1,4 @@
-// "Vind jouw ideale woonplek": the wizard dialog (steps 1–5 + result) and the
+// "Vind jouw ideale woonplek": the wizard dialog (steps + result) and the
 // Standaard / Gelijk / Jouw score switcher in the legend. Answers, presets and
 // the hash form live in wizard-model.js (pure); this file is DOM only.
 //
@@ -21,7 +21,7 @@ import {
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
   GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS, gemeenschapOptgroups,
-  SITUATIE_EDU, SITUATIE_INCOME, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance,
+  SITUATIE_EDU, SITUATIE_INCOME, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance, DICHTBIJ, DICHTBIJ_LEVELS,
 } from './wizard-model.js';
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
 import { loadPc4Herkomst, presetUsesPc4 } from './herkomst-pc4.js';
@@ -31,7 +31,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const storage = () => { try { return globalThis.localStorage ?? null; } catch { return null; } };
 
-const STEP_TITLES = { levensfase: 'Levenstype', budget: 'Budget', vervoer: 'Vervoer', sfeer: 'Sfeer', veiligheid: 'Veiligheid', situatie: 'Jouw situatie (optioneel)', gemeenschap: 'Gemeenschap (optioneel)' };
+const STEP_TITLES = { levensfase: 'Levenstype', budget: 'Budget', vervoer: 'Vervoer', sfeer: 'Sfeer', dichtbij: 'Wat wil je dichtbij?', veiligheid: 'Veiligheid', situatie: 'Jouw situatie (optioneel)', gemeenschap: 'Gemeenschap (optioneel)' };
 
 let els = null;
 let step = 0;                 // 0..STEPS.length-1, or 'result'
@@ -62,6 +62,13 @@ const sitSlider = (field, id, label, opts, pos) => `
       <input type="range" min="0" max="${Object.keys(opts).length}" step="1" value="${pos}" data-field="${field}" aria-labelledby="${id}" aria-valuetext="${esc(situatieText(opts, pos))}">
       <output>${esc(situatieText(opts, pos))}</output></label>
     <div class="wiz-range-ends"><span>Niet invullen</span><span>${esc(Object.values(opts).at(-1).label)}</span></div>`;
+
+/** "Wat wil je dichtbij?" slider: 0 = Maakt niet uit … 4 = Heel belangrijk, same markup as the other wizard sliders. */
+const dichtSlider = (item, d, level) => `
+    <label class="wiz-slider wiz-imp wiz-dicht"><span id="wiz-d-${item}" title="${esc(d.hint)}">${esc(d.label)}</span>
+      <input type="range" min="0" max="${DICHTBIJ_LEVELS.length - 1}" step="1" value="${level}" data-dichtbij="${item}" aria-labelledby="wiz-d-${item}" aria-valuetext="${esc(DICHTBIJ_LEVELS[level])}">
+      <output>${esc(DICHTBIJ_LEVELS[level])}</output></label>
+    <div class="wiz-range-ends"><span>${esc(DICHTBIJ_LEVELS[0])}</span><span>${esc(DICHTBIJ_LEVELS.at(-1))}</span></div>`;
 
 function stepBody(key) {
   const a = answers;
@@ -103,6 +110,10 @@ function stepBody(key) {
     </div>
     <p class="wiz-hint"><span class="wiz-sfeer-now" aria-live="polite">${a.sfeer == null ? 'Schuif om te kiezen; nog niet gekozen' : esc(sfeerText(v))}</span>. Drukte = bevolkingsdichtheid en afstand tot Rotterdam Centraal, aan de drukke kant ook horeca dichtbij. Relatief: “rustig” is rustig voor deze lijst.</p>`;
   }
+  if (key === 'dichtbij') return `
+    <p class="wiz-q" id="wiz-q">Wat wil je dichtbij? Zet per onderdeel hoe belangrijk het is.</p>
+    <div class="wiz-sliders" role="group" aria-labelledby="wiz-q">${Object.entries(DICHTBIJ).map(([k, d]) => dichtSlider(k, d, a.dichtbij?.[k] ?? 0)).join('')}</div>
+    <p class="wiz-hint">Alles staat standaard op “Maakt niet uit” en telt dan niet mee. Hoe belangrijker, hoe zwaarder een korte afstand telt (gemiddelde afstand over de weg, CBS). ${Object.values(DICHTBIJ).map(d => `${esc(d.label)}: ${esc(d.hint)}`).join('. ')}. Dit komt bovenop Sfeer: daar kies je drukte of rust, hier wat je om de hoek wilt hebben. Groen en natuur zijn CBS-cijfers uit 2017, de nieuwste die er zijn.</p>`;
   if (key === 'gemeenschap') {
     const g = a.gemeenschap;
     const level = gemeenschapLevel(g?.pct ?? GEMEENSCHAP_DEFAULT_PCT);
@@ -290,6 +301,7 @@ function clearStep(key) {
   else if (key === 'vervoer') answers = { ...answers, vervoer: [] };
   else if (key === 'sfeer') answers = { ...answers, sfeer: null };
   else if (key === 'veiligheid') answers = { ...answers, veiligheid: [] };
+  else if (key === 'dichtbij') answers = { ...answers, dichtbij: null };
   else if (key === 'gemeenschap') answers = { ...answers, gemeenschap: null };
   else if (key === 'situatie') answers = { ...answers, situatie: null };
 }
@@ -357,6 +369,10 @@ function onInput(e) {
     const label = situatieText(t.dataset.field === 'sitEdu' ? SITUATIE_EDU : SITUATIE_INCOME, +t.value);
     t.nextElementSibling.textContent = label;
     t.setAttribute('aria-valuetext', label);
+  } else if (t.dataset.dichtbij) {
+    const label = DICHTBIJ_LEVELS[+t.value] ?? '';
+    t.nextElementSibling.textContent = label;
+    t.setAttribute('aria-valuetext', label);
   } else if (t.dataset.field === 'gemLevel' || t.dataset.theme) {
     const label = IMPORTANCE[+t.value]?.label ?? '';
     t.nextElementSibling.textContent = label;
@@ -388,6 +404,8 @@ function onChange(e) {
     render({ focus: `[data-field="${f}"]` });
   } else if (f === 'hide') {
     answers = normalizeAnswers({ ...answers, budget: { ...answers.budget, hide: t.checked } });
+  } else if (t.dataset.dichtbij) {
+    answers = normalizeAnswers({ ...answers, dichtbij: { ...(answers.dichtbij ?? {}), [t.dataset.dichtbij]: +t.value } });
   } else if (t.dataset.theme) {
     const k = t.dataset.theme;
     const { [k]: _old, ...weights } = answers.weights;   // the 5-step level replaces an old absolute weight

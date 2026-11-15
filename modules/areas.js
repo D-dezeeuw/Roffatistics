@@ -74,8 +74,30 @@ export const NABIJ_COLUMNS = Object.freeze({
   distCafe:       'AfstandTotCafeED_36',                // km
   cafes1km:       'Binnen1Km_37',                       // gem. aantal cafés e.d. binnen 1 km
   restaurants1km: 'Binnen1Km_45',                       // gem. aantal restaurants binnen 1 km
+  // v0.35 wizard step "Wat wil je dichtbij?" (same keys in 86134NED, checked 15 Nov 2026)
+  distWarenhuis:  'AfstandTotWarenhuis_32',             // km
+  distPodium:     'AfstandTotPodiumkunstenTotaal_99',   // km, theater/concertzaal/poppodium
+  distBioscoop:   'AfstandTotBioscoop_104',             // km
+  distAttractie:  'AfstandTotAttractie_110',            // km, attractie/pretpark/dierentuin
 });
 export const NABIJ_SELECT = Object.values(NABIJ_COLUMNS).join(',');
+
+// Distance to green and nature (v0.35, wizard "Wat wil je dichtbij?"). CBS
+// leaves the green columns of every nabijheid table from 2018 to 2025 empty
+// (checked 15 Nov 2026: 84463NED … 86270NED all null); the newest filled one
+// is the 2017 table 84334NED (Bestand Bodemgebruik 2015, indeling 2017). Joined
+// by code; a buurt whose 2017 code is gone takes its wijk's 2017 figure, an
+// area with neither stays null. Always marked as year 2017 (Peiljaar).
+export const GROEN_TABLE = '84334NED';
+export const GROEN_YEAR  = 2017;
+export const GROEN_COLUMNS = Object.freeze({
+  region:         'WijkenEnBuurten',
+  distGroen:      'AfstandTotOpenbaarGroenTotaal_91',   // km: park, plantsoen, dagrecreatie, bos, open natuur
+  distRecreatie:  'AfstandTotDagrecreatiefTerrein_93',  // km: recreatiegebied, speeltuin, strandbad …
+  distBos:        'AfstandTotBos_94',                   // km
+  distOpenNatuur: 'AfstandTotOpenNatTerreinTotaal_95',  // km: heide, duin, moeras, open droog/nat natuurlijk terrein
+});
+export const GROEN_SELECT = Object.values(GROEN_COLUMNS).join(',');
 
 // Rotterdam Centraal (station entrance), reference point of distCentrum.
 export const CENTRUM_POINT = Object.freeze([51.9244, 4.4690]);   // [lat, lng]
@@ -242,7 +264,32 @@ export function extractNabijValues(row) {
     distStation: toNumber(r[N.distStation]),
     distCafe:    toNumber(r[N.distCafe]),
     horeca1km:   cafes != null && rest != null ? +(cafes + rest).toFixed(1) : null,
+    distWarenhuis: toNumber(r[N.distWarenhuis]),
+    distPodium:    toNumber(r[N.distPodium]),
+    distBioscoop:  toNumber(r[N.distBioscoop]),
+    distAttractie: toNumber(r[N.distAttractie]),
   };
+}
+
+/** Green/nature distances of one 84334NED row (null row → all null). */
+export function extractGroenValues(row) {
+  const G = GROEN_COLUMNS, r = row ?? {};
+  return {
+    distGroen: toNumber(r[G.distGroen]), distRecreatie: toNumber(r[G.distRecreatie]),
+    distBos: toNumber(r[G.distBos]), distOpenNatuur: toNumber(r[G.distOpenNatuur]),
+  };
+}
+
+/**
+ * Green values for `code` from 2017 rows by code: the own row, else (buurt)
+ * the parent wijk's row. { values, years } with every known value marked GROEN_YEAR.
+ */
+export function groenValuesFor(code, byCode) {
+  const row = byCode.get(code) ?? (areaLevel(code) === 'buurt' ? byCode.get(parentCode(code)) : null) ?? null;
+  const values = extractGroenValues(row);
+  const years = {};
+  for (const [k, v] of Object.entries(values)) if (v != null) years[k] = GROEN_YEAR;
+  return { values, years };
 }
 
 /** Nabijheid values with a per-field fallback to the older table: { values, years }. */
@@ -306,6 +353,8 @@ const YEAR_FIELD_LABELS = {
   welfarePer1000: 'bijstand', distGP: 'huisarts', distSupermarket: 'supermarkt',
   pop15to24: '15–24', pop25to44: '25–44', pop45to64: '45–64', hhWithKidsPct: 'gezinnen', singleHhPct: 'eenpersoonshuishoudens', waterPct: 'water', newBuildPct: 'nieuwbouw', oldBuildPct: 'oude bouw', modernBuildPct: 'moderne bouw',
   distSchool: 'school', distKinderopvang: 'kinderopvang', distStation: 'station', distCafe: 'café', horeca1km: 'horeca',
+  distWarenhuis: 'warenhuis', distPodium: 'podium', distBioscoop: 'bioscoop', distAttractie: 'attractie',
+  distGroen: 'openbaar groen', distRecreatie: 'recreatiegebied', distBos: 'bos', distOpenNatuur: 'open natuur',
 };
 
 /**
@@ -398,11 +447,13 @@ const rowsByCode = rows => {
  */
 export function joinAreas(features, rows, fallbackRows = [], nabij = {}) {
   const base = rowsByCode(rows), old = rowsByCode(fallbackRows);
-  const nBase = rowsByCode(nabij.rows), nOld = rowsByCode(nabij.fallbackRows);
+  const nBase = rowsByCode(nabij.rows), nOld = rowsByCode(nabij.fallbackRows), green = rowsByCode(nabij.groenRows);
   return features.map(f => {
     const code = normalizeAreaCode(f.properties?.statcode);
     const { values, years } = mergeYearValues(base.get(code) ?? null, old.get(code) ?? null);
-    const near = mergeNabijValues(nBase.get(code) ?? null, nOld.get(code) ?? null);
+    const nb = mergeNabijValues(nBase.get(code) ?? null, nOld.get(code) ?? null);
+    const g = groenValuesFor(code, green);
+    const near = { values: { ...nb.values, ...g.values }, years: { ...nb.years, ...g.years } };
     return {
       code,
       name:   f.properties?.statnaam ?? code,
@@ -459,6 +510,11 @@ export function buildWijkUrl(table = WIJK_TABLE, select = WIJK_SELECT) {
 /** Rotterdam rows of a nabijheid table (default: the 2025 base, 86270NED). */
 export function buildNabijUrl(table = NABIJ_TABLE) {
   return buildWijkUrl(table, NABIJ_SELECT);
+}
+
+/** Rotterdam rows of the 2017 green-distance table (84334NED). */
+export function buildGroenUrl() {
+  return buildWijkUrl(GROEN_TABLE, GROEN_SELECT);
 }
 
 // ── Newest city WOZ: CBS 85036NED "Gemiddelde WOZ-waarde van woningen; eigendom, regio" ──
@@ -628,15 +684,15 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
     const buurtCrime = best(buildBuurtCrimeUrl());
     const fallback   = best(buildWijkUrl(WIJK_FALLBACK_TABLE));
     const cityWoz    = best(buildCityWozUrl()).then(parseCityWoz);
-    const nabijP     = Promise.all([best(buildNabijUrl()), best(buildNabijUrl(NABIJ_FALLBACK_TABLE))]);
+    const nabijP     = Promise.all([best(buildNabijUrl()), best(buildNabijUrl(NABIJ_FALLBACK_TABLE)), best(buildGroenUrl())]);
     try {
       rows = (await getJSON(buildWijkUrl(), fetcher, storage)).value ?? [];
     } catch {
       dataOk = false;
     }
     const oldRows = await fallback;
-    const [nabijRows, nabijOld] = await nabijP;
-    const nabij = { rows: nabijRows, fallbackRows: nabijOld };
+    const [nabijRows, nabijOld, groenRows] = await nabijP;
+    const nabij = { rows: nabijRows, fallbackRows: nabijOld, groenRows };
     const wijkenCrime = mergeCrime(joinAreas(wijkGeo.features, rows, oldRows, nabij), await wijkCrime, { minPopulation: CRIME_MIN_POPULATION });
     const buurtenCrime = mergeCrime(joinAreas(buurtGeo.features, rows, oldRows, nabij), await buurtCrime, { minPopulation: CRIME_MIN_POPULATION_BUURT });
     // Shared-boundary neighbours from the loaded geometry (once per load; the
