@@ -217,6 +217,14 @@ export const GENERAL_SECTIONS = Object.freeze([
       'Wijk- en buurtcijfers komen uit de CBS-kerncijfers 2025. Is een cijfer daar leeg, dan nemen we het cijfer uit de tabel 2024; inkomen en opleiding zijn voor 2025 nog niet gepubliceerd en komen daarom overal uit 2024. Het paneel toont per gebied welk jaar is gebruikt. De Nederland-weergave gebruikt CBS-cijfers van 2023.',
     ],
   },
+  {
+    id: 'sneltoetsen',
+    title: 'Sneltoetsen',
+    paragraphs: [
+      'Druk op ? voor de lijst met sneltoetsen (ook in het menu ☰). 1, 2 en 3 openen Kaart, Dashboard en Ranglijst; s of / zoekt; w opent de wizard, d Delen, u deze Uitleg, v Vergelijken, m het menu en l de lagen; [ en ] gaan naar de vorige of volgende laag in dezelfde categorie; n wisselt tussen Rotterdam en Nederland en t het kleurthema.',
+      'Op de kaart zoomen + en − in en uit; heeft de kaart focus (Tab), dan verschuiven de pijltjestoetsen haar. Met Tab bereik je eerst "Naar de inhoud". Sneltoetsen werken niet terwijl je in een tekstveld typt.',
+    ],
+  },
 ].map(s => Object.freeze({ ...s, text: [s.title, ...s.paragraphs].join(' ') })));
 
 /** Full body of the panel: one section per Layers group, then the general parts. */

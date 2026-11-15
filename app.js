@@ -25,6 +25,7 @@ import { initWizard }                     from './modules/wizard.js';
 import { initShare }                      from './modules/share-dialog.js';
 import { parseShareHash, hasShareExtras } from './modules/share-link.js';
 import { applyTheme }                     from './modules/theme.js';
+import { initShortcuts }                  from './modules/shortcuts.js';
 import { peekRotterdamAreas }             from './modules/areas.js';
 import { peekNlAreas }                    from './modules/nl-areas.js';
 import { loadBouwjaar, onBouwLoaded, addBouwShares, isBouwKey, isBouwLoaded, presetUsesBouw } from './modules/bouwjaar-pc4.js';
@@ -461,6 +462,7 @@ initLegal();   // Privacy · Disclaimer · Colofon (splash footer, Uitleg foot, 
 initAreaModal();
 initComparePanel();   // after initState: a cmp in the link opens the panel
 initShare();
+initShortcuts();   // W28: keyboard shortcuts, ? = Sneltoetsen, skip link, aria-keyshortcuts
 if (hasShareExtras(sharedView)) applySharedView(sharedView);
 initWizard({ rows: () => (gemeenteRows.length && (atGemeenteTier() || !provinceRows.length)
   ? { level: 'gemeente', rows: gemeenteRows } : { level: 'provincie', rows: provinceRows }) });
