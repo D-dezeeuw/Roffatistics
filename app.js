@@ -3,6 +3,7 @@ import { initMap, getMap }                from './modules/map.js';
 import { initOverlays, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente } from './modules/overlays.js';
 import { fetchCBS, normalizeProvinces, normalizeCrime } from './modules/datasets.js';
 import { updateLegend }                   from './modules/legend.js';
+import { initSplash }                     from './modules/splash.js';
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -56,6 +57,7 @@ setValue('legend.max',             '');
 bindDOM();
 run();
 
+initSplash();
 initMap();
 await initOverlays();
 

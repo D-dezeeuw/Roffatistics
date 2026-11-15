@@ -22,6 +22,14 @@
   <nav id="topnav" aria-label="Hoofdnavigatie">
     <span class="nav-title">Roffatistics</span>
     <div class="nav-actions">
+      <button class="about-btn" type="button" aria-label="Over Roffatistics">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+          <circle cx="8" cy="8" r="6.5"/>
+          <line x1="8" y1="7.2" x2="8" y2="11.5"/>
+          <circle cx="8" cy="4.8" r="0.4" fill="currentColor"/>
+        </svg>
+        Over
+      </button>
       <button class="panel-toggle-btn" aria-label="Regio details" aria-pressed="false">
         <svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="1" y="1" width="14" height="12" rx="1.5"/>
@@ -229,6 +237,27 @@
       Powered by Spektrum
     </a>
   </footer>
+
+  <div id="splash" class="splash" role="dialog" aria-modal="true" aria-labelledby="splash-title" aria-describedby="splash-tagline" hidden>
+    <div class="splash-card">
+      <h1 id="splash-title" class="splash-title">Roffatistics</h1>
+      <p id="splash-tagline" class="splash-tagline">Rotterdam in cijfers &mdash; open data van het CBS, van provincie tot buurt.</p>
+      <ul class="splash-features">
+        <li><span class="splash-icon" aria-hidden="true">1</span><span>Kies een dataset via <strong>Layers</strong></span></li>
+        <li><span class="splash-icon" aria-hidden="true">2</span><span>Zoom in voor <strong>gemeente</strong> en <strong>buurt</strong></span></li>
+        <li><span class="splash-icon" aria-hidden="true">3</span><span>Klik op een gebied voor <strong>details</strong></span></li>
+        <li><span class="splash-icon" aria-hidden="true">4</span><span><strong>Pin</strong> en vergelijk twee gemeenten</span></li>
+      </ul>
+      <button type="button" class="splash-start">Verken Rotterdam</button>
+      <label class="splash-hide-label"><input type="checkbox" class="splash-hide" /> Niet meer tonen</label>
+      <p class="splash-sources">Bronnen:
+        <a href="https://opendata.cbs.nl/" target="_blank" rel="noopener">CBS OData</a> &middot;
+        <a href="https://www.pdok.nl/" target="_blank" rel="noopener">PDOK</a> &middot;
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> /
+        <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a>
+      </p>
+    </div>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>

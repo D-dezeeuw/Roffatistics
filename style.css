@@ -63,7 +63,8 @@ body {
   gap: 0.5rem;
 }
 
-.panel-toggle-btn {
+.panel-toggle-btn,
+.about-btn {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -80,7 +81,8 @@ body {
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
-.panel-toggle-btn:hover {
+.panel-toggle-btn:hover,
+.about-btn:hover {
   color: var(--text-primary);
   border-color: rgba(124, 58, 237, 0.6);
 }
@@ -611,3 +613,143 @@ footer {
 .basemap-opt:hover { color: var(--text-primary); }
 .basemap-opt.active { color: var(--text-primary); background: var(--gradient-accent); }
 .basemap-opt:focus-visible { outline: 2px solid var(--accent-orange); outline-offset: -2px; }
+
+/* ─── Splash / intro ─────────────────────────────────────── */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;               /* above topnav (1002) and Leaflet controls */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(124, 58, 237, 0.28), transparent 60%),
+    radial-gradient(ellipse at 85% 90%, rgba(234, 88, 12, 0.22), transparent 55%),
+    rgba(13, 10, 20, 0.92);
+  backdrop-filter: blur(6px);
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.splash[hidden] { display: none; }
+.splash.splash-leaving { opacity: 0; pointer-events: none; }
+
+.splash-card {
+  width: min(460px, 100%);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  padding: 2rem 1.75rem 1.5rem;
+  background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
+  border: 1px solid rgba(124, 58, 237, 0.35);
+  border-radius: calc(var(--radius) * 1.5);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(234, 88, 12, 0.08);
+  text-align: center;
+  animation: splash-in 0.45s ease both;
+}
+
+@keyframes splash-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.splash-title {
+  font-size: clamp(1.8rem, 7vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.splash-tagline {
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.splash-features {
+  list-style: none;
+  margin: 1.4rem 0;
+  display: grid;
+  gap: 0.55rem;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.splash-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius);
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+}
+
+.splash-features strong { color: var(--text-primary); font-weight: 600; }
+
+.splash-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  font: 700 0.75rem var(--font-data);
+  color: #fff;
+  background: var(--gradient-accent);
+}
+
+.splash-start {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  font: 700 0.95rem var(--font-ui);
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--gradient-accent);
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.splash-start:hover { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(234, 88, 12, 0.35); }
+.splash-start:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 3px; }
+
+.splash-hide-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.splash-hide { accent-color: var(--accent-purple); }
+
+.splash-sources {
+  margin-top: 1rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.splash-sources a { color: var(--text-muted); }
+.splash-sources a:hover { color: var(--accent-orange); }
+
+@media (max-width: 480px) {
+  .splash-card { padding: 1.5rem 1.1rem 1.2rem; }
+  .splash-features { font-size: 0.82rem; margin: 1.1rem 0; }
+  .about-btn { padding: 0.35rem 0.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash, .splash-start { transition: none; }
+  .splash-card { animation: none; }
+}
