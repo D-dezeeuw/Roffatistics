@@ -45,6 +45,13 @@
       </div>
     </div>
     <div class="nav-actions">
+      <button class="explain-btn" type="button" aria-haspopup="dialog" aria-controls="explain-modal" aria-label="Uitleg bij de cijfers" title="Uitleg bij de cijfers">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 3.5C6.6 2.4 4.4 2 1.5 2.2v10.5c2.9-.2 5.1.2 6.5 1.3 1.4-1.1 3.6-1.5 6.5-1.3V2.2C11.6 2 9.4 2.4 8 3.5z"/>
+          <path d="M8 3.5V14"/>
+        </svg>
+        <span class="btn-label">Uitleg</span>
+      </button>
       <button class="about-btn" type="button" aria-label="Over Roffatistics">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
           <circle cx="8" cy="8" r="6.5"/>
@@ -81,13 +88,17 @@
     <div id="map" role="application" aria-label="Interactieve kaart"></div>
 
     <div id="legend" role="complementary" aria-label="Legenda">
-      <div class="legend-title">{{ legend.title }}</div>
+      <div class="legend-head">
+        <div class="legend-title">{{ legend.title }}</div>
+        <button type="button" class="info-btn legend-info" data-explain="population" aria-label="Uitleg bij deze laag" title="Uitleg bij deze laag">i</button>
+      </div>
       <div class="legend-strip"></div>
       <div class="legend-labels">
         <span>{{ legend.min }}</span>
         <span>{{ legend.max }}</span>
       </div>
       <div class="legend-nodata"><span class="legend-swatch" aria-hidden="true"></span>geen data</div>
+      <div class="legend-crime" data-crime-slot></div>
     </div>
 
     <aside id="panel" aria-label="Regio details" aria-hidden="true">
@@ -146,9 +157,9 @@
               </dl>
               <p class="panel-section-title">Criminaliteit</p>
               <dl class="panel-stats">
-                <dt>Per 1.000 inw.</dt>
+                <dt>{{ panel.crimeLabel1 }}</dt>
                 <dd>{{ panel.crimeRate }}</dd>
-                <dt>Totaal</dt>
+                <dt>{{ panel.crimeLabel2 }}</dt>
                 <dd>{{ panel.totalCrimes }}</dd>
                 <dt data-scope="rotterdam">Trend</dt>
                 <dd data-scope="rotterdam">{{ panel.crimeTrend }}</dd>
@@ -233,9 +244,9 @@
               </dl>
               <p class="panel-section-title">Criminaliteit</p>
               <dl class="panel-stats">
-                <dt>Per 1.000 inw.</dt>
+                <dt>{{ panel2.crimeLabel1 }}</dt>
                 <dd>{{ panel2.crimeRate }}</dd>
-                <dt>Totaal</dt>
+                <dt>{{ panel2.crimeLabel2 }}</dt>
                 <dd>{{ panel2.totalCrimes }}</dd>
                 <dt data-scope="rotterdam">Trend</dt>
                 <dd data-scope="rotterdam">{{ panel2.crimeTrend }}</dd>

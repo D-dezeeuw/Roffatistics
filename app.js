@@ -1,7 +1,7 @@
 import { bindDOM, run, setValue } from 'spektrum';
 import { initMap, getMap, setMapScope, refreshMapSize } from './modules/map.js';
 import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente, focusNederlandArea } from './modules/overlays.js';
-import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD, DATASETS, groupDatasets, datasetInScope } from './modules/datasets.js';
+import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD, DATASETS, groupDatasets, datasetInScope, datasetFor, crimeValues, isCrimeDataset } from './modules/datasets.js';
 import { PANEL_FIELDS }                   from './modules/panel.js';
 import { initState, getState, setState, onStateChange } from './modules/state.js';
 import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea, pinActiveArea, clearPinnedArea, getActiveArea } from './modules/rotterdam.js';
@@ -10,6 +10,8 @@ import { initSplash }                     from './modules/splash.js';
 import { initList, setNationalRows }      from './modules/list.js';   // Ranglijst view
 import { initSearch }                     from './modules/search.js';
 import { initDashboard }                  from './modules/dashboard.js';
+import { initExplain }                    from './modules/explain.js';
+import { initCrimeToggles }               from './modules/crime-mode.js';
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -201,10 +203,23 @@ document.addEventListener('rotterdam-level-change', async () => {
   await activateDataset(getState().dataset);
 });
 
+// Legend extras: the (i) button explains the visible layer; the crime toggle shows for crime layers.
+function syncLegendExtras(key) {
+  const legend = document.getElementById('legend');
+  legend?.classList.toggle('legend-has-crime', isCrimeDataset(key));
+  const info = legend?.querySelector('.legend-info');
+  if (info) {
+    info.dataset.explain = key;
+    info.setAttribute('aria-label', `Uitleg: ${DATASETS[key]?.title ?? 'deze laag'}`);
+  }
+}
+
 async function activateDataset(key) {
-  const ds = DATASETS[key];
+  const mode = getState().crime;
+  const ds = datasetFor(key, mode);
+  syncLegendExtras(key);
   if (getState().scope === 'rotterdam') {
-    const { min, max, level, hasData } = applyRotterdamDataset(key);
+    const { min, max, level, hasData } = applyRotterdamDataset(key, mode);
     const suffix = hasData ? (level === 'buurt' ? 'buurt' : 'wijk') : 'geen wijkdata';
     await updateLegend({ title: `${ds.title} · ${suffix}`, min, max, dataset: key, showNoData: true });
     return;
@@ -215,7 +230,7 @@ async function activateDataset(key) {
   if (!rows.length) return;
   const title = !datasetInScope(key, 'nederland') ? `${ds.title} · alleen in Rotterdam-weergave`
     : useGemeente ? `${ds.title} · gemeente` : ds.title;
-  const { min, max } = applyDataset(rows, ds.key);
+  const { min, max } = applyDataset(rows.map(r => crimeValues(r, mode)), ds.key);
   await updateLegend({ title, min, max, dataset: key });
 }
 
@@ -283,6 +298,8 @@ onStateChange(({ state, changed, source }) => {
   if (changed.includes('dataset')) {
     syncDatasetButtons(state.dataset);
     activateDataset(state.dataset);
+  } else if (changed.includes('crime') && isCrimeDataset(state.dataset)) {
+    activateDataset(state.dataset);
   }
   if (changed.includes('area') && state.area && source !== 'map' && state.scope === 'rotterdam') {
     // Arriving from another view the map was hidden (size 0): focus after showView's resize frame.
@@ -300,3 +317,5 @@ initList();   // after showView so a #view=list start renders visible
 initDashboard();
 applyScope(initialState.scope, { initial: true });
 initSearch();
+initCrimeToggles();
+initExplain();

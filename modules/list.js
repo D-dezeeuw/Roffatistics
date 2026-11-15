@@ -4,8 +4,11 @@
 
 import { getState, setState, onStateChange } from './state.js';
 import { loadRotterdamAreas, getAreaIndex, DATASETS, DATASET_KEYS } from './areas.js';
+import { datasetFor, crimeAreas, crimeValues, isCrimeDataset } from './datasets.js';
+import { crimeToggleHtml } from './crime-mode.js';
+import { infoButton } from './explain.js';
 import { interpolateColor } from './overlays.js';
-import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, orderColumns, scoreHeader } from './ranking.js';
+import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, orderColumns, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES } from './ranking.js';
 
 const LEVELS = {
   rotterdam: [{ key: 'wijken', label: 'Wijken' }, { key: 'buurten', label: 'Buurten' }],
@@ -13,12 +16,21 @@ const LEVELS = {
 };
 const HIGHLIGHT_MS = 2200;
 const ALL_DATASETS = DATASET_KEYS.map(k => DATASETS[k]);
+export const RANK_MODE_STORAGE_KEY = 'roffatistics.rankMode';
+
+function storedRankMode() {
+  try { const v = globalThis.localStorage?.getItem(RANK_MODE_STORAGE_KEY); return RANK_MODES.includes(v) ? v : 'fixed'; } catch { return 'fixed'; }
+}
+function storeRankMode(mode) {
+  try { globalThis.localStorage?.setItem(RANK_MODE_STORAGE_KEY, mode); } catch { /* storage blocked */ }
+}
 
 const ui = {
   root: null,
   level: { rotterdam: 'wijken', nederland: 'provincies' },
   rankKey: 'overall',
   sort: { column: 'rank', dir: 'asc' },
+  rankMode: 'fixed',       // 'fixed' (Vast) | 'sort' (Volgt sortering); persisted in localStorage
   rendered: null,          // Promise of the last render
 };
 const national = { provincies: [], gemeenten: [] };
@@ -37,6 +49,7 @@ export function setNationalRows(level, rows) {
 export function initList(root = document.getElementById('view-list')) {
   if (!root || ui.root) return;
   ui.root = root;
+  ui.rankMode = storedRankMode();
   root.classList.remove('view-placeholder');
   root.classList.add('view-list');
   root.innerHTML = `
@@ -49,6 +62,12 @@ export function initList(root = document.getElementById('view-list')) {
           ${ALL_DATASETS.map(d => `<option value="${d.key}">${esc(d.label)}</option>`).join('')}
         </select>
       </label>
+      <div class="seg list-rankmode" role="group" aria-label="Rangnummer">
+        <span class="seg-label" aria-hidden="true">Rang:</span>
+        <button type="button" class="seg-opt" data-rankmode="fixed" title="Rang en score volgen 'Rangschik op'; kolommen sorteren alleen de rijen">Vast</button>
+        <button type="button" class="seg-opt" data-rankmode="sort" title="Rang en score volgen de kolom waarop gesorteerd is">Volgt sortering</button>
+      </div>
+      <div class="list-crime" hidden></div>
     </div>
     <p class="list-note" aria-live="polite"></p>
     <div class="list-table-wrap" tabindex="0" aria-label="Ranglijst tabel"></div>`;
@@ -57,6 +76,13 @@ export function initList(root = document.getElementById('view-list')) {
     ui.rankKey = e.target.value;
     ui.sort = { column: 'rank', dir: 'asc' };
     if (ui.rankKey !== 'overall') setState({ dataset: ui.rankKey }, { source: 'list' });
+    render();
+  });
+  root.querySelector('.list-rankmode').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-rankmode]');
+    if (!btn || btn.dataset.rankmode === ui.rankMode) return;
+    ui.rankMode = btn.dataset.rankmode;
+    storeRankMode(ui.rankMode);
     render();
   });
   root.querySelector('.list-level').addEventListener('click', e => {
@@ -79,7 +105,7 @@ export function initList(root = document.getElementById('view-list')) {
       return;
     }
     if (!isVisible()) return;
-    if (changed.includes('scope')) { render(); return; }
+    if (changed.includes('scope') || changed.includes('crime')) { render(); return; }
     if (changed.includes('dataset') && source !== 'list' && ui.rankKey !== 'overall') {
       ui.rankKey = state.dataset;
       ui.sort = { column: 'rank', dir: 'asc' };
@@ -170,17 +196,17 @@ function render() {
   return ui.rendered;
 }
 
-async function loadRows(scope, level) {
+async function loadRows(scope, level, mode) {
   if (scope === 'rotterdam') {
     const areas = await loadRotterdamAreas();
-    return { areas: areas[level] ?? [], dataOk: areas.dataOk };
+    return { areas: crimeAreas(areas[level] ?? [], mode), dataOk: areas.dataOk };
   }
   const rows = national[level];
   if (!rows.length) return { areas: [], dataOk: true };
   const index = await getAreaIndex().catch(() => []);
   const names = new Map(index.map(e => [e.code, e.name]));
   return {
-    areas: rows.map(r => ({ code: r.regionCode, name: names.get(r.regionCode) ?? r.regionCode, values: r })),
+    areas: rows.map(r => ({ code: r.regionCode, name: names.get(r.regionCode) ?? r.regionCode, values: crimeValues(r, mode) })),
     dataOk: true,
   };
 }
@@ -202,30 +228,53 @@ async function doRender() {
   renderLevels(scope);
   ui.root.querySelector('.list-rank-select').value = ui.rankKey;
 
-  const { areas, dataOk } = await loadRows(scope, level);
-  if (scope !== getState().scope || level !== ui.level[scope]) return;   // superseded
+  const mode = getState().crime;
+  renderRankMode();
+  const { areas, dataOk } = await loadRows(scope, level, mode);
+  if (scope !== getState().scope || level !== ui.level[scope] || mode !== getState().crime) return;   // superseded
 
-  const datasets = ALL_DATASETS.filter(d => areas.some(a => typeof a.values?.[d.key] === 'number'));
+  // Crime datasets carry the title/unit of the current crime mode (datasetFor).
+  const datasets = ALL_DATASETS.filter(d => areas.some(a => typeof a.values?.[d.key] === 'number')).map(d => datasetFor(d.key, mode));
+  const has = key => datasets.some(d => d.key === key);
   // A dataset without data on this level cannot rank anything: fall back to the total score.
   const wanted = ui.rankKey === 'overall' ? null : DATASETS[ui.rankKey];
-  const rankKey = wanted && datasets.includes(wanted) ? wanted.key : 'overall';
+  const rankKey = wanted && has(wanted.key) ? wanted.key : 'overall';
   const ranked = rankRows(scoreAreas(areas, datasets), rankKey, datasets);
-  const rows = sortRows(ranked, ui.sort.column, ui.sort.dir);
-  const hidden = ALL_DATASETS.filter(d => !datasets.includes(d)).map(d => d.label);
-  const rankDs = DATASETS[rankKey];
+  const rows = applyRankMode(sortRows(ranked, ui.sort.column, ui.sort.dir), { mode: ui.rankMode, column: ui.sort.column, datasets });
+  const hidden = ALL_DATASETS.filter(d => !has(d.key)).map(d => d.label);
+  const rankDs = rankKey === 'overall' ? null : datasetFor(rankKey, mode);
+  const follows = sortDrivesRank(ui.rankMode, ui.sort.column);
+  const sortDs = follows && ui.sort.column !== 'overall' ? datasets.find(d => d.key === ui.sort.column) : null;
+
+  const crimeBox = ui.root.querySelector('.list-crime');
+  const showCrime = datasets.some(d => isCrimeDataset(d.key));
+  crimeBox.hidden = !showCrime;
+  if (showCrime) crimeBox.innerHTML = crimeToggleHtml(mode);
 
   const notes = [];
   if (!dataOk) notes.push('CBS-cijfers niet beschikbaar.');
   if (wanted && !rankDs) notes.push(`${wanted.label} heeft geen data op dit niveau; gerangschikt op totaalscore.`);
-  if (!rankDs) notes.push('Score = percentiel 0–100 binnen de lijst, gemiddeld over de datasets met een richting.');
+  if (sortDs) notes.push(`Rang volgt de sortering: ${sortDs.title}, ${ui.sort.dir === 'desc' ? 'hoogste' : 'laagste'} waarde eerst; score = percentiel 0–100 op die kolom${sortDs.higherIsBetter == null ? ' (hoog = hoge waarde)' : ` (${sortDs.higherIsBetter ? 'hoger' : 'lager'} is beter)`}.`);
+  else if (follows) notes.push(`Rang volgt de sortering op de score, ${ui.sort.dir === 'desc' ? 'hoogste' : 'laagste'} eerst.`);
+  if (sortDs) { /* the score note above replaces the basis note */ }
+  else if (!rankDs) notes.push('Score = percentiel 0–100 binnen de lijst, gemiddeld over de datasets met een richting.');
   else if (rankDs.higherIsBetter == null) notes.push(`Gerangschikt op ${rankDs.title}, hoogste waarde eerst; score = percentiel 0–100 van die waarde.`);
   else notes.push(`Score = percentiel 0–100 op ${rankDs.title} alleen (${rankDs.higherIsBetter ? 'hoger' : 'lager'} is beter).`);
-  if (rankDs && rows.some(r => r.rank == null)) notes.push('Gebieden zonder waarde staan onderaan, zonder rang.');
+  if ((rankDs || follows) && rows.some(r => r.rank == null)) notes.push('Gebieden zonder waarde staan onderaan, zonder rang.');
+  if (mode === 'abs' && showCrime) notes.push('Criminaliteit absoluut: geregistreerde misdrijven 2025, ook voor gebieden met weinig inwoners.');
   if (hidden.length) notes.push(`Geen data: ${hidden.join(', ')}.`);
   setNote(notes.join(' '));
 
-  ui.root.querySelector('.list-table-wrap').innerHTML = tableHtml(rows, orderColumns(datasets, rankKey), level, rankKey);
+  ui.root.querySelector('.list-table-wrap').innerHTML = tableHtml(rows, orderColumns(datasets, rankKey), level, rankKey, sortDs);
   markSelected(getState().area);
+}
+
+function renderRankMode() {
+  ui.root.querySelectorAll('.list-rankmode [data-rankmode]').forEach(b => {
+    const on = b.dataset.rankmode === ui.rankMode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
 }
 
 function renderLevels(scope) {
@@ -240,12 +289,12 @@ function renderLevels(scope) {
 
 function setNote(text) { ui.root.querySelector('.list-note').textContent = text; }
 
-function headerCell(column, label, cls = '', title = '') {
+function headerCell(column, label, cls = '', title = '', explain = null) {
   const active = ui.sort.column === column;
   const aria = active ? (ui.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
   const arrow = active ? (ui.sort.dir === 'asc' ? '▲' : '▼') : '';
   return `<th scope="col" class="${cls}" aria-sort="${aria}"${title ? ` title="${esc(title)}"` : ''}>
-    <button type="button" data-sort="${column}">${esc(label)}<span class="list-sort-arrow" aria-hidden="true">${arrow}</span></button></th>`;
+    <button type="button" data-sort="${column}">${esc(label)}<span class="list-sort-arrow" aria-hidden="true">${arrow}</span></button>${explain ? infoButton(explain, label) : ''}</th>`;
 }
 
 function directionHint(ds) {
@@ -254,15 +303,18 @@ function directionHint(ds) {
   return `${ds.title} — telt niet mee in de score`;
 }
 
-function tableHtml(rows, datasets, level, rankKey) {
+function tableHtml(rows, datasets, level, rankKey, sortDs = null) {
   const nameLabel = { wijken: 'Wijk', buurten: 'Buurt', provincies: 'Provincie', gemeenten: 'Gemeente' }[level];
-  const sh = scoreHeader(rankKey, datasets);
-  const single = rankKey !== 'overall';
+  // Rank mode 'sort' on a dataset column: the score column shows that column's score and says so.
+  const scoreKey = sortDs ? sortDs.key : rankKey;
+  const base = scoreHeader(scoreKey, datasets);
+  const sh = sortDs ? { label: base.label, title: `${base.title} · volgt de sortering` } : base;
+  const single = scoreKey !== 'overall';
   const head = `<tr>
-    ${headerCell('rank', '#', 'col-rank', 'Rang')}
+    ${headerCell('rank', '#', 'col-rank', ui.rankMode === 'sort' ? 'Rang (volgt de sortering)' : 'Rang')}
     ${headerCell('name', nameLabel, 'col-name')}
-    ${headerCell('overall', sh.label, `col-score${single ? ' is-single' : ''}`, sh.title)}
-    ${datasets.map(d => headerCell(d.key, d.label, `col-data${d.higherIsBetter == null ? ' is-neutral' : ''}${rankKey === d.key ? ' is-rank-key' : ''}`, rankKey === d.key ? `${directionHint(d)} · rangschikt de lijst` : directionHint(d))).join('')}
+    ${headerCell('overall', sh.label, `col-score${single ? ' is-single' : ''}`, sh.title, 'score')}
+    ${datasets.map(d => headerCell(d.key, d.label, `col-data${d.higherIsBetter == null ? ' is-neutral' : ''}${rankKey === d.key ? ' is-rank-key' : ''}`, rankKey === d.key ? `${directionHint(d)} · rangschikt de lijst` : directionHint(d), d.key)).join('')}
   </tr>`;
   const body = rows.map(r => {
     const scoreColor = r.score != null ? interpolateColor(r.score, 0, 100) : null;

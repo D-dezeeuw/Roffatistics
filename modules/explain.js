@@ -1,0 +1,233 @@
+// "Uitleg" panel: what every metric means, how it is calculated, where it
+// comes from and what to watch out for. Generated from the DATASETS metadata
+// (description, formula, source, year, caveats), so a new dataset cannot ship
+// without an explanation (tests/explain.test.js). The dialog reuses the search
+// modal's shell and patterns: role=dialog, Esc closes, Tab is trapped, focus
+// returns to the opener. Any element with data-explain="<key>" opens it
+// scrolled to that entry ('score', 'crime-mode', 'nodata' for the general parts).
+import { DATASETS, groupDatasets, datasetFor } from './datasets.js';
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+/** Lower case without diacritics, for the filter. */
+export function normalizeText(s) {
+  return String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+/** True when every word of `query` occurs in `text` (both normalised); an empty query matches. */
+export function matchesQuery(text, query) {
+  const words = normalizeText(query).split(/\s+/).filter(Boolean);
+  const hay = normalizeText(text);
+  return words.every(w => hay.includes(w));
+}
+
+/** Score direction in the Ranglijst, in words. */
+export function directionLabel(ds) {
+  if (!ds) return '';
+  if (ds.higherIsBetter == null) return 'Neutraal: telt niet mee in de totaalscore';
+  const dir = ds.higherIsBetter ? 'Hoger = beter' : 'Lager = beter';
+  return ds.inOverall === false ? `${dir} · telt niet mee in de totaalscore` : dir;
+}
+
+const UNIT_LABELS = {
+  'aantal': 'aantal inwoners',
+  'per km²': 'inwoners per km²',
+  '%': 'procent (%)',
+  '×€1.000': 'euro (CBS levert × € 1.000)',
+  'per 1.000': 'per 1.000 inwoners',
+  'km': 'kilometer',
+  'misdrijven': 'aantal misdrijven',
+};
+/** Human unit text; crime datasets name both modes. */
+export function unitLabel(ds) {
+  const base = UNIT_LABELS[ds?.unit] ?? ds?.unit ?? '';
+  return ds?.countKey ? `${base} · Absoluut: aantal misdrijven` : base;
+}
+
+/** One source as HTML: linked table id, table name, publisher and (when set) the view it serves. */
+export function sourceHtml(src) {
+  return `<a href="${esc(src.url)}" target="_blank" rel="noopener">${esc(src.id)}</a> ${esc(src.name)} · ${esc(src.publisher)}${src.scope ? ` <span class="explain-scope">(${esc(src.scope)})</span>` : ''}`;
+}
+
+/** All searchable text of a dataset entry. */
+export function entryText(ds) {
+  return [ds.label, ds.title, ds.absTitle, ds.description, ds.formula, ds.absFormula, ds.year,
+    ...(ds.caveats ?? []), ...(ds.source ?? []).flatMap(s => [s.id, s.name, s.publisher])].filter(Boolean).join(' ');
+}
+
+/** HTML of one metric entry (id explain-<key>). */
+export function entryHtml(ds) {
+  const abs = ds.countKey ? datasetFor(ds.key, 'abs') : null;
+  const facts = [
+    ['Eenheid', esc(unitLabel(ds))],
+    ['Berekening', esc(ds.formula) + (abs ? `<br><span class="explain-abs">Absoluut: ${esc(abs.formula)}</span>` : '')],
+    ['Bron', (ds.source ?? []).map(sourceHtml).join('<br>')],
+    ['Peiljaar', esc(ds.year)],
+    ['Ranglijst', esc(directionLabel(ds))],
+  ];
+  if (ds.scope === 'rotterdam') facts.push(['Gebied', 'Alleen Rotterdam (wijken en buurten)']);
+  return `
+    <article class="explain-entry" id="explain-${esc(ds.key)}" data-key="${esc(ds.key)}" data-text="${esc(normalizeText(entryText(ds)))}" tabindex="-1">
+      <h4>${esc(ds.label)}${ds.title !== ds.label ? ` <small>${esc(ds.title)}</small>` : ''}</h4>
+      <p>${esc(ds.description)}</p>
+      <dl class="explain-facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+      ${ds.caveats?.length ? `<ul class="explain-caveats" aria-label="Let op">${ds.caveats.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
+    </article>`;
+}
+
+/** The general parts: score, crime modes, "geen data". [{ id, title, html, text }] */
+export const GENERAL_SECTIONS = Object.freeze([
+  {
+    id: 'score',
+    title: 'Hoe werkt de score',
+    paragraphs: [
+      'Per cijfer krijgt elk gebied een percentielscore van 0 tot 100 binnen de lijst die je bekijkt (alle wijken, of alle buurten): 100 = het beste gebied van de lijst, 0 = het slechtste, 50 = middenin. Gelijke waarden krijgen dezelfde score. Bij "lager = beter" (criminaliteit, bijstand, afstanden) wordt de score omgedraaid.',
+      'De totaalscore is het gemiddelde van de scores op alle cijfers met een richting waarvoor het gebied een waarde heeft. Neutrale cijfers (inwoners, dichtheid, 65+, herkomst, koop en huur) en de sublagen van criminaliteit tellen niet mee. "7/8" naast de score betekent: gemiddeld over 7 van de 8 mogelijke cijfers.',
+      'Met "Rangschik op" kies je de basis: de totaalscore of één cijfer. Rang "Vast" houdt die rangnummers vast als je op een kolom sorteert; "Volgt sortering" nummert de rijen opnieuw in de sortering (gelijke waarden delen een rang, gebieden zonder waarde staan onderaan zonder rang) en toont de score van die kolom.',
+      'Een score vergelijkt alleen binnen de lijst: een 90 voor een buurt betekent iets anders dan een 90 voor een wijk, en zegt niet hoe groot het verschil in werkelijkheid is.',
+    ],
+  },
+  {
+    id: 'crime-mode',
+    title: 'Criminaliteit: per 1000 inwoners of absoluut',
+    paragraphs: [
+      'Per 1000 inwoners (standaard): misdrijven 2025 gedeeld door de inwoners van 2025, maal 1.000. Zo vergelijk je gebieden van verschillende grootte, maar gebieden waar veel mensen komen en weinig mensen wonen (Centrum, haven, winkel- en uitgaansgebieden) komen hoog uit. Wijken onder 1.000 en buurten onder 200 inwoners krijgen geen cijfer.',
+      'Absoluut: het aantal door de politie geregistreerde misdrijven in 2025. Grote gebieden komen vanzelf hoger uit, maar elk gebied krijgt een waarde, ook met weinig inwoners. Het dashboard toont dan het Rotterdamse totaal in plaats van een gewogen gemiddelde.',
+      'De schakelaar geldt voor alle criminaliteitslagen (totaal en sublagen) op de kaart, in de legenda, het paneel, het dashboard en de Ranglijst, inclusief de scores. Je keuze wordt onthouden en staat in de link (&crime=abs).',
+    ],
+  },
+  {
+    id: 'nodata',
+    title: 'Geen data en peiljaren',
+    paragraphs: [
+      'Grijs op de kaart, "geen data" of "—": er is geen cijfer. CBS en politie laten cijfers weg bij kleine aantallen (privacy), sommige cijfers zijn nog niet gepubliceerd, en per-1.000-cijfers vervallen onder een inwonergrens (bijstand en buurtcriminaliteit onder 200, wijkcriminaliteit onder 1.000 inwoners). In de Ranglijst staan zulke gebieden onderaan, zonder rang.',
+      'Wijk- en buurtcijfers komen uit de CBS-kerncijfers 2025. Is een cijfer daar leeg, dan nemen we het cijfer uit de tabel 2024; inkomen en opleiding zijn voor 2025 nog niet gepubliceerd en komen daarom overal uit 2024. Het paneel toont per gebied welk jaar is gebruikt. De Nederland-weergave gebruikt CBS-cijfers van 2023.',
+    ],
+  },
+].map(s => Object.freeze({ ...s, text: [s.title, ...s.paragraphs].join(' ') })));
+
+/** Full body of the panel: one section per Layers group, then the general parts. */
+export function explainBodyHtml(datasets = DATASETS) {
+  const groups = groupDatasets(datasets).map(g => `
+    <section class="explain-group" aria-labelledby="explain-g-${esc(g.key)}">
+      <h3 id="explain-g-${esc(g.key)}">${esc(g.label)}</h3>
+      ${g.datasets.map(entryHtml).join('')}
+    </section>`).join('');
+  const general = `
+    <section class="explain-group" aria-labelledby="explain-g-algemeen">
+      <h3 id="explain-g-algemeen">Algemeen</h3>
+      ${GENERAL_SECTIONS.map(s => `
+      <article class="explain-entry" id="explain-${s.id}" data-key="${s.id}" data-text="${esc(normalizeText(s.text))}" tabindex="-1">
+        <h4>${esc(s.title)}</h4>
+        ${s.paragraphs.map(p => `<p>${esc(p)}</p>`).join('')}
+      </article>`).join('')}
+    </section>`;
+  return groups + general + '<p class="explain-empty" hidden>Geen uitleg gevonden.</p>';
+}
+
+/** Small (i) button that opens the panel at `key`. */
+export function infoButton(key, label = '') {
+  const text = `Uitleg: ${label || DATASETS[key]?.title || key}`;
+  return `<button type="button" class="info-btn" data-explain="${esc(key)}" aria-label="${esc(text)}" title="${esc(text)}">i</button>`;
+}
+
+// ── Dialog ───────────────────────────────────────────────────────────────────
+
+let els = null;
+let returnFocus = null;
+const FLASH_MS = 1600;
+
+const isOpen = () => els && !els.modal.hidden;
+
+function applyFilter() {
+  const q = els.filter.value;
+  let any = false;
+  els.body.querySelectorAll('.explain-group').forEach(sec => {
+    let shown = 0;
+    sec.querySelectorAll('.explain-entry').forEach(en => {
+      const hit = matchesQuery(en.dataset.text, q);
+      en.hidden = !hit;
+      if (hit) shown++;
+    });
+    sec.hidden = !shown;
+    any ||= shown > 0;
+  });
+  els.body.querySelector('.explain-empty').hidden = any;
+}
+
+/** Opens the panel; with `key` (dataset key, 'score', 'crime-mode', 'nodata') scrolled to that entry. */
+export function openExplain(key = null) {
+  if (!els) return;
+  if (!isOpen()) returnFocus = document.activeElement;
+  els.modal.hidden = false;
+  document.body.classList.add('explain-open');
+  els.filter.value = '';
+  applyFilter();
+  const entry = key ? els.body.querySelector(`#explain-${CSS.escape(key)}`) : null;
+  if (!entry) { els.body.scrollTop = 0; els.filter.focus(); return; }
+  entry.scrollIntoView({ block: 'start' });
+  entry.focus({ preventScroll: true });
+  entry.classList.remove('is-flash');
+  void entry.offsetWidth;
+  entry.classList.add('is-flash');
+  setTimeout(() => entry.classList.remove('is-flash'), FLASH_MS);
+}
+
+export function closeExplain() {
+  if (!isOpen()) return;
+  els.modal.hidden = true;
+  document.body.classList.remove('explain-open');
+  if (returnFocus && typeof returnFocus.focus === 'function' && document.contains(returnFocus)) returnFocus.focus();
+  returnFocus = null;
+}
+
+function trapFocus(e) {
+  const focusables = [...els.dialog.querySelectorAll('input, button, a[href], [tabindex]:not([tabindex="-1"])')]
+    .filter(el => !el.disabled && el.offsetParent !== null);
+  if (!focusables.length) return;
+  const first = focusables[0], last = focusables[focusables.length - 1];
+  if (e.shiftKey && (document.activeElement === first || !els.dialog.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+/** Builds the dialog once and wires the topnav button and every [data-explain] trigger. */
+export function initExplain() {
+  if (els || typeof document === 'undefined') return;
+  const modal = document.createElement('div');
+  modal.id = 'explain-modal';
+  modal.className = 'search-modal explain-modal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="search-backdrop" data-explain-close></div>
+    <div class="search-dialog explain-dialog" role="dialog" aria-modal="true" aria-labelledby="explain-title">
+      <header class="explain-head">
+        <h2 id="explain-title">Uitleg bij de cijfers</h2>
+        <button class="search-close" type="button" data-explain-close aria-label="Sluiten">Esc</button>
+      </header>
+      <div class="search-field explain-search">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+        <input type="search" class="explain-filter" placeholder="Filter, bijv. inkomen of 47018NED" aria-label="Filter de uitleg" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="explain-body" tabindex="0" aria-label="Uitleg per cijfer">${explainBodyHtml()}</div>
+    </div>`;
+  document.body.appendChild(modal);
+  els = {
+    modal,
+    dialog: modal.querySelector('.explain-dialog'),
+    body: modal.querySelector('.explain-body'),
+    filter: modal.querySelector('.explain-filter'),
+  };
+  els.filter.addEventListener('input', applyFilter);
+  modal.addEventListener('click', e => { if (e.target.closest('[data-explain-close]')) closeExplain(); });
+  modal.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeExplain(); return; }
+    if (e.key === 'Tab') trapFocus(e);
+  });
+  document.querySelector('.explain-btn')?.addEventListener('click', () => openExplain());
+  document.addEventListener('click', e => {
+    const trigger = e.target.closest?.('[data-explain]');
+    if (!trigger || modal.contains(trigger)) return;
+    e.preventDefault();
+    openExplain(trigger.dataset.explain);
+  });
+}

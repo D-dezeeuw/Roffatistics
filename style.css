@@ -128,7 +128,7 @@ body {
   #topnav { padding: 0 0.5rem; }
   .btn-label { display: none; }
   .nav-left, .nav-actions { gap: 0.3rem; }
-  .view-opt, .search-btn, .about-btn, .panel-toggle-btn, .layers-btn { padding: 0.35rem 0.45rem; }
+  .view-opt, .search-btn, .about-btn, .explain-btn, .panel-toggle-btn, .layers-btn { padding: 0.35rem 0.45rem; }
   .layers-chevron { display: none; }
 }
 
@@ -138,6 +138,7 @@ body {
 }
 
 .panel-toggle-btn,
+.explain-btn,
 .about-btn {
   display: flex;
   align-items: center;
@@ -156,6 +157,7 @@ body {
 }
 
 .panel-toggle-btn:hover,
+.explain-btn:hover,
 .about-btn:hover {
   color: var(--text-primary);
   border-color: rgba(124, 58, 237, 0.6);
@@ -508,13 +510,21 @@ footer {
 
 #legend.legend-visible { display: block; }
 
+.legend-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
+}
 .legend-title {
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
-  margin-bottom: 0.45rem;
 }
+.legend-crime { display: none; margin-top: 0.5rem; }
+#legend.legend-has-crime .legend-crime { display: block; }
 
 .legend-strip {
   height: 7px;
@@ -923,7 +933,7 @@ footer {
 @media (max-width: 480px) {
   .splash-card { padding: 1.5rem 1.1rem 1.2rem; }
   .splash-features { font-size: 0.82rem; margin: 1.1rem 0; }
-  .about-btn { padding: 0.35rem 0.5rem; }
+  .about-btn, .explain-btn { padding: 0.35rem 0.5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1301,4 +1311,117 @@ footer {
 @media (max-width: 480px) {
   .dash { padding: 0.75rem; }
   .dash-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Very narrow phones: the extra Uitleg button still has to fit 360 px. */
+@media (max-width: 400px) {
+  #topnav { padding: 0 0.35rem; }
+  .nav-left, .nav-actions { gap: 0.2rem; }
+  .view-opt, .search-btn, .about-btn, .explain-btn, .panel-toggle-btn, .layers-btn { padding: 0.3rem 0.35rem; }
+}
+
+/* ─── Info buttons, segmented toggles (crime mode, rank mode) ─── */
+
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: none;
+  margin-left: 0.3rem;
+  padding: 0;
+  border: 1px solid rgba(124, 58, 237, 0.45);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font: italic 600 0.62rem/1 var(--font-data);
+  text-transform: none;
+  letter-spacing: 0;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.info-btn:hover { color: var(--accent-orange); border-color: var(--accent-orange); }
+.info-btn:focus-visible { outline: 2px solid var(--accent-orange); outline-offset: 1px; }
+
+.seg {
+  display: inline-flex;
+  border: 1px solid rgba(124, 58, 237, 0.35);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.seg-label { align-self: center; padding: 0 0.3rem 0 0.55rem; font-size: 0.7rem; color: var(--text-muted); }
+.seg-opt {
+  padding: 0.28rem 0.55rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 0.7rem var(--font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.seg-opt + .seg-opt { border-left: 1px solid rgba(124, 58, 237, 0.35); }
+.seg-opt:hover { color: var(--text-primary); }
+.seg-opt.active { background: rgba(124, 58, 237, 0.25); color: var(--text-primary); }
+.seg-opt:focus-visible { outline: 2px solid var(--accent-orange); outline-offset: -2px; }
+.list-rankmode-wrap, .list-crime { display: inline-flex; align-items: center; }
+.list-crime[hidden] { display: none; }
+.dash-head-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+
+/* ─── Uitleg panel (modules/explain.js) ─── */
+
+.explain-dialog { width: min(760px, 100%); max-height: 80vh; }
+.explain-modal { padding-top: 8vh; }
+.explain-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem 0.5rem;
+}
+.explain-head h2 { font-size: 1rem; font-weight: 600; color: var(--text-primary); }
+.explain-body { overflow-y: auto; padding: 0.4rem 0.9rem 1rem; outline: none; }
+.explain-group h3 {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-orange);
+}
+.explain-group[hidden], .explain-entry[hidden] { display: none; }
+.explain-entry {
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  border-radius: var(--radius);
+  background: var(--bg-surface-alt);
+  outline: none;
+  scroll-margin-top: 0.5rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.explain-entry:focus-visible { border-color: var(--accent-orange); }
+.explain-entry.is-flash { border-color: var(--accent-orange); box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.35); }
+.explain-entry h4 { font-size: 0.88rem; font-weight: 600; color: var(--text-primary); }
+.explain-entry h4 small { font-weight: 400; font-size: 0.72rem; color: var(--text-muted); margin-left: 0.3rem; }
+.explain-entry p { font-size: 0.8rem; line-height: 1.5; color: var(--text-primary); margin-top: 0.35rem; }
+.explain-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.2rem 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.74rem;
+}
+.explain-facts dt { color: var(--text-muted); }
+.explain-facts dd { color: var(--text-primary); margin: 0; overflow-wrap: anywhere; }
+.explain-facts a { color: var(--accent-orange); font-family: var(--font-data); }
+.explain-abs, .explain-scope { color: var(--text-muted); }
+.explain-caveats { margin: 0.45rem 0 0 1.1rem; font-size: 0.74rem; line-height: 1.45; color: var(--text-muted); }
+.explain-empty { padding: 1.5rem 0; text-align: center; font-size: 0.8rem; color: var(--text-muted); }
+@media (max-width: 600px) {
+  .explain-dialog { max-height: none; }
+  .explain-facts { grid-template-columns: 1fr; }
+  .explain-facts dd { margin-bottom: 0.25rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .explain-entry { transition: none; }
 }

@@ -4,6 +4,8 @@
 import { getMap } from './map.js';
 import { interpolateColor, addKeyboardNav } from './overlays.js';
 import { loadRotterdamAreas, valueRange, toNumber, areaPanelData } from './areas.js';
+import { datasetValue, crimeAreas } from './datasets.js';
+import { formatValue } from './dashboard-data.js';
 
 export const NO_DATA_COLOR   = '#4b4658';
 export const MASK_COLOR      = '#0d0a14';
@@ -58,6 +60,8 @@ let areas = null;
 let enabled = false;
 let level = null;
 let dataset = 'population';
+let crimeMode = 'rate';   // state.crime: crime datasets read their raw counts in 'abs'
+const valueOf = area => datasetValue(area?.values, dataset, crimeMode);
 let ranges = { wijk: null, buurt: null };
 let activeArea = null;   // area object last shown in slot A
 let pinnedArea = null;   // area object pinned for compare
@@ -72,7 +76,7 @@ function makeAreaLayer(geojson, list, kind, onSelect) {
     style: () => ({ color: kind === 'wijk' ? ACCENT : '#ea580c', weight: kind === 'wijk' ? 1.2 : 0.6, opacity: 0.7, fillColor: NO_DATA_COLOR, fillOpacity: 0.45 }),
     onEachFeature(feature, fl) {
       const area = lookup.get(feature.properties.statcode);
-      fl.bindTooltip(() => tooltipHtml(area.name, area.values[dataset]), { sticky: true, direction: 'top', className: 'area-tooltip' });
+      fl.bindTooltip(() => tooltipHtml(area.name, valueOf(area), v => formatValue(v, dataset, crimeMode)), { sticky: true, direction: 'top', className: 'area-tooltip' });
       fl.on({
         mouseover(e) { e.target.setStyle({ weight: 2.5, color: '#ea580c', opacity: 1 }); e.target.bringToFront(); },
         mouseout(e)  { e.target.setStyle(baseStroke(kind)); },
@@ -137,17 +141,17 @@ function syncLevel() {
 
 function recolor() {
   if (!layers.wijk) return;
-  ranges = { wijk: valueRange(areas.wijken, dataset), buurt: valueRange(areas.buurten, dataset) };
+  ranges = { wijk: valueRange(crimeAreas(areas.wijken, crimeMode), dataset), buurt: valueRange(crimeAreas(areas.buurten, crimeMode), dataset) };
   const wijkLookup = new Map(areas.wijken.map(a => [a.code, a]));
   const buurtLookup = new Map(areas.buurten.map(a => [a.code, a]));
   layers.wijk.eachLayer(fl => {
     const a = wijkLookup.get(fl.feature.properties.statcode);
-    const fill = level === 'buurt' ? { fill: false } : { fill: true, ...areaFillStyle(a?.values[dataset], ranges.wijk) };
+    const fill = level === 'buurt' ? { fill: false } : { fill: true, ...areaFillStyle(valueOf(a), ranges.wijk) };
     fl.setStyle({ ...baseStroke('wijk'), ...fill });
   });
   layers.buurt.eachLayer(fl => {
     const a = buurtLookup.get(fl.feature.properties.statcode);
-    fl.setStyle({ ...baseStroke('buurt'), ...areaFillStyle(a?.values[dataset], ranges.buurt, 0.65) });
+    fl.setStyle({ ...baseStroke('buurt'), ...areaFillStyle(valueOf(a), ranges.buurt, 0.65) });
   });
 }
 
@@ -178,9 +182,10 @@ export function disableRotterdam() {
   pinnedArea = null;
 }
 
-/** Colours the layers for `key`; returns { min, max, level, hasData } for the legend. */
-export function applyRotterdamDataset(key) {
+/** Colours the layers for `key` in crime mode `mode`; returns { min, max, level, hasData } for the legend. */
+export function applyRotterdamDataset(key, mode = crimeMode) {
   dataset = key;
+  crimeMode = mode;
   recolor();
   const lvl = level ?? 'wijk';
   const range = ranges[lvl];
