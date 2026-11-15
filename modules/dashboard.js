@@ -2,6 +2,7 @@
 // dataset over all Rotterdam wijken, and an X/Y scatter. Plain SVG, no chart library.
 // Clicking a wijk sets { area, view: 'map' } so the map zooms to it.
 import { getState, setState, onStateChange } from './state.js';
+import { openAreaModal } from './area-modal.js';
 import { loadRotterdamAreas, DATASETS, DATASET_KEYS } from './areas.js';
 import { datasetFor, crimeAreas } from './datasets.js';
 import { crimeToggleHtml } from './crime-mode.js';
@@ -81,9 +82,12 @@ function onActivate(e) {
   const action = e.target.closest?.('[data-action]');
   if (action?.dataset.action === 'to-rotterdam') { setState({ scope: 'rotterdam' }, { source: 'dashboard' }); return; }
   if (action?.dataset.action === 'show-dataset') { setState({ dataset: action.dataset.dataset, view: 'map' }, { source: 'dashboard' }); return; }
-  const code = e.target.closest?.('[data-code]')?.dataset.code;
+  const el = e.target.closest?.('[data-code]');
+  const code = el?.dataset.code;
   if (!code) return;
   hideTip();
+  // A wijk or buurt opens the area modal; its "Toon op kaart" zooms the map.
+  if (/^(WK|BU)/.test(code)) { openAreaModal(code, el); return; }
   // Re-clicking the selected wijk must still zoom: clear it so `area` changes.
   if (getState().area === code) setState({ area: null }, { source: 'dashboard' });
   setState({ area: code, view: 'map' }, { source: 'dashboard' });

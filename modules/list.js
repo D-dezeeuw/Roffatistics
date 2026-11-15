@@ -7,6 +7,7 @@ import { loadRotterdamAreas, getAreaIndex, DATASETS, DATASET_KEYS } from './area
 import { datasetFor, crimeAreas, crimeValues, isCrimeDataset } from './datasets.js';
 import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
+import { openAreaModal } from './area-modal.js';
 import { buildScale, getScaleMethod, outlierLabel, SCALE_EVENT } from './scale.js';
 import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, orderColumns, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES, rankKeyAfterDatasetChange } from './ranking.js';
 
@@ -96,7 +97,7 @@ export function initList(root = document.getElementById('view-list')) {
   wrap.addEventListener('keydown', e => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     const tr = e.target.closest?.('tr[data-code]');
-    if (tr && e.target === tr) { e.preventDefault(); selectRow(tr.dataset.code); }
+    if (tr && e.target === tr) { e.preventDefault(); activateRow(tr.dataset.code, tr); }
   });
 
   onStateChange(({ state, changed, source }) => {
@@ -143,7 +144,13 @@ function onTableClick(e) {
   const tr = e.target.closest('tr[data-code]');
   if (!tr) return;
   if (mapBtn) { setState({ area: tr.dataset.code, view: 'map' }, { source: 'list' }); return; }
-  selectRow(tr.dataset.code);
+  activateRow(tr.dataset.code, tr);
+}
+
+// A wijk/buurt row opens the area modal (focus returns to the row); Nederland rows only select.
+function activateRow(code, tr) {
+  selectRow(code);
+  if (getState().scope === 'rotterdam') openAreaModal(code, tr);
 }
 
 function selectRow(code) {

@@ -12,6 +12,7 @@ import { initSearch }                     from './modules/search.js';
 import { initDashboard }                  from './modules/dashboard.js';
 import { initExplain }                    from './modules/explain.js';
 import { initCrimeToggles }               from './modules/crime-mode.js';
+import { initAreaModal, openAreaModal, COMPARE_EVENT } from './modules/area-modal.js';
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -126,6 +127,26 @@ document.querySelector('.panel-pin-btn').addEventListener('click', () => {
   if (!code) return;
   setPinnedGemeente(code, name);
   import('./modules/panel.js').then(({ pinPanel }) => pinPanel());
+});
+
+// Map click keeps the quick panel (and compare); "Details" opens the area modal.
+document.querySelector('.panel-details-btn')?.addEventListener('click', e => {
+  const code = getActiveArea()?.code;
+  if (getState().scope === 'rotterdam' && code) openAreaModal(code, e.currentTarget);
+});
+
+// Modal "Vergelijk": show the area on the map, pinned, so the next click fills slot B.
+document.addEventListener(COMPARE_EVENT, async ({ detail: { code } }) => {
+  if (getState().scope !== 'rotterdam' || !code) return;
+  const toMap = getState().view !== 'map';
+  setState({ area: code, view: 'map' }, { source: 'map' });   // 'map': the state listener does not focus a second time
+  if (toMap) await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));   // map size back first
+  clearPinnedArea();
+  const panel = await import('./modules/panel.js');
+  await panel.clearCompare();
+  if (!(await focusArea(code))) return;
+  pinActiveArea();
+  panel.pinPanel();
 });
 
 document.querySelector('.panel-compare-close').addEventListener('click', () => {
@@ -326,3 +347,4 @@ initScaleToggle();
 // Schaal: Kwantiel | Lineair — recolour the map and legend from the shown set.
 document.addEventListener(SCALE_EVENT, () => activateDataset(getState().dataset));
 initExplain();
+initAreaModal();

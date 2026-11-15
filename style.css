@@ -447,6 +447,12 @@ option, optgroup { color: var(--text-primary); background: var(--bg-surface); }
 
 /* Hide pin button once comparing */
 #panel.comparing .panel-pin-btn { display: none; }
+.panel-pin-btn, .panel-details-btn { font-family: var(--font-ui); }
+.panel-details-btn {
+  padding: 0.3rem 0.65rem; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.04em; border-radius: 4px; cursor: pointer;
+  border: 1px solid rgba(234, 88, 12, 0.5); background: rgba(234, 88, 12, 0.12); color: var(--text-primary);
+}
+.panel-details-btn:hover { background: rgba(234, 88, 12, 0.25); }
 
 /* ─── Footer ─────────────────────────────────────────────── */
 
@@ -1424,7 +1430,7 @@ footer {
 /* ─── Uitleg panel (modules/explain.js) ─── */
 
 .explain-dialog { width: min(760px, 100%); max-height: 80vh; }
-.explain-modal { padding-top: 8vh; }
+.explain-modal { padding-top: 8vh; z-index: 2600; }   /* above the area modal: its (i) buttons open it */
 .explain-head {
   display: flex;
   align-items: center;
@@ -1531,4 +1537,75 @@ footer {
 @media (max-width: 520px) {
   .hk-wijk { grid-template-columns: 7rem 1fr 3rem; }
   .hk-bar { grid-template-columns: 6.5rem 1fr 3.5rem; }
+}
+
+/* ─── Area detail modal (modules/area-modal.js) ─────────── */
+
+.area-modal { padding: 4vh 1rem 1rem; align-items: flex-start; }
+.area-dialog { width: min(880px, 100%); max-height: 92vh; }
+.area-head {
+  display: flex; align-items: flex-start; gap: 1rem; justify-content: space-between;
+  padding: 1rem 1.1rem 0.8rem; border-bottom: 1px solid rgba(124, 58, 237, 0.25);
+}
+.area-head h2 { margin: 0.1rem 0 0.2rem; font-size: 1.35rem; color: var(--text-primary); }
+.area-kicker { margin: 0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.area-facts { margin: 0; font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-data); }
+.area-close {
+  flex: none; width: 2rem; height: 2rem; border-radius: 50%; font-size: 0.95rem; cursor: pointer;
+  color: var(--text-muted); background: transparent; border: 1px solid rgba(124, 58, 237, 0.35);
+}
+.area-close:hover { color: var(--text-primary); border-color: var(--accent-orange); }
+.area-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0.8rem 1.1rem 1.2rem; color: var(--text-primary); }
+.area-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+.area-btn, .area-link {
+  font: inherit; font-size: 0.78rem; cursor: pointer; color: var(--text-primary);
+  background: rgba(124, 58, 237, 0.14); border: 1px solid rgba(124, 58, 237, 0.4); border-radius: var(--radius); padding: 0.35rem 0.75rem;
+}
+.area-btn:hover, .area-link:hover { border-color: var(--accent-orange); }
+.area-kicker .area-link { text-transform: none; letter-spacing: 0; font-size: 0.75rem; padding: 0.05rem 0.4rem; }
+.area-close:focus-visible, .area-btn:focus-visible, .area-link:focus-visible, .area-body:focus-visible { outline: 2px solid var(--accent-orange); outline-offset: 1px; }
+.area-score { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.9rem; font-size: 0.85rem; }
+.area-score-num {
+  display: inline-grid; place-items: center; width: 2.8rem; height: 2.8rem; border-radius: 50%;
+  background: var(--gradient-accent); font: 700 1.05rem var(--font-data); color: #fff;
+}
+.area-score small { display: block; font-size: 0.7rem; color: var(--text-muted); }
+.area-sec { margin-top: 1rem; }
+.area-sec h3 { margin: 0 0 0.45rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.area-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.45rem; }
+.area-sec-head h3 { margin: 0; }
+.area-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.area-chip { font-size: 0.78rem; padding: 0.25rem 0.6rem; border-radius: 999px; border: 1px solid rgba(124, 58, 237, 0.45); background: rgba(124, 58, 237, 0.12); }
+.area-chip.is-good { border-color: rgba(34, 197, 94, 0.55); background: rgba(34, 197, 94, 0.12); }
+.area-chip.is-bad { border-color: rgba(239, 68, 68, 0.55); background: rgba(239, 68, 68, 0.12); }
+.area-extras { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.6rem; }
+.area-extra { padding: 0.55rem 0.7rem; border: 1px solid rgba(124, 58, 237, 0.2); border-radius: var(--radius); background: var(--bg-surface-alt); font-size: 0.8rem; }
+.area-extra-wide { grid-column: span 2; }
+.area-extra p { margin: 0.2rem 0 0; }
+.area-extra-label { display: block; margin-bottom: 0.25rem; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.area-extra strong { font: 700 1.1rem var(--font-data); }
+.area-extra .is-good { color: #4ade80; }
+.area-extra .is-bad { color: #f87171; }
+.area-edu { display: flex; align-items: center; gap: 0.6rem; }
+.area-edu-legend { list-style: none; margin: 0; padding: 0; font-size: 0.74rem; }
+.area-edu-legend i, .area-children i { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 2px; margin-right: 0.3rem; }
+.area-table-wrap { overflow-x: auto; border: 1px solid rgba(124, 58, 237, 0.2); border-radius: var(--radius); }
+.area-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.area-table th, .area-table td { padding: 0.35rem 0.55rem; text-align: right; white-space: nowrap; border-bottom: 1px solid rgba(124, 58, 237, 0.12); font-family: var(--font-data); }
+.area-table thead th { font-family: var(--font-ui); font-weight: 600; color: var(--text-muted); background: var(--bg-surface-alt); }
+.area-table tbody th { text-align: left; font-family: var(--font-ui); font-weight: 500; }
+.area-table tr.is-extreme th { color: var(--accent-orange); }
+.area-table small { color: var(--text-muted); }
+.area-pbar-cell { width: 28%; }
+.area-pbar { display: block; height: 6px; min-width: 4rem; border-radius: 3px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.area-pbar i { display: block; height: 100%; background: var(--gradient-accent); }
+.area-note { margin: 0.4rem 0 0; font-size: 0.7rem; color: var(--text-muted); }
+.area-children { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.area-empty { padding: 1.5rem; color: var(--text-muted); }
+@media (max-width: 640px) {
+  .area-modal { padding: 0; }
+  .area-dialog { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; border: 0; }
+  .area-extra-wide { grid-column: auto; }
+  .area-extras { grid-template-columns: 1fr; }
+  .area-head h2 { font-size: 1.15rem; }
 }
