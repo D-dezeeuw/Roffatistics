@@ -9,6 +9,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_COLUMNS } from '../modules/datasets.js';
 import { formatPanelData } from '../modules/panel.js';
+import { NABIJ_COLUMNS, NABIJ_SELECT, NABIJ_TABLE, NABIJ_FALLBACK_TABLE, mergeNabijValues } from '../modules/areas.js';
 import { WIJK_COLUMNS, WIJK_SELECT, WIJK_TABLE, WIJK_FALLBACK_TABLE, extractAreaValues, mergeYearValues, normalizeAreaCode, buildBuurtCrimeUrl, aggregateCrime, buildCityWozUrl, parseCityWoz } from '../modules/areas.js';
 // Filters copied from app.js; the demographics select and column map come from modules/datasets.js
 const CBS_FILTER   = "startswith(RegioS,'PV') and Perioden eq '2023JJ00'";
@@ -142,5 +143,18 @@ describe('CBS API — Rotterdam wijken', { timeout: 15000 }, () => {
     const woz = parseCityWoz((await res.json()).value);
     assert.equal(woz.year, 2026);
     assert.ok(woz.value > 300);
+  });
+});
+
+// ── Rotterdam nabijheid voorzieningen (Epic W2) ──────────────────────────────
+
+describe('CBS API — Rotterdam nabijheid', { timeout: 15000 }, () => {
+  it(`${NABIJ_TABLE} + ${NABIJ_FALLBACK_TABLE} return all mapped columns with plausible distances`, async () => {
+    const [rows, old] = await Promise.all([NABIJ_TABLE, NABIJ_FALLBACK_TABLE].map(t => fetchCBS(t, "startswith(WijkenEnBuurten,'WK0599')", NABIJ_SELECT)));
+    assert.ok(rows.length >= 20, `expected ~21 Rotterdam wijken, got ${rows.length}`);
+    for (const r of [rows[0], old[0]]) for (const col of Object.values(NABIJ_COLUMNS)) assert.ok(col in r, `missing column ${col}`);
+    const pick = list => list.find(r => normalizeAreaCode(r.WijkenEnBuurten) === 'WK059901');
+    const { values } = mergeNabijValues(pick(rows), pick(old));
+    assert.ok(values.distStation > 0 && values.distStation < 5 && values.distCafe > 0 && values.horeca1km > 10, JSON.stringify(values));
   });
 });

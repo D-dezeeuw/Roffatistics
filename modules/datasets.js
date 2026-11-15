@@ -137,6 +137,9 @@ const SRC = Object.freeze({
   kwb2024: Object.freeze({ id: '85984NED', name: 'Kerncijfers wijken en buurten 2024', publisher: 'CBS', url: statline('85984NED'), scope: 'Rotterdam' }),
   regio:   Object.freeze({ id: '70072ned', name: 'Regionale kerncijfers Nederland', publisher: 'CBS', url: statline('70072ned'), scope: 'Nederland' }),
   crime:   Object.freeze({ id: '47018NED', name: 'Geregistreerde misdrijven; soort misdrijf, wijk, buurt', publisher: 'Politie (via CBS dataderden)', url: 'https://data.politie.nl/#/Politie/nl/dataset/47018NED/table', scope: 'Rotterdam' }),
+  nabij2025: Object.freeze({ id: '86270NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2025', publisher: 'CBS', url: statline('86270NED'), scope: 'Rotterdam' }),
+  nabij2024: Object.freeze({ id: '86134NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2024', publisher: 'CBS', url: statline('86134NED'), scope: 'Rotterdam' }),
+  geo:     Object.freeze({ id: 'PDOK', name: 'CBS wijk- en buurtkaart (gebiedsgrenzen, via PDOK)', publisher: 'CBS / PDOK', url: 'https://www.pdok.nl/introductie/-/article/cbs-wijken-en-buurten', scope: 'Rotterdam' }),
   crimeNl: Object.freeze({ id: '83648NED', name: 'Geregistreerde criminaliteit; soort misdrijf, regio', publisher: 'CBS', url: statline('83648NED'), scope: 'Nederland' }),
 });
 
@@ -151,6 +154,16 @@ const HERKOMST_NOTES = [
   'Landen en landengroepen (Turkije, Marokko, Suriname, Afrika bezuiden de Sahara …) zijn alleen voor heel Rotterdam beschikbaar (Dashboard, CBS 85458NED), niet per wijk of buurt.',
   'Beschrijvend: telt niet mee in de totaalscore van de Ranglijst.',
 ];
+const TASTE_NOTE = 'Beschrijvend en een kwestie van smaak: telt niet mee in de totaalscore van de Ranglijst of de Woonscore Standaard.';
+const NABIJ_NOTE = 'Ontbreekt het 2025-cijfer voor een gebied, dan wordt het 2024-cijfer (86134NED) getoond; het paneel noemt dat onder Peiljaar.';
+const ROAD_NOTE = 'Gemeten over de weg, niet hemelsbreed; de dichtstbijzijnde voorziening kan buiten het gebied liggen.';
+const ageInfo = (from, to) => ({
+  description: `Het aandeel inwoners van ${from} tot en met ${to} jaar. Beschrijvend: er zit geen oordeel in. Samen met de andere leeftijdsgroepen laat het zien of een gebied jong, gemengd of vergrijsd is.`,
+  formula: `inwoners van ${from} tot ${to + 1} jaar / inwoners × 100`,
+  source: [SRC.kwb2025],
+  year: '2025',
+  caveats: [TASTE_NOTE, FALLBACK_NOTE],
+});
 const CRIME_CELL_NOTE = 'De politie laat sommige kleine aantallen weg; een opgetelde categorie is pas "geen data" als alle delen ontbreken.';
 
 const INFO = {
@@ -167,6 +180,23 @@ const INFO = {
     source: [SRC.kwb2025, SRC.regio],
     year: '2025 (wijk/buurt) · 2023 (Nederland)',
     caveats: ['De Nederland-weergave rekent met de totale oppervlakte inclusief water en komt daardoor lager uit dan de CBS-dichtheid.'],
+  },
+  pop15to24: ageInfo(15, 24),
+  pop25to44: ageInfo(25, 44),
+  pop45to64: ageInfo(45, 64),
+  hhWithKidsPct: {
+    description: 'Het aandeel huishoudens met thuiswonende kinderen (paren en eenoudergezinnen). Hoog = een gezinsbuurt. Beschrijvend: er zit geen oordeel in.',
+    formula: 'huishoudens met kinderen / huishoudens totaal × 100',
+    source: [SRC.kwb2025],
+    year: '2025',
+    caveats: ['Kinderen van elke leeftijd die nog thuis wonen tellen mee, ook volwassen kinderen.', TASTE_NOTE, FALLBACK_NOTE],
+  },
+  newBuildPct: {
+    description: 'Het aandeel woningen dat in de laatste tien jaar is gebouwd. Hoog = veel nieuwbouw; laag = een gebied met (vooral) oudere woningen. Beschrijvend: er zit geen oordeel in.',
+    formula: 'woningen met een bouwjaar in de afgelopen tien jaar in % van de woningvoorraad (CBS)',
+    source: [SRC.kwb2025],
+    year: '2025',
+    caveats: ['CBS publiceert per wijk en buurt alleen "afgelopen tien jaar" en "meer dan tien jaar geleden", geen indeling naar vooroorlogs (vóór 1945) of na 2000.', 'CBS laat het cijfer weg in gebieden met weinig woningen ("geen data").', TASTE_NOTE, FALLBACK_NOTE],
   },
   pop65plus: {
     description: 'Het aandeel inwoners van 65 jaar of ouder. Hoog = een vergrijsd gebied. Beschrijvend: er zit geen oordeel in.',
@@ -392,6 +422,48 @@ const INFO = {
     year: '2025 (kerncijfers-tabel)',
     caveats: ['Alleen grote supermarkten volgens de CBS-definitie: een winkel met meerdere soorten dagelijkse artikelen en minimaal 150 m² oppervlakte. Kleinere buurtwinkels tellen niet mee.'],
   },
+  distSchool: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot de dichtstbijzijnde basisschool. Lager telt als beter.',
+    formula: 'gemiddelde wegafstand in km, gemiddeld over de inwoners (CBS nabijheidsstatistiek, basisonderwijs)',
+    source: [SRC.kwb2025, SRC.nabij2025],
+    year: '2025 (kerncijfers-tabel)',
+    caveats: [ROAD_NOTE, 'Elke basisschool telt, ook een school met een bijzondere grondslag of een speciale school; of er plek is, zegt het cijfer niet.', FALLBACK_NOTE],
+  },
+  distKinderopvang: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot het dichtstbijzijnde kinderdagverblijf. Lager telt als beter.',
+    formula: 'gemiddelde wegafstand in km, gemiddeld over de inwoners (CBS nabijheidsstatistiek, kinderdagverblijf)',
+    source: [SRC.kwb2025, SRC.nabij2025],
+    year: '2025 (kerncijfers-tabel)',
+    caveats: [ROAD_NOTE, 'Alleen kinderdagverblijven (0–4 jaar); buitenschoolse opvang en gastouders tellen niet mee. Wachtlijsten ziet het cijfer niet.', FALLBACK_NOTE],
+  },
+  distStation: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot het dichtstbijzijnde treinstation (alle stations, ook kleine). Lager telt als beter.',
+    formula: 'gemiddelde wegafstand in km tot een treinstation, gemiddeld over de inwoners (CBS nabijheid voorzieningen)',
+    source: [SRC.nabij2025, SRC.nabij2024],
+    year: '2025',
+    caveats: [ROAD_NOTE, 'Alleen treinstations: metro, tram en bus tellen niet mee, terwijl die in Rotterdam vaak dichterbij zijn.', NABIJ_NOTE],
+  },
+  distCafe: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot het dichtstbijzijnde café, bar of kroeg. Klein = uitgaan om de hoek; groot = rustig. Beschrijvend: of dat goed is, hangt af van wat je zoekt.',
+    formula: 'gemiddelde wegafstand in km tot een café e.d., gemiddeld over de inwoners (CBS nabijheid voorzieningen)',
+    source: [SRC.nabij2025, SRC.nabij2024],
+    year: '2025',
+    caveats: [ROAD_NOTE, TASTE_NOTE, NABIJ_NOTE],
+  },
+  horeca1km: {
+    description: 'Hoeveel cafés en restaurants er binnen 1 km over de weg liggen, gemiddeld over de inwoners. Hoog = levendig, veel uitgaan en eten in de buurt; laag = rustig wonen. Beschrijvend: er zit geen oordeel in.',
+    formula: 'gemiddeld aantal cafés e.d. binnen 1 km + gemiddeld aantal restaurants binnen 1 km (CBS nabijheid voorzieningen)',
+    source: [SRC.nabij2025, SRC.nabij2024],
+    year: '2025',
+    caveats: ['Cafetaria’s, snackbars en hotels tellen niet mee.', TASTE_NOTE, NABIJ_NOTE],
+  },
+  distCentrum: {
+    description: 'Hemelsbrede afstand van het midden van het gebied tot Rotterdam Centraal. Klein = midden in de stad; groot = aan de rand. Beschrijvend: of dat goed is, hangt af van wat je zoekt.',
+    formula: 'afstand in km over het aardoppervlak van het zwaartepunt van de gebiedsgrens tot Rotterdam Centraal (51,9244 N, 4,4690 O)',
+    source: [SRC.geo],
+    year: 'indeling 2024',
+    caveats: ['Berekend door deze app uit de kaart, geen CBS-cijfer. Het zwaartepunt van een groot of langgerekt gebied (havens, Hoek van Holland) kan ver van de woningen liggen.', 'Hemelsbreed: de Maas en de havens kunnen de werkelijke reisafstand veel groter maken.', TASTE_NOTE],
+  },
 };
 
 const freezeInfo = info => info ? { ...info, source: Object.freeze([...(info.source ?? [])]), caveats: Object.freeze([...(info.caveats ?? [])]) } : {};
@@ -403,7 +475,11 @@ export const DATASETS = Object.freeze({
   woonscore:        ds('woonscore',        'Woonscore',            'Woonscore (0–100, t.o.v. gelijke gebieden)', 'score', true, 'score', { inOverall: false }),
   population:       ds('population',       'Bevolking',            'Inwoners',                        'aantal',    null,  'bevolking'),
   density:          ds('density',          'Bevolkingsdichtheid',  'Inwoners per km²',                'per km²',   null,  'bevolking'),
+  pop15to24:        ds('pop15to24',        '15–24 jaar (%)',       '15 tot 25 jaar (%)',              '%',         null,  'bevolking', { ...RTM, inOverall: false }),
+  pop25to44:        ds('pop25to44',        '25–44 jaar (%)',       '25 tot 45 jaar (%)',              '%',         null,  'bevolking', { ...RTM, inOverall: false }),
+  pop45to64:        ds('pop45to64',        '45–64 jaar (%)',       '45 tot 65 jaar (%)',              '%',         null,  'bevolking', { ...RTM, inOverall: false }),
   pop65plus:        ds('pop65plus',        '65+ (%)',              '65+ (%)',                         '%',         null,  'bevolking'),
+  hhWithKidsPct:    ds('hhWithKidsPct',    'Gezinnen (%)',         'Huishoudens met kinderen (%)',    '%',         null,  'bevolking', { ...RTM, inOverall: false }),
   originDutchPct:   ds('originDutchPct',   'Nederlands (%)',       'Herkomst Nederland (%)',          '%',         null,  'herkomst', { inOverall: false }),
   originEuropePct:  ds('originEuropePct',  'Europa excl. NL (%)',  'Herkomst Europa excl. NL (%)',    '%',         null,  'herkomst', { inOverall: false }),
   nonWesternPct:    ds('nonWesternPct',    'Buiten Europa (%)',    'Herkomst buiten Europa (%)',      '%',         null,  'herkomst', { inOverall: false }),
@@ -413,6 +489,7 @@ export const DATASETS = Object.freeze({
   wozValue:         ds('wozValue',         'WOZ waarde',           'Gem. WOZ waarde (×€1k)',          '×€1.000',   true,  'welvaart'),
   ownerOccupiedPct: ds('ownerOccupiedPct', 'Koopwoningen (%)',     'Koopwoningen (%)',                '%',         null,  'welvaart', RTM),
   rentalPct:        ds('rentalPct',        'Huurwoningen (%)',     'Huurwoningen (%)',                '%',         null,  'welvaart', RTM),
+  newBuildPct:      ds('newBuildPct',      'Nieuwbouw (%)',        'Woningen jonger dan 10 jaar (%)', '%',         null,  'welvaart', { ...RTM, inOverall: false }),
   welfarePer1000:   ds('welfarePer1000',   'Bijstand',             'Bijstand per 1.000 inw.',         'per 1.000', false, 'welvaart', RTM),
   crimeRate:        ds('crimeRate',        'Misdrijven totaal',        'Misdrijven per 1.000 inw.',       'per 1.000', false, 'veiligheid'),
   crimeBurglary:    ds('crimeBurglary',    'Woninginbraak',        'Woninginbraak per 1.000 inw.',    'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
@@ -427,6 +504,12 @@ export const DATASETS = Object.freeze({
   crimeDrugs:       ds('crimeDrugs',       'Drugshandel',          'Drugshandel per 1.000 inw.',      'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
   distGP:           ds('distGP',           'Afstand huisarts',     'Afstand tot huisarts (km)',       'km',        false, 'voorzieningen', RTM),
   distSupermarket:  ds('distSupermarket',  'Afstand supermarkt',   'Afstand tot grote supermarkt (km)', 'km',      false, 'voorzieningen', RTM),
+  distSchool:       ds('distSchool',       'Afstand basisschool',  'Afstand tot basisschool (km)',    'km',        false, 'voorzieningen', RTM),
+  distKinderopvang: ds('distKinderopvang', 'Afstand kinderopvang', 'Afstand tot kinderdagverblijf (km)', 'km',     false, 'voorzieningen', RTM),
+  distStation:      ds('distStation',      'Afstand treinstation', 'Afstand tot treinstation (km)',   'km',        false, 'voorzieningen', RTM),
+  distCafe:         ds('distCafe',         'Afstand café',         'Afstand tot café (km)',           'km',        null,  'voorzieningen', { ...RTM, inOverall: false }),
+  horeca1km:        ds('horeca1km',        'Horeca binnen 1 km',   'Cafés en restaurants binnen 1 km', 'aantal',   null,  'voorzieningen', { ...RTM, inOverall: false }),
+  distCentrum:      ds('distCentrum',      'Afstand centrum',      'Hemelsbreed tot Rotterdam Centraal (km)', 'km', null, 'voorzieningen', { ...RTM, inOverall: false }),
 });
 
 export const DATASET_KEYS = Object.freeze(Object.keys(DATASETS));

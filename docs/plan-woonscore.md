@@ -56,7 +56,7 @@ out: density/drukte, age mix, origin, WOZ as such (expensive is not better).
 |---|---|---|
 | Veiligheid (35) | crimeRate, crimeBurglary, crimeViolence, crimeStreetRobbery, crimeVandalism | lower |
 | Welvaart (20) | avgIncome (higher), welfarePer1000 (lower) | |
-| Voorzieningen (25) | distGP, distSupermarket; later distSchool, distStation, distKinderopvang | lower |
+| Voorzieningen (25) | distGP, distSupermarket, distSchool, distStation, distKinderopvang (W2) | lower |
 | Opleiding (10) | highEdu | higher |
 | Woningmarkt (10) | ownerOccupiedPct, mildly (stability proxy) | higher |
 

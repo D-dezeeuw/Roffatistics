@@ -22,12 +22,17 @@ export const WIJK_FALLBACK_YEAR  = 2024;
 export const WIJK_COLUMNS = Object.freeze({
   region:              'WijkenEnBuurten',                    // 'WK059901  ' — padded with spaces
   population:          'AantalInwoners_5',                   // aantal
+  age15to24:           'k_15Tot25Jaar_9',                    // aantal
+  age25to44:           'k_25Tot45Jaar_10',                   // aantal
+  age45to64:           'k_45Tot65Jaar_11',                   // aantal
   age65plus:           'k_65JaarOfOuder_12',                 // aantal
   originDutch:         'Nederland_17',                       // herkomstland Nederland, aantal
   originEurope:        'EuropaExclusiefNederland_18',        // herkomstland Europa excl. NL, aantal
   originOutsideEurope: 'BuitenEuropa_19',                    // herkomstland buiten Europa, aantal
   bornAbroadEurope:    'EuropaExclusiefNederland_23',        // geboren buiten NL, herkomst Europa excl. NL, aantal
   bornAbroadOutside:   'BuitenEuropa_24',                    // geboren buiten NL, herkomst buiten Europa, aantal
+  households:          'HuishoudensTotaal_29',               // aantal
+  householdsWithKids:  'HuishoudensMetKinderen_32',          // aantal
   density:             'Bevolkingsdichtheid_34',             // inwoners per km²
   wozValue:            'GemiddeldeWOZWaardeVanWoningen_39',  // ×€1,000
   lowEdu:              'BasisonderwijsVmboMbo1_67',          // aantal, hoogst behaald
@@ -36,11 +41,35 @@ export const WIJK_COLUMNS = Object.freeze({
   avgIncome:           'GemGestandaardiseerdInkomen_83',     // gem. gestandaardiseerd inkomen huishouden, ×€1,000
   ownerOccupied:       'Koopwoningen_47',                    // % van de woningvoorraad
   rental:              'HuurwoningenTotaal_48',              // %
+  builtLast10:         'BouwjaarAfgelopenTienJaar_52',       // % van de woningvoorraad, bouwjaar in de laatste tien jaar
   welfare:             'PersonenPerSoortUitkeringBijstand_87', // personen met bijstand, aantal
   distGP:              'AfstandTotHuisartsenpraktijk_110',   // km, gemiddeld over inwoners
   distSupermarket:     'AfstandTotGroteSupermarkt_111',      // km
+  distKinderopvang:    'AfstandTotKinderdagverblijf_112',    // km (= 86270NED AfstandTotKinderdagverblijf_52)
+  distSchool:          'AfstandTotSchool_113',               // km, basisonderwijs (= 86270NED AfstandTotSchool_60)
 });
 export const WIJK_SELECT = Object.values(WIJK_COLUMNS).join(',');
+
+// CBS "Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2025"
+// (86270NED), per-field fallback to the 2024 table 86134NED. The kerncijfers
+// table carries only a few of its distances (huisarts, supermarkt, school,
+// kinderdagverblijf); station and horeca come from here. Keys checked in the
+// DataProperties of both tables on 15 Nov 2026: identical.
+export const NABIJ_TABLE = '86270NED';
+export const NABIJ_YEAR  = 2025;
+export const NABIJ_FALLBACK_TABLE = '86134NED';
+export const NABIJ_FALLBACK_YEAR  = 2024;
+export const NABIJ_COLUMNS = Object.freeze({
+  region:         'WijkenEnBuurten',
+  distStation:    'AfstandTotTreinstationsTotaal_90',   // km over de weg, gemiddeld over inwoners
+  distCafe:       'AfstandTotCafeED_36',                // km
+  cafes1km:       'Binnen1Km_37',                       // gem. aantal cafés e.d. binnen 1 km
+  restaurants1km: 'Binnen1Km_45',                       // gem. aantal restaurants binnen 1 km
+});
+export const NABIJ_SELECT = Object.values(NABIJ_COLUMNS).join(',');
+
+// Rotterdam Centraal (station entrance), reference point of distCentrum.
+export const CENTRUM_POINT = Object.freeze([51.9244, 4.4690]);   // [lat, lng]
 
 export const ROTTERDAM = Object.freeze({
   gemeente:    'GM0599',
@@ -132,7 +161,12 @@ export function extractAreaValues(row) {
     crimeRate:     null,                        // not in 85984NED; wijken get it from mergeWijkCrime
     highEdu:       share(high, eduTotal),
     wozValue:      toNumber(r[C.wozValue]),
+    pop15to24:     share(r[C.age15to24], population),
+    pop25to44:     share(r[C.age25to44], population),
+    pop45to64:     share(r[C.age45to64], population),
     pop65plus:     share(r[C.age65plus], population),
+    hhWithKidsPct: share(r[C.householdsWithKids], r[C.households]),
+    newBuildPct:   toNumber(r[C.builtLast10]),
     nonWesternPct: share(r[C.originOutsideEurope], population),
     originDutchPct:  share(r[C.originDutch], population),
     originEuropePct: share(r[C.originEurope], population),
@@ -144,6 +178,8 @@ export function extractAreaValues(row) {
     welfarePer1000: per1000(r[C.welfare], population),
     distGP:        toNumber(r[C.distGP]),
     distSupermarket: toNumber(r[C.distSupermarket]),
+    distSchool:    toNumber(r[C.distSchool]),
+    distKinderopvang: toNumber(r[C.distKinderopvang]),
     // Panel-only extras (not choropleth datasets)
     lowEdu:        share(low, eduTotal),
     medEdu:        share(med, eduTotal),
@@ -176,10 +212,82 @@ export function mergeYearValues(row, fallbackRow, fallbackYear = WIJK_FALLBACK_Y
   return { values, years };
 }
 
+/**
+ * Maps one nabijheid row (86270NED or 86134NED, same keys) to value keys.
+ * horeca1km = cafés + restaurants within 1 km (both averages over the
+ * inhabitants, so the sum is exact); null unless both are known.
+ */
+export function extractNabijValues(row) {
+  const N = NABIJ_COLUMNS, r = row ?? {};
+  const cafes = toNumber(r[N.cafes1km]), rest = toNumber(r[N.restaurants1km]);
+  return {
+    distStation: toNumber(r[N.distStation]),
+    distCafe:    toNumber(r[N.distCafe]),
+    horeca1km:   cafes != null && rest != null ? +(cafes + rest).toFixed(1) : null,
+  };
+}
+
+/** Nabijheid values with a per-field fallback to the older table: { values, years }. */
+export function mergeNabijValues(row, fallbackRow, fallbackYear = NABIJ_FALLBACK_YEAR) {
+  const values = extractNabijValues(row);
+  const years = {};
+  if (!fallbackRow) return { values, years };
+  const old = extractNabijValues(fallbackRow);
+  for (const key of Object.keys(values)) {
+    if (values[key] == null && old[key] != null) { values[key] = old[key]; years[key] = fallbackYear; }
+  }
+  return { values, years };
+}
+
+/**
+ * [lat, lng] centroid of a (Multi)Polygon geometry/feature: area-weighted over
+ * the outer rings (holes ignored), in lng scaled by cos(lat) so the weights are
+ * near-true areas. Falls back to the mean vertex for degenerate rings. Null
+ * without polygon coordinates.
+ */
+export function geoCentroid(geo) {
+  const g = geo?.type === 'Feature' ? geo.geometry : geo;
+  const polys = g?.type === 'Polygon' ? [g.coordinates] : g?.type === 'MultiPolygon' ? g.coordinates : null;
+  if (!polys?.length) return null;
+  let A = 0, cx = 0, cy = 0, n = 0, sx = 0, sy = 0;
+  for (const poly of polys) {
+    const ring = poly?.[0];
+    if (!ring?.length) continue;
+    const k = Math.cos(ring[0][1] * Math.PI / 180);
+    let a = 0, x = 0, y = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const [x0, y0] = ring[i], [x1, y1] = ring[(i + 1) % ring.length];
+      const f = x0 * k * y1 - x1 * k * y0;
+      a += f; x += (x0 * k + x1 * k) * f; y += (y0 + y1) * f;
+      sx += x0; sy += y0; n++;
+    }
+    a /= 2;
+    if (Math.abs(a) < 1e-12) continue;
+    A += Math.abs(a); cx += (x / (6 * a)) / k * Math.abs(a); cy += (y / (6 * a)) * Math.abs(a);
+  }
+  if (A > 0) return [cy / A, cx / A];
+  return n ? [sy / n, sx / n] : null;
+}
+
+/** Great-circle distance in km between two [lat, lng] points. */
+export function haversineKm([lat1, lng1], [lat2, lng2]) {
+  const rad = Math.PI / 180, dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371.0088 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** Straight-line km (1 decimal) from a feature's centroid to Rotterdam Centraal, or null. */
+export function distanceToCentrum(feature, point = CENTRUM_POINT) {
+  const c = geoCentroid(feature);
+  return c ? +haversineKm(c, point).toFixed(1) : null;
+}
+
 const YEAR_FIELD_LABELS = {
   highEdu: 'opleiding', avgIncome: 'inkomen', wozValue: 'WOZ', population: 'inwoners', density: 'dichtheid',
   pop65plus: '65+', nonWesternPct: 'herkomst', ownerOccupiedPct: 'koopwoningen', rentalPct: 'huurwoningen',
   welfarePer1000: 'bijstand', distGP: 'huisarts', distSupermarket: 'supermarkt',
+  pop15to24: '15–24', pop25to44: '25–44', pop45to64: '45–64', hhWithKidsPct: 'gezinnen', newBuildPct: 'nieuwbouw',
+  distSchool: 'school', distKinderopvang: 'kinderopvang', distStation: 'station', distCafe: 'café', horeca1km: 'horeca',
 };
 
 /**
@@ -270,18 +378,20 @@ const rowsByCode = rows => {
  * with or without a row, so the map can always show all wijken/buurten; an
  * area whose code is in neither table keeps all-null values ("geen data").
  */
-export function joinAreas(features, rows, fallbackRows = []) {
+export function joinAreas(features, rows, fallbackRows = [], nabij = {}) {
   const base = rowsByCode(rows), old = rowsByCode(fallbackRows);
+  const nBase = rowsByCode(nabij.rows), nOld = rowsByCode(nabij.fallbackRows);
   return features.map(f => {
     const code = normalizeAreaCode(f.properties?.statcode);
     const { values, years } = mergeYearValues(base.get(code) ?? null, old.get(code) ?? null);
+    const near = mergeNabijValues(nBase.get(code) ?? null, nOld.get(code) ?? null);
     return {
       code,
       name:   f.properties?.statnaam ?? code,
       level:  areaLevel(code),
       parent: parentCode(code),
-      values,
-      years,
+      values: { ...values, ...near.values, distCentrum: distanceToCentrum(f) },
+      years:  { ...years, ...near.years },
       bounds: geoBounds(f),
     };
   });
@@ -320,12 +430,17 @@ async function getJSON(url, fetcher, storage) {
 }
 
 /** Rotterdam gemeente + wijk + buurt rows of a kerncijfers table (default: the 2025 base). */
-export function buildWijkUrl(table = WIJK_TABLE) {
+export function buildWijkUrl(table = WIJK_TABLE, select = WIJK_SELECT) {
   const params = new URLSearchParams({
     $filter: `startswith(WijkenEnBuurten,'${ROTTERDAM.gemeente}') or startswith(WijkenEnBuurten,'${ROTTERDAM.wijkPrefix}') or startswith(WijkenEnBuurten,'${ROTTERDAM.buurtPrefix}')`,
-    $select: WIJK_SELECT,
+    $select: select,
   });
   return `${CBS_BASE}/${table}/TypedDataSet?${params}`;
+}
+
+/** Rotterdam rows of a nabijheid table (default: the 2025 base, 86270NED). */
+export function buildNabijUrl(table = NABIJ_TABLE) {
+  return buildWijkUrl(table, NABIJ_SELECT);
 }
 
 // ── Newest city WOZ: CBS 85036NED "Gemiddelde WOZ-waarde van woningen; eigendom, regio" ──
@@ -494,14 +609,17 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
     const buurtCrime = best(buildBuurtCrimeUrl());
     const fallback   = best(buildWijkUrl(WIJK_FALLBACK_TABLE));
     const cityWoz    = best(buildCityWozUrl()).then(parseCityWoz);
+    const nabijP     = Promise.all([best(buildNabijUrl()), best(buildNabijUrl(NABIJ_FALLBACK_TABLE))]);
     try {
       rows = (await getJSON(buildWijkUrl(), fetcher, storage)).value ?? [];
     } catch {
       dataOk = false;
     }
     const oldRows = await fallback;
-    const wijkenRaw = mergeCrime(joinAreas(wijkGeo.features, rows, oldRows), await wijkCrime, { minPopulation: CRIME_MIN_POPULATION });
-    const buurtenRaw = mergeCrime(joinAreas(buurtGeo.features, rows, oldRows), await buurtCrime, { minPopulation: CRIME_MIN_POPULATION_BUURT });
+    const [nabijRows, nabijOld] = await nabijP;
+    const nabij = { rows: nabijRows, fallbackRows: nabijOld };
+    const wijkenRaw = mergeCrime(joinAreas(wijkGeo.features, rows, oldRows, nabij), await wijkCrime, { minPopulation: CRIME_MIN_POPULATION });
+    const buurtenRaw = mergeCrime(joinAreas(buurtGeo.features, rows, oldRows, nabij), await buurtCrime, { minPopulation: CRIME_MIN_POPULATION_BUURT });
     // Woonscore per level among its peers; buurt rates shrink toward the parent wijk.
     const wijken  = withWoonscore(wijkenRaw);
     const buurten = withWoonscore(buurtenRaw, { parents: wijkenRaw });

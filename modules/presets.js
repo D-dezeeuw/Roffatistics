@@ -18,7 +18,7 @@ export const STANDAARD = Object.freeze({
   themes: Object.freeze([
     { key: 'veiligheid',    label: 'Veiligheid',    weight: 35, metrics: [['crimeRate', 'lower'], ['crimeBurglary', 'lower'], ['crimeViolence', 'lower'], ['crimeStreetRobbery', 'lower'], ['crimeVandalism', 'lower']] },
     { key: 'welvaart',      label: 'Welvaart',      weight: 20, metrics: [['avgIncome', 'higher'], ['welfarePer1000', 'lower']] },
-    { key: 'voorzieningen', label: 'Voorzieningen', weight: 25, metrics: [['distGP', 'lower'], ['distSupermarket', 'lower']] },
+    { key: 'voorzieningen', label: 'Voorzieningen', weight: 25, metrics: [['distGP', 'lower'], ['distSupermarket', 'lower'], ['distSchool', 'lower'], ['distStation', 'lower'], ['distKinderopvang', 'lower']] },
     { key: 'opleiding',     label: 'Opleiding',     weight: 10, metrics: [['highEdu', 'higher']] },
     { key: 'woningmarkt',   label: 'Woningmarkt',   weight: 10, metrics: [['ownerOccupiedPct', 'higher']] },
   ].map(t => Object.freeze({ ...t, metrics: Object.freeze(t.metrics.map(([key, pref]) => Object.freeze({ key, pref }))) }))),
