@@ -934,16 +934,17 @@ footer {
 .splash[hidden] { display: none; }
 .splash.splash-leaving { opacity: 0; pointer-events: none; }
 
-.splash-card {
-  width: min(460px, 100%);
+/* Three option cards (v0.31): Jouw buurt | Jouw ideale woonplek | Cijfers & dashboard.
+   Equal height via grid stretch; each CTA sits at the card foot (margin-top: auto). */
+.splash-shell {
+  width: min(1080px, 100%);
   max-height: calc(100dvh - 2rem);
   overflow-y: auto;
-  padding: 2rem 1.75rem 1.5rem;
+  padding: 1.6rem 1.6rem 1.2rem;
   background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
   border: 1px solid rgba(var(--accent-rgb), 0.35);
   border-radius: calc(var(--radius) * 1.5);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(var(--glow-rgb), 0.08);
-  text-align: center;
   animation: splash-in 0.45s ease both;
 }
 
@@ -952,8 +953,10 @@ footer {
   to   { opacity: 1; transform: none; }
 }
 
+.splash-head { text-align: center; max-width: 640px; margin: 0 auto; }
+
 .splash-title {
-  font-size: clamp(1.8rem, 7vw, 2.4rem);
+  font-size: clamp(1.7rem, 5vw, 2.2rem);
   font-weight: 800;
   letter-spacing: 0.06em;
   background: var(--gradient-text);
@@ -963,67 +966,149 @@ footer {
 }
 
 .splash-tagline {
-  margin-top: 0.5rem;
+  margin-top: 0.4rem;
   color: var(--text-muted);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   line-height: 1.45;
 }
 
-.splash-features {
-  list-style: none;
-  margin: 1.4rem 0;
+.splash-cards {
   display: grid;
-  gap: 0.55rem;
-  text-align: left;
-  font-size: 0.88rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 1rem;
+  margin: 1.4rem 0 1.1rem;
 }
 
-.splash-features li {
+.splash-opt {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 0.7rem;
-  padding: 0.5rem 0.7rem;
+  padding: 1.3rem 1.2rem 1.2rem;
+  text-align: left;
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
   border-radius: var(--radius);
-  background: rgba(var(--accent-rgb), 0.08);
-  border: 1px solid rgba(var(--accent-rgb), 0.15);
 }
 
-.splash-features strong { color: var(--text-primary); font-weight: 600; }
+.splash-opt-main {
+  background: rgba(var(--accent-rgb), 0.13);
+  border-color: rgba(var(--accent-rgb), 0.55);
+  box-shadow: 0 10px 30px rgba(var(--accent-rgb), 0.18);
+}
 
 .splash-icon {
-  flex: none;
   display: grid;
   place-items: center;
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
-  font: 700 0.75rem var(--font-data);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.14);
+}
+.splash-opt-main .splash-icon { background: rgba(var(--accent-rgb), 0.24); }
+.splash-icon svg { display: block; }
+.splash-icon .splash-icon-fill { fill: rgba(var(--accent-rgb), 0.22); }
+.splash-icon .splash-icon-bg   { fill: var(--bg-surface); }
+
+.splash-opt-title { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
+
+.splash-opt-text {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.splash-search { position: relative; margin-top: auto; }
+.splash-search input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  font: 0.92rem var(--font-ui);
+  color: var(--text-primary);
+  background: var(--bg-base);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border-radius: var(--radius);
+}
+.splash-search input::placeholder { color: var(--text-muted); }
+.splash-search input:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.splash-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  max-height: 15rem;
+  background: var(--bg-surface);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.splash-results[hidden] { display: none; }
+.splash-search-hint { margin-top: 0.35rem; font-size: 0.74rem; color: var(--text-muted); }
+
+.splash-cta-group { display: flex; flex-direction: column; align-items: stretch; gap: 0.45rem; margin-top: auto; }
+
+.splash-cta {
+  margin-top: auto;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font: 700 0.92rem var(--font-ui);
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.splash-search + .splash-cta { margin-top: 0; }
+.splash-cta-group .splash-cta { margin-top: 0; }
+.splash-cta:hover { background: rgba(var(--accent-rgb), 0.16); transform: translateY(-1px); }
+.splash-cta-primary {
   color: #fff;
   background: var(--gradient-accent);
+  border-color: transparent;
+  box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.35);
+}
+.splash-cta-primary:hover { background: var(--gradient-accent); box-shadow: 0 8px 26px rgba(var(--glow-rgb), 0.35); }
+.splash-cta:focus-visible, .splash-link:focus-visible, .splash-start:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 3px; }
+
+.splash-link {
+  align-self: center;
+  padding: 0.2rem 0.3rem;
+  font: 600 0.82rem var(--font-ui);
+  color: var(--accent-2);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.splash-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem 1.2rem;
+  text-align: center;
 }
 
 .splash-start {
-  width: 100%;
-  padding: 0.8rem 1rem;
-  font: 700 0.95rem var(--font-ui);
-  letter-spacing: 0.04em;
-  color: #fff;
-  background: var(--gradient-accent);
-  border: 0;
+  padding: 0.45rem 0.9rem;
+  font: 600 0.85rem var(--font-ui);
+  color: var(--text-primary);
+  background: none;
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
   border-radius: var(--radius);
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.35);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-
-.splash-start:hover { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(var(--glow-rgb), 0.35); }
-.splash-start:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 3px; }
+.splash-start:hover { border-color: var(--accent); }
 
 .splash-hide-label {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin-top: 0.9rem;
   font-size: 0.78rem;
   color: var(--text-muted);
   cursor: pointer;
@@ -1032,7 +1117,7 @@ footer {
 .splash-hide { accent-color: var(--accent); }
 
 .splash-sources {
-  margin-top: 1rem;
+  flex-basis: 100%;
   font-size: 0.7rem;
   color: var(--text-muted);
   line-height: 1.6;
@@ -1041,15 +1126,25 @@ footer {
 .splash-sources a { color: var(--text-muted); }
 .splash-sources a:hover { color: var(--accent-2); }
 
+/* Stacked: the wizard card (primary) comes first visually; DOM/tab order stays left → middle → right. */
+@media (max-width: 860px) {
+  .splash { align-items: flex-start; }
+  .splash-cards { grid-template-columns: 1fr; }
+  .splash-opt-main { order: -1; }
+}
+
 @media (max-width: 480px) {
-  .splash-card { padding: 1.5rem 1.1rem 1.2rem; }
-  .splash-features { font-size: 0.82rem; margin: 1.1rem 0; }
+  .splash { padding: 0.5rem; }
+  .splash-shell { padding: 1.2rem 0.9rem 1rem; max-height: calc(100dvh - 1rem); }
+  .splash-opt { padding: 1rem; }
+  .splash-icon { width: 68px; height: 68px; }
+  .splash-icon svg { width: 46px; height: 46px; }
   .about-btn, .explain-btn { padding: 0.35rem 0.5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .splash, .splash-start { transition: none; }
-  .splash-card { animation: none; }
+  .splash, .splash-cta { transition: none; }
+  .splash-shell { animation: none; }
 }
 
 /* ── Ranglijst (#view-list, modules/list.js) ─────────────────────────────── */
@@ -1821,7 +1916,7 @@ footer {
 
 /* ─── Brand: splash logo, theme switch ───────────────────── */
 
-.splash-logo { display: block; width: 72px; height: 72px; margin: 0 auto 0.75rem; }
+.splash-logo { display: block; width: 56px; height: 56px; margin: 0 auto 0.5rem; }
 
 .theme-switcher { align-items: center; }
 .theme-switcher .theme-label {

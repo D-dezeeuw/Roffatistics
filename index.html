@@ -386,24 +386,63 @@
   </footer>
 
   <div id="splash" class="splash" role="dialog" aria-modal="true" aria-labelledby="splash-title" aria-describedby="splash-tagline" hidden>
-    <div class="splash-card">
-      <img class="splash-logo" src="assets/logo.svg" alt="" width="72" height="72">
-      <h1 id="splash-title" class="splash-title">Roffatistics</h1>
-      <p id="splash-tagline" class="splash-tagline">Rotterdam in cijfers &mdash; open data van het CBS en de politie (kerncijfers 2025, misdrijven 2025), van provincie tot buurt.</p>
-      <ul class="splash-features">
-        <li><span class="splash-icon" aria-hidden="true">1</span><span>Kies een dataset via <strong>Layers</strong></span></li>
-        <li><span class="splash-icon" aria-hidden="true">2</span><span>Zoom in voor <strong>gemeente</strong> en <strong>buurt</strong></span></li>
-        <li><span class="splash-icon" aria-hidden="true">3</span><span>Klik op een gebied voor <strong>details</strong></span></li>
-        <li><span class="splash-icon" aria-hidden="true">4</span><span><strong>Pin</strong> en vergelijk twee gemeenten</span></li>
-      </ul>
-      <button type="button" class="splash-start">Verken Rotterdam</button>
-      <label class="splash-hide-label"><input type="checkbox" class="splash-hide" /> Niet meer tonen</label>
-      <p class="splash-sources">Bronnen:
-        <a href="https://opendata.cbs.nl/" target="_blank" rel="noopener">CBS OData</a> &middot;
-        <a href="https://www.pdok.nl/" target="_blank" rel="noopener">PDOK</a> &middot;
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> /
-        <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a>
-      </p>
+    <div class="splash-shell">
+      <header class="splash-head">
+        <img class="splash-logo" src="assets/logo.svg" alt="" width="56" height="56">
+        <h1 id="splash-title" class="splash-title">Roffatistics</h1>
+        <p id="splash-tagline" class="splash-tagline">Rotterdam en Nederland in cijfers &mdash; open data van het CBS en de politie (kerncijfers 2025, misdrijven 2025), van provincie tot buurt.</p>
+      </header>
+
+      <div class="splash-cards">
+        <section class="splash-opt splash-opt-buurt" aria-labelledby="splash-buurt-title">
+          <span class="splash-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" width="56" height="56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6c-6.1 0-11 4.8-11 10.8C9 25 20 36 20 36s11-11 11-19.2C31 10.8 26.1 6 20 6z" class="splash-icon-fill"/><circle cx="20" cy="17" r="4"/><circle cx="32" cy="32" r="7" class="splash-icon-bg"/><path d="M37 37l5 5"/></svg>
+          </span>
+          <h2 id="splash-buurt-title" class="splash-opt-title">Jouw buurt</h2>
+          <p class="splash-opt-text">Hoe staat jouw wijk of buurt ervoor? Zoek op naam of postcode en zie meteen waar hij staat in de ranglijst, met alle cijfers op een rij: wonen, veiligheid, voorzieningen en meer.</p>
+          <div class="splash-search">
+            <label class="sr-only" for="splash-search">Zoek een wijk, buurt, gemeente of postcode</label>
+            <input id="splash-search" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="splash-results"
+                   placeholder="Bijv. Kralingen of 3062" autocomplete="off" spellcheck="false" enterkeyhint="search">
+            <ul id="splash-results" class="search-results splash-results" role="listbox" aria-label="Zoekresultaten" hidden></ul>
+            <p class="splash-search-hint" aria-live="polite" hidden></p>
+          </div>
+          <button type="button" class="splash-cta" data-splash="buurt">Bekijk mijn buurt</button>
+        </section>
+
+        <section class="splash-opt splash-opt-main" aria-labelledby="splash-wizard-title">
+          <span class="splash-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" width="56" height="56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22L24 8l17 14" /><path d="M11 19v21h26V19" class="splash-icon-fill"/><path d="M24 35s-7-4.3-7-9a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 31 26c0 4.7-7 9-7 9z"/><path d="M40 6v6M37 9h6"/></svg>
+          </span>
+          <h2 id="splash-wizard-title" class="splash-opt-title">Jouw ideale woonplek</h2>
+          <p class="splash-opt-text">Beantwoord een paar vragen over je levenstype, budget, vervoer, sfeer en veiligheid, en vul desgewenst nog wat extra wensen in. Je krijgt een persoonlijke Woonscore op de kaart en een top 10 van buurten die bij je passen. Alles wordt in je eigen browser berekend; er wordt niets verstuurd.</p>
+          <button type="button" class="splash-cta splash-cta-primary" data-splash="wizard">Vind jouw woonplek</button>
+        </section>
+
+        <section class="splash-opt splash-opt-dash" aria-labelledby="splash-dash-title">
+          <span class="splash-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" width="56" height="56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 42h36"/><rect x="9" y="26" width="7" height="12" rx="1.5" class="splash-icon-fill"/><rect x="20.5" y="18" width="7" height="20" rx="1.5" class="splash-icon-fill"/><rect x="32" y="10" width="7" height="28" rx="1.5" class="splash-icon-fill"/><path d="M8 18l9-6 8 4 14-10"/></svg>
+          </span>
+          <h2 id="splash-dash-title" class="splash-opt-title">Cijfers &amp; dashboard</h2>
+          <p class="splash-opt-text">Liever het grote plaatje? Het dashboard zet de belangrijkste cijfers in grafieken bij elkaar. In de uitleg lees je per cijfer wat het betekent en waar het vandaan komt: CBS, politie en PDOK.</p>
+          <div class="splash-cta-group">
+            <button type="button" class="splash-link" data-splash="explain">Wat betekenen de cijfers?</button>
+            <button type="button" class="splash-cta" data-splash="dashboard">Open het dashboard</button>
+          </div>
+        </section>
+      </div>
+
+      <footer class="splash-foot">
+        <button type="button" class="splash-start">Naar de kaart</button>
+        <label class="splash-hide-label"><input type="checkbox" class="splash-hide" /> Niet meer tonen</label>
+        <p class="splash-sources">Bronnen:
+          <a href="https://opendata.cbs.nl/" target="_blank" rel="noopener">CBS OData</a> &middot;
+          <a href="https://data.politie.nl/" target="_blank" rel="noopener">Politie</a> &middot;
+          <a href="https://www.pdok.nl/" target="_blank" rel="noopener">PDOK</a> &middot;
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> /
+          <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a>
+        </p>
+      </footer>
     </div>
   </div>
 
