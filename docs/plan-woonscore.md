@@ -146,7 +146,7 @@ opt-in attraction only**:
 | W3 | wizard steps 1–5, Jouw score layer, top 10, sliders, URL/localStorage | wizard state ↔ preset mapping tested; happy flow — **built 15 Nov 2026 (v0.20.0)**, see decisions.md |
 | W4 | Gemeenschap step with the §5 rules; Uitleg text | tests that no preset or URL can produce a negative origin weight — **built 15 Nov 2026 (v0.21.0)**, see decisions.md |
 | W5 | NL gemeenten extra metrics, "Jouw vs Standaard" compare, polish | — |
-| W6 | Personal wizard: detailed origin group per gemeente (85458NED), step "Jouw situatie" (opleiding, bijstand), 5-step importance per theme | positive-only guards, hash round-trips incl. old hashes — **built 15 Nov 2026 (v0.23.0)**, see decisions.md |
+| W6 | Personal wizard: detailed origin group per gemeente (85458NED), step "Jouw situatie" (opleiding, bijstand; v0.26.0: income and education sliders, see decisions.md), 5-step importance per theme | positive-only guards, hash round-trips incl. old hashes — **built 15 Nov 2026 (v0.23.0)**, see decisions.md |
 
 Out of scope for now: all ~14k NL buurten (only Rotterdam buurten are
 loaded; that is a separate data/size decision), and house-price data beyond

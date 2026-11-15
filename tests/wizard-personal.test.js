@@ -1,5 +1,5 @@
 // v0.23.0: the wizard gets a detailed origin group for gemeenten (Gemeenschap,
-// CBS 85458NED), the opt-in step "Jouw situatie" (opleidingsniveau, bijstand)
+// CBS 85458NED), the opt-in step "Jouw situatie" (opleiding, income; sliders since W7)
 // and a 5-step importance scale per theme. All three keep the W4 rules:
 // positive-only, opt-in, never in Standaard, private unless ticked.
 import { describe, it, afterEach } from 'node:test';
@@ -8,8 +8,10 @@ import {
   STEPS, normalizeAnswers, isEmptyAnswers, answersToPreset, encodeAnswers, decodeAnswers, presetFromScore,
   shareableScore, restoreLocalScore, describeAnswers, themeWeights, themeImportance, importanceFromRatio,
   gemeenschapLevel, guardOrigin, IMPORTANCE, GEMEENSCHAP_LEVEL_PCT, SITUATIE_KEYS, DETAIL_GROUPS,
-  EXTRA_THEME_WEIGHTS,
+  EXTRA_THEME_WEIGHTS, SITUATIE_EDU, SITUATIE_INCOME, incomeTarget, monthlyToStandardisedK,
+  INCOME_IDEAL_MIN, INCOME_IDEAL_MAX, INCOME_TOLERANCE_LOG,
 } from '../modules/wizard-model.js';
+import { targetFactor } from '../modules/score.js';
 import { STANDAARD, GELIJK, ORIGIN_KEYS, resolvePreset, scoreWithPreset, rowsWithWoonscore, setPersonalPreset } from '../modules/presets.js';
 import { explain } from '../modules/score.js';
 import {
@@ -79,20 +81,20 @@ describe('Jouw situatie (opleidingsniveau, bijstand)', () => {
     assert.equal(STEPS.at(-2), 'situatie');
     assert.equal(normalizeAnswers({}).situatie, null);
     for (const p of [STANDAARD, GELIJK, answersToPreset({}), presetFromScore(null)]) assert.ok(!p.themes.some(t => t.key === 'situatie'));
-    assert.equal(normalizeAnswers({ situatie: { edu: 'onbekend', bijstand: 'ja' } }).situatie, null);
+    assert.equal(normalizeAnswers({ situatie: { edu: 'onbekend', bijstand: 'ja', income: 'm999' } }).situatie, null);
   });
   it('an opleidingsniveau attracts to more people of that level and replaces Opleiding', () => {
-    for (const [edu, key] of [['laag', 'lowEdu'], ['middelbaar', 'medEdu'], ['hoog', 'highEdu']]) {
+    for (const [edu, key] of [['basis', 'lowEdu'], ['laag', 'lowEdu'], ['middelbaar', 'medEdu'], ['hoog', 'highEdu']]) {
       const p = answersToPreset({ situatie: { edu } });
       assert.ok(!themeOf(p, 'opleiding'), edu);
       assert.deepEqual(themeOf(p, 'situatie').metrics.map(m => [m.key, m.pref]), [[key, 'higher']]);
       assert.match(themeOf(p, 'situatie').metrics[0].label, /vergelijkbare situatie/);
     }
   });
-  it('bijstand turns welfarePer1000 from a minus into a plus for that user only', () => {
-    const p = answersToPreset({ situatie: { bijstand: true } });
-    assert.ok(!themeOf(p, 'welvaart').metrics.some(m => m.key === 'welfarePer1000'));
-    assert.deepEqual(themeOf(p, 'situatie').metrics.map(m => [m.key, m.pref]), [['welfarePer1000', 'higher']]);
+  it('the Bijstand income stop turns welfarePer1000 from a minus into a plus for that user only', () => {
+    const p = answersToPreset({ situatie: { income: 'bijstand' } });
+    assert.ok(!themeOf(p, 'welvaart'), 'Welvaart left empty is dropped');
+    assert.deepEqual(themeOf(p, 'situatie').metrics.map(m => [m.key, m.pref]), [['avgIncome', 'target'], ['welfarePer1000', 'higher']]);
     assert.ok(themeOf(answersToPreset({}), 'welvaart').metrics.some(m => m.key === 'welfarePer1000' && m.pref === 'lower'));
     const areas = [{ code: 'A', values: { welfarePer1000: 80, avgIncome: 30 } }, { code: 'B', values: { welfarePer1000: 10, avgIncome: 30 } }, { code: 'C', values: { welfarePer1000: 40, avgIncome: 30 } }];
     const r = scoreWithPreset(areas, p).results;
@@ -100,16 +102,16 @@ describe('Jouw situatie (opleidingsniveau, bijstand)', () => {
     assert.ok(!explain(r.find(x => x.code === 'B')).minus.some(f => f.theme === 'situatie'), 'never a minus');
   });
   it('round-trips as a `j` segment and stays out of shared links unless ticked', () => {
-    for (const s of [{ edu: 'laag', bijstand: true }, { edu: 'hoog', bijstand: false }, { edu: null, bijstand: true, share: true }]) {
+    for (const s of [{ edu: 'laag', income: 'bijstand' }, { edu: 'hoog' }, { income: 'm7500', share: true }, { edu: 'basis', income: 'hoger' }]) {
       const a = normalizeAnswers({ sfeer: 40, situatie: s });
       assert.deepEqual(decodeAnswers(encodeAnswers(a)).situatie, a.situatie);
     }
-    const priv = encodeAnswers({ sfeer: 40, situatie: { edu: 'laag', bijstand: true } });
-    assert.equal(priv, 's40.jlb');
+    const priv = encodeAnswers({ sfeer: 40, situatie: { edu: 'laag', income: 'bijstand' } });
+    assert.equal(priv, 's40.jl0');
     assert.equal(shareableScore(priv), 's40');
-    assert.equal(shareableScore('s40.jlbx'), 's40.jlbx');
+    assert.equal(shareableScore('s40.jl0x'), 's40.jl0x');
     assert.equal(restoreLocalScore('s40', priv), priv, 'local choice survives a reload');
-    for (const bad of ['j', 'jx', 'jq', 'jbl', 'j-l']) assert.equal(decodeAnswers(`s40.${bad}`).situatie, null, bad);
+    for (const bad of ['j', 'jx', 'jq', 'jbl', 'j-l', 'j9', 'j0b', 'jl12', 'j0l']) assert.equal(decodeAnswers(`s40.${bad}`).situatie, null, bad);
   });
   it('the guard keeps the Situatie theme positive-only, whatever a preset says', () => {
     const forged = guardOrigin({ themes: [
@@ -131,15 +133,103 @@ describe('Jouw situatie (opleidingsniveau, bijstand)', () => {
       const s = Array.from({ length: 2 + Math.floor(rnd() * 14) }, () => alphabet[Math.floor(rnd() * alphabet.length)]).join('');
       const p = presetFromScore(s);
       for (const t of p.themes) for (const m of t.metrics) {
-        if (t.key === 'situatie') { assert.ok(SITUATIE_KEYS.includes(m.key) && m.pref === 'higher', s); }
-        else assert.ok(!['lowEdu', 'medEdu'].includes(m.key) && (m.key !== 'welfarePer1000' || m.pref === 'lower'), s);
+        if (t.key === 'situatie') assert.ok((SITUATIE_KEYS.includes(m.key) && m.pref === 'higher') || (m.key === 'avgIncome' && m.pref === 'target' && p.targets.avgIncome?.tolerance > 0), s);
+        else assert.ok(!['lowEdu', 'medEdu'].includes(m.key) && (m.key !== 'welfarePer1000' || m.pref === 'lower') && !(m.key === 'avgIncome' && p.targets.avgIncome), s);
       }
     }
   });
   it('is described and explained', () => {
-    assert.match(describeAnswers({ situatie: { edu: 'middelbaar', bijstand: true } }), /vergelijkbare situatie: opleiding middelbaar, bijstand/);
+    assert.match(describeAnswers({ situatie: { edu: 'middelbaar', bijstand: true } }), /vergelijkbare situatie: opleiding havo–vwo–mbo-4, inkomen bijstand/);
+    assert.match(describeAnswers({ situatie: { income: 'm2500' } }), /inkomen ± €2\.500\/mnd/);
     assert.ok(GENERAL_SECTIONS.some(s => s.id === 'situatie'));
     assert.ok(GENERAL_SECTIONS.some(s => s.id === 'belang'));
+  });
+});
+
+describe('Jouw situatie sliders (income, education; W7)', () => {
+  const income = (code, v) => ({ code, values: { avgIncome: v, welfarePer1000: 20, highEdu: 30, lowEdu: 30, medEdu: 40 } });
+  it('income bands map to an avgIncome target by the stated rule, clamped to the area range', () => {
+    assert.deepEqual(Object.keys(SITUATIE_INCOME), ['bijstand', 'm500', 'm2500', 'm5000', 'm7500', 'm10000', 'm15000', 'm30000', 'hoger']);
+    assert.deepEqual(Object.values(SITUATIE_INCOME).map(b => b.code).join(''), '012345678');
+    assert.equal(Math.round(monthlyToStandardisedK(5000) * 10) / 10, 46.2);
+    assert.deepEqual(incomeTarget('m5000'), { ideal: 46.2, tolerance: INCOME_TOLERANCE_LOG, log: true });
+    assert.equal(incomeTarget('m7500').ideal, 69.2);
+    assert.equal(incomeTarget('m10000').ideal, 92.3);
+    for (const b of ['bijstand', 'm500']) assert.equal(incomeTarget(b).ideal, INCOME_IDEAL_MIN, b);
+    assert.equal(incomeTarget('m2500').ideal, 23.1);
+    for (const b of ['m15000', 'm30000', 'hoger']) assert.equal(incomeTarget(b).ideal, INCOME_IDEAL_MAX, b);
+    assert.equal(incomeTarget('onzin'), null);
+    const ideals = Object.keys(SITUATIE_INCOME).map(b => incomeTarget(b).ideal);
+    assert.deepEqual(ideals, [...ideals].sort((x, y) => x - y), 'monotone in the band');
+  });
+  it('a band puts the target in Situatie and takes avgIncome out of Welvaart', () => {
+    const p = answersToPreset({ situatie: { income: 'm7500' } });
+    assert.deepEqual(themeOf(p, 'situatie').metrics.map(m => [m.key, m.pref]), [['avgIncome', 'target']]);
+    assert.deepEqual(p.targets.avgIncome, incomeTarget('m7500'));
+    assert.deepEqual(themeOf(p, 'welvaart').metrics.map(m => [m.key, m.pref]), [['welfarePer1000', 'lower']], 'higher bands keep the Standaard welfare minus');
+    const f = resolvePreset(p, ALL).filter(x => x.key === 'avgIncome');
+    assert.deepEqual(f.map(x => [x.theme, x.pref, x.ideal, x.log]), [['situatie', 'target', 69.2, true]]);
+    assert.ok(themeOf(answersToPreset({ situatie: { income: 'm500' } }), 'situatie').metrics.some(m => m.key === 'welfarePer1000' && m.pref === 'higher'));
+  });
+  it('low bands prefer low-income areas, high bands high-income areas', () => {
+    const areas = [income('LOW', 26), income('MID', 42), income('HIGH', 85)];
+    const top = band => { const r = scoreWithPreset(areas, answersToPreset({ situatie: { income: band }, importance: { situatie: 4 } })).results; return [...r].sort((a, b) => b.score - a.score)[0].code; };
+    assert.equal(top('bijstand'), 'LOW');
+    assert.equal(top('m2500'), 'LOW');
+    assert.equal(top('m5000'), 'MID');
+    assert.equal(top('hoger'), 'HIGH');
+  });
+  it('the education slider maps to the share of the same level', () => {
+    const keys = Object.fromEntries(Object.entries(SITUATIE_EDU).map(([k, e]) => [k, e.key]));
+    assert.deepEqual(keys, { basis: 'lowEdu', laag: 'lowEdu', middelbaar: 'medEdu', hoog: 'highEdu' });
+    const areas = [{ code: 'L', values: { lowEdu: 50, medEdu: 30, highEdu: 20, avgIncome: 35 } }, { code: 'H', values: { lowEdu: 10, medEdu: 30, highEdu: 60, avgIncome: 35 } }];
+    const best = edu => { const r = scoreWithPreset(areas, answersToPreset({ situatie: { edu } })).results; return [...r].sort((a, b) => b.score - a.score)[0].code; };
+    assert.equal(best('basis'), 'L');
+    assert.equal(best('hoog'), 'H');
+  });
+  it('unset (Niet invullen) gives no factor and leaves Standaard alone', () => {
+    for (const s of [{}, { edu: null, income: null }, { edu: '', income: '' }]) {
+      assert.equal(normalizeAnswers({ situatie: s }).situatie, null);
+      const p = answersToPreset({ situatie: s });
+      assert.ok(!themeOf(p, 'situatie'));
+      assert.deepEqual(p.targets, {});
+      assert.deepEqual(themeOf(p, 'welvaart').metrics.map(m => m.key), ['avgIncome', 'welfarePer1000']);
+    }
+    const eduOnly = answersToPreset({ situatie: { edu: 'laag' } });
+    assert.ok(!('avgIncome' in eduOnly.targets) && themeOf(eduOnly, 'welvaart').metrics.some(m => m.key === 'avgIncome' && m.pref === 'higher'));
+  });
+  it('old hashes and the old bijstand field still decode', () => {
+    assert.deepEqual(decodeAnswers('jlb').situatie, { edu: 'laag', income: 'bijstand', share: false });
+    assert.deepEqual(decodeAnswers('jb').situatie, { edu: null, income: 'bijstand', share: false });
+    assert.deepEqual(decodeAnswers('jhbx').situatie, { edu: 'hoog', income: 'bijstand', share: true });
+    assert.deepEqual(decodeAnswers('jm').situatie, { edu: 'middelbaar', income: null, share: false });
+    assert.deepEqual(decodeAnswers('jmx').situatie, { edu: 'middelbaar', income: null, share: true });
+    assert.deepEqual(normalizeAnswers({ situatie: { bijstand: true } }).situatie, { edu: null, income: 'bijstand', share: false });
+    assert.equal(normalizeAnswers({ situatie: { bijstand: true, income: 'm5000' } }).situatie.income, 'm5000', 'an explicit band wins');
+    assert.equal(encodeAnswers(decodeAnswers('jlb')), 'jl0', 're-encodes in the new form');
+    assert.ok(!('bijstand' in normalizeAnswers({ situatie: { edu: 'laag' } }).situatie), 'bijstand is gone from the model');
+  });
+  it('positive-only: no Situatie factor is a minus; only the target falloff shapes income', () => {
+    for (const band of Object.keys(SITUATIE_INCOME)) {
+      const p = answersToPreset({ situatie: { income: band, edu: 'laag' } });
+      for (const m of themeOf(p, 'situatie').metrics) assert.ok(m.pref === 'higher' || (m.key === 'avgIncome' && m.pref === 'target'), band);
+      const t = p.targets.avgIncome;
+      // Falloff: 1 at the ideal, never negative, non-increasing away from it on both sides.
+      assert.equal(targetFactor(t.ideal, t.ideal, t.tolerance, { log: true }), 1);
+      let prevUp = 1, prevDown = 1;
+      for (let k = 1; k <= 40; k++) {
+        const up = targetFactor(t.ideal * (1 + k / 10), t.ideal, t.tolerance, { log: true });
+        const down = targetFactor(t.ideal / (1 + k / 10), t.ideal, t.tolerance, { log: true });
+        assert.ok(up >= 0 && up <= prevUp && down >= 0 && down <= prevDown, band);
+        prevUp = up; prevDown = down;
+      }
+      const areas = [income('A', 25), income('B', 45), income('C', 95), { code: 'D', values: { avgIncome: 60, welfarePer1000: 90, lowEdu: 5, medEdu: 40, highEdu: 55 } }];
+      for (const r of scoreWithPreset(areas, p).results) assert.ok(!explain(r).minus.some(f => f.theme === 'situatie'), `${band} ${r.code}`);
+    }
+    const forged = guardOrigin({ themes: [{ key: 'situatie', weight: 5, metrics: [{ key: 'avgIncome', pref: 'target' }, { key: 'avgIncome', pref: 'lower' }] }, { key: 'welvaart', weight: 5, metrics: [{ key: 'avgIncome', pref: 'higher' }] }], targets: { avgIncome: { ideal: 1, tolerance: 0 } } });
+    assert.ok(!themeOf(forged, 'situatie'), 'no valid target: the income metric is dropped');
+    assert.ok(!themeOf(forged, 'welvaart').metrics.length, 'avgIncome cannot become a target outside Situatie');
+    assert.ok(!resolvePreset({ themes: [{ key: 'situatie', weight: 5, metrics: [{ key: 'avgIncome', pref: 'target' }] }], targets: {} }, ALL).length, 'scoring-time guard');
   });
 });
 

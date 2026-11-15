@@ -10,8 +10,8 @@
 // opt-in, positive-only attraction to one CBS origin group: it can only add
 // a `higher` factor on that group's share, never score any group down.
 // v0.23.0 adds a detailed origin group for gemeenten (85458NED, see
-// herkomst-gemeente.js), the opt-in step "Jouw situatie" (opleidingsniveau,
-// bijstand → positive "vergelijkbare situatie" factors) and a 5-step
+// herkomst-gemeente.js), the opt-in step "Jouw situatie" (opleiding and, since
+// v0.26.0, an income slider → positive "vergelijkbare situatie" factors) and a 5-step
 // importance scale per theme (IMPORTANCE, hash segment `i`).
 import { STANDAARD, GELIJK, THEME_LABELS, ORIGIN_KEYS } from './presets.js';
 import { DETAIL_GROUPS } from './herkomst-gemeente.js';
@@ -39,18 +39,61 @@ export const GEMEENSCHAP_LABEL = 'Nabijheid gemeenschap';
 export { DETAIL_GROUPS };
 
 /**
- * "Jouw situatie" (v0.23.0, opt-in): opleidingsniveau → attraction to areas
- * with more people of that level; bijstand → welfarePer1000 counts as a plus
- * ("vergelijkbare situatie") instead of a minus. Positive-only, like Gemeenschap.
+ * "Jouw situatie" (v0.23.0, opt-in; two sliders since v0.26.0): opleiding →
+ * attraction to areas with more people of that level; huishoudinkomen →
+ * closeness of the area's average standardised income to yours (a target),
+ * and at the lowest stops bijstand per 1.000 as a plus. Positive-only, like
+ * Gemeenschap. Slider order = object order; `code` is the stable hash code.
+ * Keys laag/middelbaar/hoog and codes l/m/h are the v0.23.0 ones (old hashes
+ * decode to the same metric); basisschool is new and also counts as lowEdu
+ * (CBS groups basisonderwijs, vmbo and mbo-1 together).
  */
 export const SITUATIE_EDU = Object.freeze({
-  laag:       Object.freeze({ label: 'Laag (basisonderwijs, vmbo, mbo 1)', short: 'laag',       key: 'lowEdu' }),
-  middelbaar: Object.freeze({ label: 'Middelbaar (havo, vwo, mbo 2–4)',    short: 'middelbaar', key: 'medEdu' }),
-  hoog:       Object.freeze({ label: 'Hoog (hbo, wo)',                     short: 'hoog',       key: 'highEdu' }),
+  basis:      Object.freeze({ label: 'Basisschool',        short: 'basisschool',        key: 'lowEdu',  code: 'p' }),
+  laag:       Object.freeze({ label: 'vmbo – mbo-1',       short: 'vmbo–mbo-1',         key: 'lowEdu',  code: 'l' }),
+  middelbaar: Object.freeze({ label: 'havo – vwo – mbo-4', short: 'havo–vwo–mbo-4',     key: 'medEdu',  code: 'm' }),
+  hoog:       Object.freeze({ label: 'hbo – wo',           short: 'hbo–wo',             key: 'highEdu', code: 'h' }),
 });
+/**
+ * Huishoudinkomen per maand (netto, ongeveer) → a target on avgIncome, the CBS
+ * "gemiddeld gestandaardiseerd inkomen" in ×€1.000 per year. Rough rule:
+ * yearly standardised ≈ monthly × 12 / INCOME_EQUIV_FACTOR / 1000, where 1.3
+ * is about the equivalence factor of an average household (CBS divides
+ * household income by it). The ideal is clamped to INCOME_IDEAL_MIN–MAX, the
+ * range of area averages (1st–99th percentile of buurten ≈ 25–99), so the
+ * low and high stops still rank areas instead of scoring all of them 0.
+ * `welfare`: the stop also counts bijstand per 1.000 inwoners as a plus.
+ * `code`: the stable hash digit.
+ */
+export const SITUATIE_INCOME = Object.freeze({
+  bijstand: Object.freeze({ label: 'Bijstand',           short: 'bijstand',      monthly: 1400,  code: '0', welfare: true }),
+  m500:     Object.freeze({ label: '± € 500',            short: '± €500/mnd',    monthly: 500,   code: '1', welfare: true }),
+  m2500:    Object.freeze({ label: '± € 2.500',          short: '± €2.500/mnd',  monthly: 2500,  code: '2' }),
+  m5000:    Object.freeze({ label: '± € 5.000',          short: '± €5.000/mnd',  monthly: 5000,  code: '3' }),
+  m7500:    Object.freeze({ label: '± € 7.500',          short: '± €7.500/mnd',  monthly: 7500,  code: '4' }),
+  m10000:   Object.freeze({ label: '± € 10.000',         short: '± €10.000/mnd', monthly: 10000, code: '5' }),
+  m15000:   Object.freeze({ label: '± € 15.000',         short: '± €15.000/mnd', monthly: 15000, code: '6' }),
+  m30000:   Object.freeze({ label: '± € 30.000',         short: '± €30.000/mnd', monthly: 30000, code: '7' }),
+  hoger:    Object.freeze({ label: 'Meer dan € 30.000',  short: '> €30.000/mnd', monthly: 45000, code: '8' }),
+});
+export const INCOME_EQUIV_FACTOR = 1.3;
+export const INCOME_IDEAL_MIN = 22;
+export const INCOME_IDEAL_MAX = 120;
+/** Tolerance in log1p units: the factor is 1 at the ideal and 0 beyond ±0.6 (about ×/÷ 1.8). */
+export const INCOME_TOLERANCE_LOG = 0.3;
+/** Monthly net household income (€) → yearly standardised income (×€1.000), unclamped. */
+export const monthlyToStandardisedK = monthly => (monthly * 12) / INCOME_EQUIV_FACTOR / 1000;
+/** The avgIncome target of an income band, or null for an unknown band. */
+export function incomeTarget(band) {
+  const b = SITUATIE_INCOME[band];
+  if (!b) return null;
+  const ideal = Math.round(clamp(monthlyToStandardisedK(b.monthly), INCOME_IDEAL_MIN, INCOME_IDEAL_MAX) * 10) / 10;
+  return { ideal, tolerance: INCOME_TOLERANCE_LOG, log: true };
+}
 export const SITUATIE_LABEL = 'Mensen in een vergelijkbare situatie';
-/** The only metrics the Situatie theme may hold, each only as `higher`. */
+/** The metrics the Situatie theme may hold as `higher`; avgIncome only as the income target. */
 export const SITUATIE_KEYS = Object.freeze(['lowEdu', 'medEdu', 'highEdu', 'welfarePer1000']);
+export const SITUATIE_TARGET_KEY = 'avgIncome';
 
 /**
  * The 5-step importance scale per theme: level 0–4 → factor × the theme
@@ -130,13 +173,17 @@ export function normalizeGemeenschap(g) {
   return { group, ...(detail ? { detail } : {}), pct: Math.round(clamp(raw, GEMEENSCHAP_MIN_PCT, GEMEENSCHAP_MAX_PCT)), share: g.share === true };
 }
 
-/** { edu, bijstand, share } or null (nothing chosen). Only known levels; bijstand only when literally true. */
+/**
+ * { edu, income, share } or null (nothing chosen). Only known level and band
+ * keys. The v0.23.0 field `bijstand: true` (no longer in the model) becomes
+ * the income band "bijstand" when no band is set.
+ */
 export function normalizeSituatie(s) {
   if (!s || typeof s !== 'object') return null;
   const edu = Object.hasOwn(SITUATIE_EDU, s.edu) ? s.edu : null;
-  const bijstand = s.bijstand === true;
-  if (!edu && !bijstand) return null;
-  return { edu, bijstand, share: s.share === true };
+  const income = Object.hasOwn(SITUATIE_INCOME, s.income) ? s.income : s.bijstand === true ? 'bijstand' : null;
+  if (!edu && !income) return null;
+  return { edu, income, share: s.share === true };
 }
 
 /** Cleans any answers-like object into the canonical shape (unknown values dropped). */
@@ -269,8 +316,11 @@ export const APPLY = Object.freeze({
   },
   // Positive-only "mensen in een vergelijkbare situatie". An opleidingsniveau
   // replaces the Standaard Opleiding theme (more hbo/wo = plus would work
-  // against a laag/middelbaar choice and double a hoog one); bijstand moves
-  // welfarePer1000 out of Welvaart (no minus) into this theme as a plus.
+  // against a lower level and double hbo–wo). An income band replaces
+  // Welvaart's "more income = plus" with a target around the band (the target
+  // key applies to every theme, so avgIncome must leave Welvaart); the lowest
+  // stops also move welfarePer1000 out of Welvaart (no minus) into this theme
+  // as a plus. A Welvaart theme left without metrics is dropped.
   situatie(d, a) {
     const s = a.situatie;
     if (!s) return;
@@ -280,9 +330,17 @@ export const APPLY = Object.freeze({
       d.themes.delete('opleiding');
       t.metrics.set(e.key, { key: e.key, pref: 'higher', label: `${SITUATIE_LABEL} (opleiding ${e.short})` });
     }
-    if (s.bijstand) {
-      d.themes.get('welvaart')?.metrics.delete('welfarePer1000');
-      t.metrics.set('welfarePer1000', { key: 'welfarePer1000', pref: 'higher', label: `${SITUATIE_LABEL} (bijstand)` });
+    if (s.income) {
+      const b = SITUATIE_INCOME[s.income];
+      const welvaart = d.themes.get('welvaart');
+      welvaart?.metrics.delete('avgIncome');
+      t.metrics.set(SITUATIE_TARGET_KEY, { key: SITUATIE_TARGET_KEY, pref: 'target', label: `${SITUATIE_LABEL} (inkomen ${b.short})` });
+      d.targets[SITUATIE_TARGET_KEY] = incomeTarget(s.income);
+      if (b.welfare) {
+        welvaart?.metrics.delete('welfarePer1000');
+        t.metrics.set('welfarePer1000', { key: 'welfarePer1000', pref: 'higher', label: `${SITUATIE_LABEL} (${b.short})` });
+      }
+      if (welvaart && !welvaart.metrics.size) d.themes.delete('welvaart');
     }
   },
   // Runs last (after the slider overrides): its weight is a share of the total.
@@ -360,11 +418,15 @@ export function answersToPreset(answers) {
  * enforces the same at scoring time).
  */
 export function guardOrigin(preset) {
-  // Same for "Jouw situatie": inside that theme only SITUATIE_KEYS as `higher`;
-  // outside it no low/middle-education factor and bijstand only as Standaard's minus.
+  // Same for "Jouw situatie": inside that theme only SITUATIE_KEYS as `higher`
+  // and avgIncome only as a target with a valid { ideal, tolerance }; outside it
+  // no low/middle-education factor, bijstand only as Standaard's minus, and no
+  // avgIncome while the income target exists (it would turn that metric into a target).
+  const it = preset.targets?.[SITUATIE_TARGET_KEY];
+  const incomeTargetOk = isNum(it?.ideal) && isNum(it?.tolerance) && it.tolerance > 0;
   const situatieOk = (t, m) => t.key === 'situatie'
-    ? SITUATIE_KEYS.includes(m.key) && m.pref === 'higher' && !(m.w <= 0)
-    : !['lowEdu', 'medEdu'].includes(m.key) && (m.key !== 'welfarePer1000' || m.pref === 'lower');
+    ? ((SITUATIE_KEYS.includes(m.key) && m.pref === 'higher') || (m.key === SITUATIE_TARGET_KEY && m.pref === 'target' && incomeTargetOk)) && !(m.w <= 0)
+    : !['lowEdu', 'medEdu'].includes(m.key) && (m.key !== 'welfarePer1000' || m.pref === 'lower') && !(m.key === SITUATIE_TARGET_KEY && it);
   const themes = (preset.themes ?? []).map(t => ({
     ...t,
     metrics: t.metrics.filter(m => (!ORIGIN_KEYS.includes(m.key) || (t.key === 'gemeenschap' && m.pref === 'higher' && t.weight > 0 && !(m.w <= 0))) && situatieOk(t, m)),
@@ -390,8 +452,11 @@ export function guardOrigin(preset) {
 //   g[d|e|b][h<cc>]<5-30>[x]  v0.23.0: h<cc> = detailed group (gemeenten only,
 //                       two-letter code from herkomst-gemeente.js); old g segments
 //                       parse unchanged. Still no sign or direction.
-//   j[l|m|h][b][x]      Jouw situatie: opleiding laag/middelbaar/hoog, b = bijstand,
-//                       x = shared; without x it stays local like Gemeenschap.
+//   j[p|l|m|h][0-8][x]  Jouw situatie (v0.26.0): opleiding basisschool/vmbo–mbo-1/
+//                       havo–vwo–mbo-4/hbo–wo, then the income band digit
+//                       (SITUATIE_INCOME code, 0 = bijstand). x = shared; without x
+//                       it stays local like Gemeenschap. v0.23.0 segments
+//                       j[l|m|h][b][x] still decode: b = income band bijstand.
 //   i<theme letter><0-4>…  importance level per theme (5-step scale); wins over w.
 
 const LF = { student: 's', stel: 'p', gezin: 'g', '50plus': 'v', senior: 'r' };
@@ -401,9 +466,10 @@ const CR = { inbraak: 'in', geweld: 'gw', straatroof: 'sr', fiets: 'fd', auto: '
 const TH = { veiligheid: 'v', welvaart: 'e', voorzieningen: 'z', opleiding: 'o', woningmarkt: 'm', leeftijd: 'l', nieuwbouw: 'n', budget: 'b', sfeer: 's', situatie: 't' };
 const GM = { nederland: 'd', europa: 'e', buitenEuropa: 'b' };
 const inv = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [v, k]));
-const ED = { laag: 'l', middelbaar: 'm', hoog: 'h' };
+const ED = Object.fromEntries(Object.entries(SITUATIE_EDU).map(([k, e]) => [k, e.code]));
+const INC = Object.fromEntries(Object.entries(SITUATIE_INCOME).map(([k, b]) => [k, b.code]));
 const DG = Object.fromEntries(Object.entries(DETAIL_GROUPS).map(([k, d]) => [k, d.code]));
-const LF_ = inv(LF), OUD_ = inv(OUD), VV_ = inv(VV), CR_ = inv(CR), TH_ = inv(TH), GM_ = inv(GM), ED_ = inv(ED), DG_ = inv(DG);
+const LF_ = inv(LF), OUD_ = inv(OUD), VV_ = inv(VV), CR_ = inv(CR), TH_ = inv(TH), GM_ = inv(GM), ED_ = inv(ED), INC_ = inv(INC), DG_ = inv(DG);
 
 export const SCORE_RE = /^[a-z0-9.]{1,200}$/;
 export const FIXED_PRESETS = Object.freeze(['standaard', 'gelijk']);
@@ -422,7 +488,7 @@ export function encodeAnswers(answers) {
   if (w) seg.push(`w${w}`);
   const imp = Object.keys(TH).filter(k => k in a.importance).map(k => `${TH[k]}${a.importance[k]}`).join('');
   if (imp) seg.push(`i${imp}`);
-  if (a.situatie) seg.push(`j${a.situatie.edu ? ED[a.situatie.edu] : ''}${a.situatie.bijstand ? 'b' : ''}${a.situatie.share ? 'x' : ''}`);
+  if (a.situatie) seg.push(`j${a.situatie.edu ? ED[a.situatie.edu] : ''}${a.situatie.income ? INC[a.situatie.income] : ''}${a.situatie.share ? 'x' : ''}`);
   const g = a.gemeenschap;
   if (g) seg.push(`g${g.group ? GM[g.group] : ''}${g.detail ? `h${DG[g.detail]}` : ''}${g.pct}${g.share ? 'x' : ''}`);
   return seg.join('.');
@@ -445,8 +511,9 @@ export function decodeAnswers(str) {
     else if (head === 'w') for (const [, t, n] of body.matchAll(/([a-z])(\d{1,3})/g)) { if (TH_[t]) out.weights[TH_[t]] = +n; }
     else if (head === 'i') for (const [, t, n] of body.matchAll(/([a-z])([0-4])/g)) { if (TH_[t]) out.importance[TH_[t]] = +n; }
     else if (head === 'j') {
-      const m = /^([lmh])?(b)?(x?)$/.exec(body);
-      if (m && (m[1] || m[2])) out.situatie = { edu: m[1] ? ED_[m[1]] : null, bijstand: m[2] === 'b', share: m[3] === 'x' };
+      // Current form: [edu][income digit][x]; v0.23.0 form: [l|m|h][b][x] (b = bijstand). Never both.
+      const m = /^([plmh])?(?:([0-8])|(b))?(x?)$/.exec(body);
+      if (m && (m[1] || m[2] || m[3])) out.situatie = { edu: m[1] ? ED_[m[1]] : null, income: m[2] ? INC_[m[2]] : m[3] ? 'bijstand' : null, share: m[4] === 'x' };
     } else if (head === 'g') {
       // Only "[group][h detail] + positive weight [+ x]"; any other shape (or an unknown group) is dropped whole.
       const m = /^([a-z])?(?:h([a-z]{2}))?(\d{1,3})(x?)$/.exec(body);
@@ -547,7 +614,7 @@ export function describeAnswers(answers) {
   if (a.vervoer.length) parts.push(a.vervoer.map(v => VERVOER[v].toLowerCase()).join('/'));
   if (a.sfeer != null) parts.push(a.sfeer < 35 ? 'levendig' : a.sfeer > 65 ? 'rustig' : 'tussen druk en rustig');
   if (a.veiligheid.length) parts.push(`let op ${a.veiligheid.map(c => CRIMES[c].label.toLowerCase()).join(', ')}`);
-  if (a.situatie) parts.push(`vergelijkbare situatie: ${[a.situatie.edu ? `opleiding ${SITUATIE_EDU[a.situatie.edu].short}` : '', a.situatie.bijstand ? 'bijstand' : ''].filter(Boolean).join(', ')}`);
+  if (a.situatie) parts.push(`vergelijkbare situatie: ${[a.situatie.edu ? `opleiding ${SITUATIE_EDU[a.situatie.edu].short}` : '', a.situatie.income ? `inkomen ${SITUATIE_INCOME[a.situatie.income].short}` : ''].filter(Boolean).join(', ')}`);
   if (a.gemeenschap) {
     const g = a.gemeenschap;
     const names = [g.detail ? `${DETAIL_GROUPS[g.detail].label} (${DETAIL_GROUPS[g.detail].wijk ? 'gemeenten; wijk/buurt geschat via postcode' : 'gemeenten'})` : '', g.group ? `${GEMEENSCHAP_GROUPS[g.group].label}${g.detail ? ' (wijk/buurt)' : ''}` : ''].filter(Boolean);

@@ -66,8 +66,13 @@ export const RATE_KEYS = Object.freeze(DATASET_KEYS.filter(k => DATASETS[k].unit
  */
 export const ORIGIN_KEYS = Object.freeze(['originDutchPct', 'originEuropePct', 'nonWesternPct', ...DETAIL_KEYS]);
 const originAllowed = (m, target) => !ORIGIN_KEYS.includes(m.key) || (m.pref === 'higher' && !target);
-/** "Jouw situatie" (v0.23.0) is positive-only: in that theme a metric counts only as `higher`, never as a target. */
-const situatieAllowed = (theme, m, target) => theme.key !== 'situatie' || (m.pref === 'higher' && !target);
+/**
+ * "Jouw situatie" (v0.23.0) is positive-only: in that theme a metric counts only
+ * as `higher`, never as a target, except avgIncome (SITUATIE_TARGET_KEY in
+ * wizard-model.js, v0.26.0), which counts only as the income-band target.
+ */
+const situatieAllowed = (theme, m, target) => theme.key !== 'situatie' || (m.pref === 'higher' && !target)
+  || (m.key === 'avgIncome' && m.pref === 'target' && isNum(target?.ideal) && isNum(target?.tolerance) && target.tolerance > 0);
 
 export function resolvePreset(preset, available) {
   const has = available instanceof Set ? k => available.has(k) : k => (available ?? []).includes(k);

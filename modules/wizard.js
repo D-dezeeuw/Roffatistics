@@ -20,7 +20,7 @@ import {
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
   GEMEENSCHAP_GROUPS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS,
-  SITUATIE_EDU, SITUATIE_LABEL, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance,
+  SITUATIE_EDU, SITUATIE_INCOME, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance,
 } from './wizard-model.js';
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
 import { loadPc4Herkomst, presetUsesPc4 } from './herkomst-pc4.js';
@@ -50,6 +50,16 @@ const impSlider = (attr, level, label, min = 0) => `
       <output>${esc(IMPORTANCE[level].label)}</output></label>`;
 const chip = (set, value, label, on) =>
   `<button type="button" class="wiz-chip${on ? ' active' : ''}" data-toggle="${set}" data-value="${esc(value)}" aria-pressed="${on}">${esc(label)}</button>`;
+
+/** Slider position of a "Jouw situatie" choice: 0 = Niet invullen, 1… = the options in order. */
+const situatiePos = (opts, key) => (key ? Object.keys(opts).indexOf(key) + 1 : 0);
+const situatieText = (opts, pos) => (pos > 0 ? Object.values(opts)[pos - 1]?.label ?? '' : 'Niet invullen');
+/** "Jouw situatie" slider: position 0 = Niet invullen, then the options; the label updates on input. */
+const sitSlider = (field, id, label, opts, pos) => `
+    <label class="wiz-slider wiz-sit"><span id="${id}">${esc(label)}</span>
+      <input type="range" min="0" max="${Object.keys(opts).length}" step="1" value="${pos}" data-field="${field}" aria-labelledby="${id}" aria-valuetext="${esc(situatieText(opts, pos))}">
+      <output>${esc(situatieText(opts, pos))}</output></label>
+    <div class="wiz-range-ends"><span>Niet invullen</span><span>${esc(Object.values(opts).at(-1).label)}</span></div>`;
 
 function stepBody(key) {
   const a = answers;
@@ -110,15 +120,15 @@ function stepBody(key) {
   }
   if (key === 'situatie') {
     const st = a.situatie;
+    const eduPos = situatiePos(SITUATIE_EDU, st?.edu), incPos = situatiePos(SITUATIE_INCOME, st?.income);
     return `
-    <p class="wiz-hint">Optioneel en standaard uit. Wil je wonen tussen ${esc(SITUATIE_LABEL.toLowerCase())}? Vul in wat je wilt; alles mag leeg blijven.</p>
-    <p class="wiz-q" id="wiz-q">Wat is je hoogst behaalde opleiding?</p>
-    <div class="wiz-opts" role="group" aria-labelledby="wiz-q">${Object.entries(SITUATIE_EDU).map(([k, e]) => optBtn('sitEdu', k, e.label, st?.edu === k)).join('')}${optBtn('sitEdu', '', 'Zeg ik liever niet', !st?.edu)}</div>
-    <p class="wiz-hint">Een groter aandeel inwoners met hetzelfde opleidingsniveau telt als plus. In plaats van het Standaard-thema Opleiding (meer hbo/wo = beter).</p>
-    <label class="wiz-check"><input type="checkbox" data-field="sitBijstand"${st?.bijstand ? ' checked' : ''}> Ik ontvang bijstand</label>
-    <p class="wiz-hint">Dan telt bijstand per 1.000 inwoners als plus (mensen in een vergelijkbare situatie) in plaats van als minpunt. Dit cijfer is er alleen voor Rotterdamse wijken en buurten; elders telt het niet mee.</p>
+    <p class="wiz-hint">Optioneel. Dit zoekt alleen naar gebieden waar meer mensen in een vergelijkbare situatie wonen: vaak vind je daar sneller aansluiting. Beide schuiven staan standaard op “Niet invullen” en tellen dan niet mee. Je antwoorden blijven in je browser; er wordt niets verstuurd.</p>
+    ${sitSlider('sitIncome', 'wiz-q', 'Huishoudinkomen per maand (netto, ongeveer)', SITUATIE_INCOME, incPos)}
+    <p class="wiz-hint">Gebieden waar het gemiddelde inkomen in de buurt van het jouwe ligt tellen als plus, in plaats van het Standaard-cijfer “meer inkomen = beter”. Bij de laagste standen telt ook een groter aandeel mensen met bijstand als plus, waar dat cijfer er is.</p>
+    ${sitSlider('sitEdu', 'wiz-q2', 'Hoogst behaalde opleiding', SITUATIE_EDU, eduPos)}
+    <p class="wiz-hint">Een groter aandeel inwoners met hetzelfde opleidingsniveau telt als plus, in plaats van het Standaard-thema Opleiding (meer hbo/wo = beter).</p>
     ${st ? `<label class="wiz-check"><input type="checkbox" data-field="sitShare"${st.share ? ' checked' : ''}> Deel ook mijn situatie (zet je keuze in de link die je deelt)</label>` : ''}
-    <p class="wiz-hint">Alleen een plus: een gebied krijgt nooit minpunten voor wie er (niet) woont. Je score wordt in je browser berekend; er wordt niets verstuurd. Zonder vinkje blijft je keuze alleen op dit apparaat.</p>`;
+    <p class="wiz-hint">Alleen een plus: een gebied krijgt nooit minpunten voor wie er woont. Hoe zwaar dit telt stel je in bij het resultaat (“Hoe belangrijk”).</p>`;
   }
   return `
     <p class="wiz-q" id="wiz-q">Welke misdrijven wegen voor jou het zwaarst?</p>
@@ -296,7 +306,6 @@ function onClick(e) {
     const { set: k, value } = set.dataset;
     const cur = answers.gemeenschap;
     if (k === 'gemGroup') { const group = value && cur?.group !== value ? value : null; answers = { ...answers, gemeenschap: { ...(cur ?? {}), group } }; }
-    else if (k === 'sitEdu') answers = { ...answers, situatie: { ...(answers.situatie ?? {}), edu: value && answers.situatie?.edu !== value ? value : null } };
     else if (k === 'mode') answers = { ...answers, budget: { ...(answers.budget ?? {}), mode: value } };
     else answers = { ...answers, [k]: answers[k] === value || value === '' ? null : value };
     answers = normalizeAnswers(answers);
@@ -329,6 +338,10 @@ function onInput(e) {
     t.setAttribute('aria-valuetext', sfeerText(+t.value));
     const now = els.dialog.querySelector('.wiz-sfeer-now');
     if (now) now.textContent = sfeerText(+t.value);
+  } else if (t.dataset.field === 'sitEdu' || t.dataset.field === 'sitIncome') {
+    const label = situatieText(t.dataset.field === 'sitEdu' ? SITUATIE_EDU : SITUATIE_INCOME, +t.value);
+    t.nextElementSibling.textContent = label;
+    t.setAttribute('aria-valuetext', label);
   } else if (t.dataset.field === 'gemLevel' || t.dataset.theme) {
     const label = IMPORTANCE[+t.value]?.label ?? '';
     t.nextElementSibling.textContent = label;
@@ -353,8 +366,13 @@ function onChange(e) {
     const pct = f === 'gemLevel' ? GEMEENSCHAP_LEVEL_PCT[+t.value] : null;
     answers = normalizeAnswers({ ...answers, gemeenschap: f === 'gemLevel' && !pct ? null : { ...answers.gemeenschap, ...(f === 'gemLevel' ? { pct } : { share: t.checked }) } });
     if (step === 'result') { applyAnswers(); render({ focus: `[data-field="${f}"]` }); }
-  } else if (f === 'sitBijstand' || f === 'sitShare') {
-    answers = normalizeAnswers({ ...answers, situatie: { ...(answers.situatie ?? {}), [f === 'sitBijstand' ? 'bijstand' : 'share']: t.checked } });
+  } else if (f === 'sitEdu' || f === 'sitIncome') {
+    const opts = f === 'sitEdu' ? SITUATIE_EDU : SITUATIE_INCOME;
+    const pick = +t.value > 0 ? Object.keys(opts)[+t.value - 1] ?? null : null;
+    answers = normalizeAnswers({ ...answers, situatie: { ...(answers.situatie ?? {}), [f === 'sitEdu' ? 'edu' : 'income']: pick } });
+    render({ focus: `[data-field="${f}"]` });
+  } else if (f === 'sitShare') {
+    answers = normalizeAnswers({ ...answers, situatie: { ...(answers.situatie ?? {}), share: t.checked } });
     render({ focus: `[data-field="${f}"]` });
   } else if (f === 'hide') {
     answers = normalizeAnswers({ ...answers, budget: { ...answers.budget, hide: t.checked } });

@@ -142,8 +142,10 @@ export const GENERAL_SECTIONS = Object.freeze([
     id: 'situatie',
     title: 'Jouw score: mensen in een vergelijkbare situatie',
     paragraphs: [
-      'De optionele stap "Jouw situatie" is standaard uit. Kies je een opleidingsniveau (laag, middelbaar of hoog), dan telt een groter aandeel inwoners met dat niveau als plus; het Standaard-thema Opleiding (meer hbo/wo = beter) vervalt dan voor jou. Vink je "ik ontvang bijstand" aan, dan telt bijstand per 1.000 inwoners als plus in plaats van als minpunt; dat cijfer is er alleen voor Rotterdamse wijken en buurten.',
-      'Alleen een plus: een gebied krijgt nooit minpunten voor wie er woont. Je score wordt in je browser berekend en er wordt niets verstuurd; in een gedeelde link staat je situatie alleen als je "Deel ook mijn situatie" aanvinkt.',
+      'De optionele stap "Jouw situatie" zoekt alleen naar gebieden waar meer mensen in een vergelijkbare situatie wonen; vaak vind je daar sneller aansluiting. Er zijn twee schuiven, allebei standaard op "Niet invullen" (telt dan niet mee). Hoe zwaar de stap telt, stel je in met "Hoe belangrijk" bij het resultaat.',
+      'Huishoudinkomen per maand (netto, ongeveer; van Bijstand tot meer dan € 30.000): een gebied telt als plus naarmate het gemiddelde gestandaardiseerde inkomen van CBS dichter bij het jouwe ligt. Ruwe omrekening: maandinkomen × 12 / 1,3 (een gemiddeld huishouden telt bij CBS voor ongeveer 1,3 persoon), afgekapt op de spreiding van gebieden (€ 22.000 tot € 120.000 per jaar). Het Standaard-cijfer "meer inkomen = beter" vervalt dan voor jou. Bij de standen Bijstand en ± € 500 telt ook bijstand per 1.000 inwoners als plus in plaats van als minpunt, waar dat cijfer er is.',
+      'Opleiding (basisschool, vmbo – mbo-1, havo – vwo – mbo-4, hbo – wo): een groter aandeel inwoners met hetzelfde niveau telt als plus; basisschool en vmbo – mbo-1 vallen bij CBS in dezelfde groep. Het Standaard-thema Opleiding (meer hbo/wo = beter) vervalt dan voor jou.',
+      'Alleen een plus: een gebied krijgt nooit minpunten voor wie er woont; bij inkomen loopt de plus alleen geleidelijk af naarmate het gemiddelde verder van het jouwe ligt. Je score wordt in je browser berekend en er wordt niets verstuurd; in een gedeelde link staat je situatie alleen als je "Deel ook mijn situatie" aanvinkt.',
     ],
   },
   {
