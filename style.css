@@ -57,10 +57,76 @@ body {
   background-clip: text;
 }
 
-.nav-actions {
+.nav-actions,
+.nav-left {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
+}
+
+.nav-left { gap: 0.75rem; }
+
+.scope-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0.35rem 1.5rem 0.35rem 0.6rem;
+  font: 600 0.75rem var(--font-ui);
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  border: 1px solid rgba(234, 88, 12, 0.5);
+  border-radius: 4px;
+  background: rgba(234, 88, 12, 0.08) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%238b8a96' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat right 0.5rem center;
+  cursor: pointer;
+}
+
+.scope-select:focus-visible { outline: 2px solid var(--accent-orange); outline-offset: 2px; }
+.scope-select option { background: var(--bg-surface); color: var(--text-primary); }
+
+.view-switch {
+  display: flex;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.view-opt,
+.search-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  font: 500 0.75rem var(--font-ui);
+  letter-spacing: 0.04em;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.view-opt + .view-opt { border-left: 1px solid rgba(124, 58, 237, 0.2); }
+.view-opt:hover, .search-btn:hover { color: var(--text-primary); }
+.view-opt.active { color: var(--text-primary); background: var(--gradient-accent); }
+.view-opt:focus-visible, .search-btn:focus-visible { outline: 2px solid var(--accent-orange); outline-offset: -2px; }
+
+.search-btn {
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 4px;
+}
+
+/* Narrow screens: labels collapse into icons so the bar fits 360 px. */
+@media (max-width: 760px) {
+  #topnav { padding: 0 0.5rem; }
+  .btn-label { display: none; }
+  .nav-left, .nav-actions { gap: 0.3rem; }
+  .view-opt, .search-btn, .about-btn, .panel-toggle-btn, .layers-btn { padding: 0.35rem 0.45rem; }
+  .layers-chevron { display: none; }
+}
+
+@media (max-width: 480px) {
+  .nav-title { display: none; }
+  .scope-select { padding-right: 1.3rem; font-size: 0.7rem; }
 }
 
 .panel-toggle-btn,
@@ -120,11 +186,11 @@ body {
   border-color: rgba(124, 58, 237, 0.6);
 }
 
-.layers-btn svg {
+.layers-chevron {
   transition: transform 0.2s ease;
 }
 
-.layers-btn[aria-expanded="true"] svg {
+.layers-btn[aria-expanded="true"] .layers-chevron {
   transform: rotate(180deg);
 }
 
@@ -186,6 +252,52 @@ body {
   display: flex;
   overflow: hidden;
   position: relative;
+}
+
+.view {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+.view[hidden] { display: none !important; }
+
+#view-map {
+  display: flex;
+  overflow: hidden;
+}
+
+.view-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.placeholder-card {
+  max-width: 420px;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
+}
+
+.placeholder-card h2 {
+  font-size: 1rem;
+  margin-bottom: 0.6rem;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.placeholder-card p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 #map {
@@ -373,6 +485,34 @@ footer {
   background: linear-gradient(to right, #2e1065, #ea580c);
   margin-bottom: 0.3rem;
 }
+
+.legend-nodata {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+#legend.legend-has-nodata .legend-nodata { display: flex; }
+
+.legend-swatch {
+  width: 12px;
+  height: 7px;
+  border-radius: 2px;
+  background: #4b4658;   /* = NO_DATA_COLOR in modules/rotterdam.js */
+}
+
+.area-tooltip {
+  background: rgba(13, 10, 20, 0.92);
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+}
+
+.area-tooltip .tt-value { font-family: var(--font-data); color: var(--text-muted); }
 
 .legend-labels {
   display: flex;

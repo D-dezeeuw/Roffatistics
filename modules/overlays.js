@@ -76,6 +76,9 @@ export function clearPinnedGemeente() {
   pinnedGemeenteName = null;
 }
 
+// Nederland scope only: when disabled (Rotterdam scope) no tier layer is shown.
+let enabled = true;
+
 // Swap guard — prevents concurrent swaps from leaving the map in an inconsistent state.
 let isSwapping  = false;
 let pendingTier = null;
@@ -255,10 +258,10 @@ function makeNationalLayer(geojson) {
   return L.geoJSON(geojson, { style: () => ({ ...STYLE_NATIONAL }) });
 }
 
-function addKeyboardNav(geoLayer) {
+export function addKeyboardNav(geoLayer) {
   geoLayer.eachLayer(fl => {
     const el = fl.getElement?.();
-    if (!el) return;
+    if (!el || el.hasAttribute('tabindex')) return;
     el.setAttribute('tabindex', '0');
     el.setAttribute('role', 'button');
     el.setAttribute('aria-label', fl.feature?.properties?.statnaam ?? '');
@@ -373,7 +376,35 @@ async function _doSwap(tier) {
   document.dispatchEvent(new CustomEvent('tier-change', { detail: { tier } }));
 }
 
+function removeAllTierLayers() {
+  const map = getMap();
+  for (const k of ['national', 'province', 'municipality']) {
+    if (layers[k] && map.hasLayer(layers[k])) map.removeLayer(layers[k]);
+  }
+  if (layers.buurt) {
+    map.removeLayer(layers.buurt);
+    layers.buurt = null;
+  }
+  activeTier  = null;
+  pendingTier = null;
+}
+
+/** Shows (Nederland scope) or hides (Rotterdam scope) the province/gemeente/buurt tiers. */
+export async function setOverlaysEnabled(on) {
+  enabled = on;
+  if (!on) {
+    if (!isSwapping) removeAllTierLayers();   // a running swap cleans up when it finishes
+    return;
+  }
+  if (isSwapping) return;
+  activeTier = null;
+  await swapToTier(resolveZoomTier(getMap().getZoom()));
+}
+
+export function isOverlaysEnabled() { return enabled; }
+
 async function swapToTier(tier) {
+  if (!enabled) return;
   if (tier === activeTier) return;
   if (isSwapping) {
     pendingTier = tier; // remember the latest requested tier
@@ -385,6 +416,10 @@ async function swapToTier(tier) {
   } finally {
     isSwapping = false;
   }
+  if (!enabled) {
+    removeAllTierLayers();
+    return;
+  }
   // Process the latest pending tier change, if any.
   if (pendingTier !== null && pendingTier !== activeTier) {
     const next = pendingTier;
@@ -395,16 +430,19 @@ async function swapToTier(tier) {
   }
 }
 
-export async function initOverlays() {
+export async function initOverlays({ enabled: startEnabled = true } = {}) {
   const map  = getMap();
   const data = await loadGeoJSON('./data/provinces.json');
 
   layers.national = makeNationalLayer(data);
   layers.province = makeProvinceLayer(data);
+  enabled = startEnabled;
 
-  activeTier = 'province';
-  layers.province.addTo(map);
-  addKeyboardNav(layers.province);
+  if (enabled) {
+    activeTier = 'province';
+    layers.province.addTo(map);
+    addKeyboardNav(layers.province);
+  }
 
   map.on('zoomend', () => swapToTier(resolveZoomTier(map.getZoom())));
 }

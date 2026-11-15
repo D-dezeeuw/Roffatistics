@@ -10,12 +10,14 @@ export function formatLegendValue(value, dataset) {
   return formatNumber(value);
 }
 
-export async function updateLegend({ title, min, max, dataset }) {
+export async function updateLegend({ title, min, max, dataset, showNoData = false }) {
   const { setValue } = await import('spektrum');
   setValue('legend.title', title);
   setValue('legend.min',   formatLegendValue(min, dataset));
   setValue('legend.max',   formatLegendValue(max, dataset));
-  document.getElementById('legend').classList.add('legend-visible');
+  const el = document.getElementById('legend');
+  el.classList.add('legend-visible');
+  el.classList.toggle('legend-has-nodata', showNoData);
 }
 
 export function hideLegend() {

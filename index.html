@@ -20,7 +20,30 @@
 <body>
 
   <nav id="topnav" aria-label="Hoofdnavigatie">
-    <span class="nav-title">Roffatistics</span>
+    <div class="nav-left">
+      <span class="nav-title">Roffatistics</span>
+      <label class="scope-label">
+        <span class="sr-only">Gebied</span>
+        <select class="scope-select" aria-label="Gebied">
+          <option value="rotterdam">Rotterdam</option>
+          <option value="nederland">Nederland</option>
+        </select>
+      </label>
+      <div class="view-switch" role="tablist" aria-label="Weergave">
+        <button class="view-opt active" type="button" role="tab" data-view="map" aria-selected="true" aria-controls="view-map" title="Kaart">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M1 3.5l4.5-2 5 2 4.5-2v11l-4.5 2-5-2-4.5 2z"/><path d="M5.5 1.5v11M10.5 3.5v11"/></svg>
+          <span class="btn-label">Kaart</span>
+        </button>
+        <button class="view-opt" type="button" role="tab" data-view="dashboard" aria-selected="false" aria-controls="view-dashboard" title="Dashboard">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg>
+          <span class="btn-label">Dashboard</span>
+        </button>
+        <button class="view-opt" type="button" role="tab" data-view="list" aria-selected="false" aria-controls="view-list" title="Ranglijst">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M5.5 3h9M5.5 8h9M5.5 13h9"/><path d="M1.5 3h1M1.5 8h1M1.5 13h1"/></svg>
+          <span class="btn-label">Ranglijst</span>
+        </button>
+      </div>
+    </div>
     <div class="nav-actions">
       <button class="about-btn" type="button" aria-label="Over Roffatistics">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
@@ -28,19 +51,20 @@
           <line x1="8" y1="7.2" x2="8" y2="11.5"/>
           <circle cx="8" cy="4.8" r="0.4" fill="currentColor"/>
         </svg>
-        Over
+        <span class="btn-label">Over</span>
       </button>
       <button class="panel-toggle-btn" aria-label="Regio details" aria-pressed="false">
         <svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="1" y="1" width="14" height="12" rx="1.5"/>
           <line x1="11" y1="1.5" x2="11" y2="12.5"/>
         </svg>
-        Info
+        <span class="btn-label">Info</span>
       </button>
       <div class="nav-layers">
-      <button class="layers-btn" aria-haspopup="listbox" aria-expanded="false">
-        Layers
-        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <button class="layers-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Kies dataset">
+        <svg class="layers-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.5l6.5 3.5L8 8.5 1.5 5z"/><path d="M1.5 8L8 11.5 14.5 8M1.5 11L8 14.5 14.5 11"/></svg>
+        <span class="btn-label">Layers</span>
+        <svg class="layers-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M1 1l4 4 4-4"/>
         </svg>
       </button>
@@ -54,11 +78,15 @@
         <li><button class="layer-opt"         data-dataset="nonWesternPct" role="option">Buiten Europa (%)</button></li>
       </ul>
       </div>
+      <button class="search-btn" type="button" aria-label="Zoeken" title="Zoeken">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+      </button>
     </div>
   </nav>
 
   <div id="app">
-    <div id="map" role="application" aria-label="Interactieve kaart van Nederland"></div>
+   <section id="view-map" class="view" role="tabpanel" aria-label="Kaart">
+    <div id="map" role="application" aria-label="Interactieve kaart"></div>
 
     <div id="legend" role="complementary" aria-label="Legenda">
       <div class="legend-title">{{ legend.title }}</div>
@@ -67,6 +95,7 @@
         <span>{{ legend.min }}</span>
         <span>{{ legend.max }}</span>
       </div>
+      <div class="legend-nodata"><span class="legend-swatch" aria-hidden="true"></span>geen data</div>
     </div>
 
     <aside id="panel" aria-label="Regio details" aria-hidden="true">
@@ -207,6 +236,21 @@
 
       </div>
     </aside>
+   </section>
+
+    <section id="view-dashboard" class="view view-placeholder" role="tabpanel" aria-label="Dashboard" hidden>
+      <div class="placeholder-card">
+        <h2>Dashboard</h2>
+        <p>Binnenkort: de belangrijkste cijfers van het gekozen gebied in één overzicht.</p>
+      </div>
+    </section>
+
+    <section id="view-list" class="view view-placeholder" role="tabpanel" aria-label="Ranglijst" hidden>
+      <div class="placeholder-card">
+        <h2>Ranglijst</h2>
+        <p>Binnenkort: alle wijken en buurten gerangschikt op de gekozen dataset.</p>
+      </div>
+    </section>
   </div>
 
   <footer>

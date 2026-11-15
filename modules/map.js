@@ -71,18 +71,21 @@ export function createBasemapLayer(Leaflet, config) {
 const NL_CENTER = [51.9225, 4.4792]; // Rotterdam centre
 const MAX_ZOOM  = 17;
 
+const NL_MIN_ZOOM = 6;
+const NL_BOUNDS_ARR = [[50.5, 3.2], [53.7, 7.3]];
+
 let map;
 let basemapLayer = null;
 let activeBasemap = null;
 let switcherEl = null;
 
 export function initMap() {
-  const NL_BOUNDS = L.latLngBounds([50.5, 3.2], [53.7, 7.3]);
+  const NL_BOUNDS = L.latLngBounds(NL_BOUNDS_ARR);
 
   map = L.map('map', {
     center:    NL_CENTER,
     zoom:      12,
-    minZoom:   6,
+    minZoom:   NL_MIN_ZOOM,
     maxZoom:   MAX_ZOOM,
     maxBounds: NL_BOUNDS,
     maxBoundsViscosity: 0.85,
@@ -158,3 +161,39 @@ function updateSwitcher() {
 }
 
 export function getMap() { return map; }
+
+/**
+ * Locks the map to a scope. 'rotterdam' with `bounds` ([[s,w],[n,e]]): fit to
+ * the city, maxBounds = bounds plus padding, minZoom one step below the fit.
+ * 'nederland': today's limits (NL bounds, minZoom 6); `fit` flies to the
+ * national overview, otherwise the current view is kept.
+ */
+let pendingScope = null;
+
+export function setMapScope(scope, { bounds = null, fit = true } = {}) {
+  if (!map) return;
+  if (map.getSize().x === 0) {
+    // Map container hidden (Dashboard/Ranglijst view): fit once it is visible.
+    pendingScope = [scope, { bounds, fit }];
+    return;
+  }
+  pendingScope = null;
+  if (scope === 'rotterdam' && bounds) {
+    const b = L.latLngBounds(bounds);
+    const fitZoom = map.getBoundsZoom(b);
+    map.setMinZoom(Math.max(NL_MIN_ZOOM, fitZoom - 1));
+    map.setMaxBounds(b.pad(0.15));
+    if (fit) map.fitBounds(b, { animate: false });
+    return;
+  }
+  map.setMinZoom(NL_MIN_ZOOM);
+  map.setMaxBounds(L.latLngBounds(NL_BOUNDS_ARR));
+  if (fit) map.setView([52.2, 5.3], 7);
+}
+
+/** Call when the map view becomes visible: resizes and applies a deferred setMapScope. */
+export function refreshMapSize() {
+  if (!map) return;
+  map.invalidateSize();
+  if (pendingScope && map.getSize().x > 0) setMapScope(...pendingScope);
+}

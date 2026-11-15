@@ -1,7 +1,9 @@
 import { bindDOM, run, setValue } from 'spektrum';
-import { initMap, getMap }                from './modules/map.js';
-import { initOverlays, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente } from './modules/overlays.js';
-import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD } from './modules/datasets.js';
+import { initMap, getMap, setMapScope, refreshMapSize } from './modules/map.js';
+import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente } from './modules/overlays.js';
+import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD, DATASETS } from './modules/datasets.js';
+import { initState, getState, setState, onStateChange } from './modules/state.js';
+import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea, pinActiveArea, clearPinnedArea, getActiveArea } from './modules/rotterdam.js';
 import { updateLegend }                   from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
 
@@ -58,18 +60,9 @@ bindDOM();
 run();
 
 initSplash();
+const initialState = initState();
 initMap();
-await initOverlays();
-
-const DATASETS = {
-  population:       { key: 'population',       title: 'Inwoners' },
-  avgIncome:        { key: 'avgIncome',         title: 'Gem. inkomen (×€1k)' },
-  crimeRate:        { key: 'crimeRate',         title: 'Misdrijven per 1.000 inw.' },
-  highEdu:          { key: 'highEdu',           title: 'Hoog opgeleid (%)' },
-  wozValue:         { key: 'wozValue',          title: 'Gem. WOZ waarde (×€1k)' },
-  pop65plus:        { key: 'pop65plus',         title: '65+ (%)' },
-  nonWesternPct:    { key: 'nonWesternPct',     title: 'Herkomst buiten Europa (%)' },
-};
+await initOverlays({ enabled: initialState.scope === 'nederland' });
 
 const CBS_FILTER   = `startswith(RegioS,'PV') and Perioden eq '${CBS_PERIOD}'`;
 const CRIME_SELECT = 'RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3';
@@ -80,24 +73,24 @@ const GM_CRIME_FILTER = `startswith(RegioS,'GM') and Perioden eq '${CBS_PERIOD}'
 
 let provinceRows  = [];
 let gemeenteRows  = [];
-let activeDataset = 'population';
 
 // ── Province data ─────────────────────────────────────────────────────────────
 // Demographics are fetched first and independently so a crime-fetch failure
 // can never block map coloring or panel data.
 
-try {
-  const raw = await fetchCBS(CBS_TABLE, CBS_FILTER, CBS_SELECT);
-  provinceRows = normalizeProvinces(raw);
-  setProvinceData(provinceRows);
-  await activateDataset('population');
-} catch {
-  // CBS unavailable — map renders with flat fill, no legend
-}
+// Not awaited: the Rotterdam scope must not wait for national CBS data.
+const provincesReady = fetchCBS(CBS_TABLE, CBS_FILTER, CBS_SELECT)
+  .then(raw => {
+    provinceRows = normalizeProvinces(raw);
+    setProvinceData(provinceRows);
+    if (getState().scope === 'nederland') return activateDataset(getState().dataset);
+  })
+  .catch(() => { /* CBS unavailable — map renders with flat fill, no legend */ });
 
 // Merge crime data into provinces in the background (best-effort).
 fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
-  .then(crimeRaw => {
+  .then(async crimeRaw => {
+    await provincesReady;
     const crimeLookup = Object.fromEntries(normalizeCrime(crimeRaw).map(r => [r.regionCode, r]));
     provinceRows = provinceRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] }));
     setProvinceData(provinceRows);
@@ -113,7 +106,8 @@ fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
 function refreshMunicipalityView() {
   const tier = getActiveTier();
   if (tier !== 'municipality' && tier !== 'buurt') return;
-  activateDataset(activeDataset);
+  if (getState().scope !== 'nederland') return;
+  activateDataset(getState().dataset);
   const code = getActiveGemeente();
   const name = getActiveGemeenteName();
   if (!code) return;
@@ -150,10 +144,17 @@ document.addEventListener('keydown', e => {
 
 document.querySelector('.panel-close').addEventListener('click', () => {
   clearPinnedGemeente();
+  clearPinnedArea();
   import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
 });
 
 document.querySelector('.panel-pin-btn').addEventListener('click', () => {
+  if (getState().scope === 'rotterdam') {
+    if (!getActiveArea()) return;
+    pinActiveArea();
+    import('./modules/panel.js').then(({ pinPanel }) => pinPanel());
+    return;
+  }
   const code = getActiveGemeente();
   const name = getActiveGemeenteName();
   if (!code) return;
@@ -163,6 +164,7 @@ document.querySelector('.panel-pin-btn').addEventListener('click', () => {
 
 document.querySelector('.panel-compare-close').addEventListener('click', () => {
   clearPinnedGemeente();
+  clearPinnedArea();
   import('./modules/panel.js').then(({ clearCompare }) => clearCompare());
 });
 
@@ -208,25 +210,106 @@ document.addEventListener('click', closeDropdown);
 document.querySelectorAll('.layer-opt').forEach(btn => {
   btn.addEventListener('click', () => {
     closeDropdown();
-    if (btn.dataset.dataset === activeDataset) return;
-    activeDataset = btn.dataset.dataset;
-    document.querySelectorAll('.layer-opt')
-      .forEach(b => b.classList.toggle('active', b === btn));
-    activateDataset(activeDataset);
+    setState({ dataset: btn.dataset.dataset }, { source: 'layers' });
   });
 });
 
 document.addEventListener('tier-change', async () => {
-  await activateDataset(activeDataset);
+  if (getState().scope !== 'nederland') return;
+  await activateDataset(getState().dataset);
+});
+
+document.addEventListener('rotterdam-level-change', async () => {
+  if (getState().scope !== 'rotterdam') return;
+  await activateDataset(getState().dataset);
 });
 
 async function activateDataset(key) {
+  const ds = DATASETS[key];
+  if (getState().scope === 'rotterdam') {
+    const { min, max, level, hasData } = applyRotterdamDataset(key);
+    const suffix = hasData ? (level === 'buurt' ? 'buurt' : 'wijk') : 'geen wijkdata';
+    await updateLegend({ title: `${ds.title} · ${suffix}`, min, max, dataset: key, showNoData: true });
+    return;
+  }
   const tier       = getActiveTier();
   const useGemeente = tier === 'municipality' || tier === 'buurt';
   const rows       = useGemeente ? gemeenteRows : provinceRows;
   if (!rows.length) return;
-  const ds    = DATASETS[key];
   const title = useGemeente ? `${ds.title} · gemeente` : ds.title;
   const { min, max } = applyDataset(rows, ds.key);
   await updateLegend({ title, min, max, dataset: key });
 }
+
+// ── Scope (Rotterdam | Nederland) ─────────────────────────────────────────────
+
+const scopeSelect = document.querySelector('.scope-select');
+scopeSelect.addEventListener('change', () => setState({ scope: scopeSelect.value }, { source: 'scope' }));
+
+let scopeSeq = 0;
+async function applyScope(scope, { initial = false } = {}) {
+  const seq = ++scopeSeq;
+  scopeSelect.value = scope;
+  document.body.classList.toggle('scope-rotterdam', scope === 'rotterdam');
+  document.body.classList.toggle('scope-nederland', scope === 'nederland');
+  clearPinnedGemeente();
+  clearPinnedArea();
+  import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
+
+  if (scope === 'rotterdam') {
+    await setOverlaysEnabled(false);
+    try {
+      const areas = await enableRotterdam({ onSelect: a => setState({ area: a.code }, { source: 'map' }) });
+      if (seq !== scopeSeq) return;
+      setMapScope('rotterdam', { bounds: areas.bounds });
+      await activateDataset(getState().dataset);
+      const area = getState().area;
+      if (area && (area.startsWith('WK') || area.startsWith('BU'))) await focusArea(area);
+    } catch (err) {
+      console.warn('Rotterdam areas unavailable:', err);
+    }
+    return;
+  }
+  disableRotterdam();
+  setMapScope('nederland', { fit: !initial });
+  if (!initial) await setOverlaysEnabled(true);   // initOverlays already enabled them on a Nederland start
+  if (seq === scopeSeq) await activateDataset(getState().dataset);
+}
+
+// ── View switcher (Kaart | Dashboard | Ranglijst) ─────────────────────────────
+
+const viewButtons = document.querySelectorAll('.view-opt');
+viewButtons.forEach(btn => btn.addEventListener('click', () => setState({ view: btn.dataset.view }, { source: 'view-switch' })));
+
+function showView(view) {
+  for (const v of ['map', 'dashboard', 'list']) {
+    document.getElementById(`view-${v}`).hidden = v !== view;
+  }
+  viewButtons.forEach(b => {
+    const on = b.dataset.view === view;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  if (view === 'map') requestAnimationFrame(refreshMapSize);
+}
+
+function syncDatasetButtons(key) {
+  document.querySelectorAll('.layer-opt')
+    .forEach(b => b.classList.toggle('active', b.dataset.dataset === key));
+}
+
+onStateChange(({ state, changed, source }) => {
+  if (changed.includes('view')) showView(state.view);
+  if (changed.includes('scope')) { applyScope(state.scope); return; }
+  if (changed.includes('dataset')) {
+    syncDatasetButtons(state.dataset);
+    activateDataset(state.dataset);
+  }
+  if (changed.includes('area') && state.area && source !== 'map' && state.scope === 'rotterdam') {
+    focusArea(state.area);
+  }
+});
+
+syncDatasetButtons(initialState.dataset);
+showView(initialState.view);
+applyScope(initialState.scope, { initial: true });
