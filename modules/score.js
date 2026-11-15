@@ -27,10 +27,24 @@ export function percentileRanks(values, { log = false } = {}) {
     if (!isNum(raw)) return null;
     if (n === 1) return 0.5;
     const v = tf(raw);
-    let below = 0, equal = 0;
-    for (const x of nums) { if (x < v) below++; else if (x === v) equal++; }
+    const below = countBelow(nums, v);
+    const equal = countBelow(nums, v, true) - below;
     return (below + (equal - 1) / 2) / (n - 1);
   });
+}
+
+/**
+ * Binary search in an ascending array: how many entries are < v (or <= v with
+ * `orEqual`). Replaces a linear scan per value (O(n²): 13 s for 14,700 NL
+ * buurten, docs/decisions.md 15 Nov 2026).
+ */
+export function countBelow(sorted, v, orEqual = false) {
+  let lo = 0, hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (sorted[mid] < v || (orEqual && sorted[mid] === v)) lo = mid + 1; else hi = mid;
+  }
+  return lo;
 }
 
 /**

@@ -3,6 +3,16 @@
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 
+/** Entries of ascending `sorted` that are < v (<= v with `orEqual`), by binary search. */
+function countBelow(sorted, v, orEqual = false) {
+  let lo = 0, hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (sorted[mid] < v || (orEqual && sorted[mid] === v)) lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+
 /**
  * Percentile rank 0–100 of every value within the list. Ties share the mid-rank,
  * so equal values get an equal score; a list with one value (or all equal) scores 50.
@@ -14,8 +24,8 @@ export function percentileScores(values, higherIsBetter = true) {
   return values.map(v => {
     if (!isNum(v)) return null;
     if (n === 1) return 50;
-    let below = 0, equal = 0;
-    for (const x of nums) { if (x < v) below++; else if (x === v) equal++; }
+    const below = countBelow(nums, v);
+    const equal = countBelow(nums, v, true) - below;   // binary search: O(n log n), not O(n²)
     const pct = ((below + (equal - 1) / 2) / (n - 1)) * 100;
     return higherIsBetter === false ? 100 - pct : pct;
   });

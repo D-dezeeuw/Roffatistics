@@ -25,6 +25,7 @@ import { peekNlAreas }                    from './modules/nl-areas.js';
 import { loadBouwjaar, onBouwLoaded, addBouwShares, isBouwKey, isBouwLoaded, presetUsesBouw } from './modules/bouwjaar-pc4.js';
 import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, presetUsesPc4 } from './modules/herkomst-pc4.js';
 import { loadGemeenteRegio, isRegioLoaded, isRegionMetric, withRegionShares } from './modules/herkomst-regio.js';
+import { showLoader, hideLoader, setLoaderProgress, withLoader } from './modules/loader.js';
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -40,10 +41,13 @@ run();
 
 initSplash();
 const initialState = initState();
+showLoader('Kaart laden…');   // until the first map data is drawn (end of this file)
 setPersonalPreset(presetFromScore(initialState.score));   // before any area is scored (the Woonscore's active preset)
 initMap();
+setLoaderProgress(0.2);
 initSpacePan(document.getElementById('map'));   // hold Space: drag the map, never click a feature
 await initOverlays({ enabled: initialState.scope === 'nederland' });
+setLoaderProgress(0.5);
 
 const CBS_FILTER   = `startswith(RegioS,'PV') and Perioden eq '${CBS_PERIOD}'`;
 const CRIME_SELECT = 'RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3';
@@ -429,7 +433,12 @@ onStateChange(({ state, changed, source }) => {
     if (DATASETS[state.dataset]?.unit === 'score' && !changed.includes('dataset') && !changed.includes('scope')) activateDataset(state.dataset);
   }
   if (changed.includes('view')) showView(state.view);
-  if (changed.includes('scope')) { applyScope(state.scope); return; }
+  if (changed.includes('scope')) {
+    // Fade the map and show the loader before the switch; it hides once the new scope is drawn.
+    withLoader(state.scope === 'nederland' ? 'Nederland laden…' : 'Rotterdam laden…', () => applyScope(state.scope))
+      .catch(err => console.warn('scope switch:', err));
+    return;
+  }
   if (changed.includes('dataset')) {
     syncDatasetButtons(state.dataset);
     activateDataset(state.dataset);
@@ -450,7 +459,13 @@ syncDatasetButtons(initialState.dataset);
 showView(initialState.view);
 initList();   // after showView so a #view=list start renders visible
 initDashboard();
-applyScope(initialState.scope, { initial: true });
+// Boot loader: hides when the first scope is drawn (Nederland: once the provinces are coloured), at most BOOT_LOADER_MAX_MS.
+const BOOT_LOADER_MAX_MS = 20000;
+const firstDraw = applyScope(initialState.scope, { initial: true })
+  .then(() => (initialState.scope === 'nederland' ? provincesReady : null));
+Promise.race([firstDraw, new Promise(r => setTimeout(r, BOOT_LOADER_MAX_MS))])
+  .catch(err => console.warn('first draw:', err))
+  .finally(() => { setLoaderProgress(1); hideLoader(); });
 initSearch();
 initCrimeToggles();
 initScaleToggle();

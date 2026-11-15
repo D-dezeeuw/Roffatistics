@@ -82,3 +82,24 @@ describe('createBasemapLayer', () => {
     assert.equal(layer.opts.maxZoom, 17);
   });
 });
+
+import { patchMissingImages } from '../modules/map.js';
+
+describe('patchMissingImages', () => {
+  it('answers a missing style image with a 1×1 transparent image, once', () => {
+    const handlers = {}, images = new Map();
+    const gl = { on: (ev, fn) => { handlers[ev] = fn; }, hasImage: id => images.has(id), addImage: (id, img) => images.set(id, img) };
+    assert.equal(patchMissingImages(gl), true);
+    handlers.styleimagemissing({ id: 'wood-pattern' });
+    handlers.styleimagemissing({ id: 'wood-pattern' });
+    handlers.styleimagemissing({});
+    assert.deepEqual([...images.keys()], ['wood-pattern']);
+    const img = images.get('wood-pattern');
+    assert.equal(img.width, 1); assert.equal(img.height, 1);
+    assert.deepEqual([...img.data], [0, 0, 0, 0]);
+  });
+  it('is a no-op without a MapLibre map', () => {
+    assert.equal(patchMissingImages(null), false);
+    assert.equal(patchMissingImages({}), false);
+  });
+});

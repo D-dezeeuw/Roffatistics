@@ -11,7 +11,8 @@ import { createScoreLabels } from './score-labels.js';
 import { formatValue } from './dashboard-data.js';
 import { areaFillStyle, outlierStroke, tooltipHtml } from './rotterdam.js';
 import { nonResidentialLabel } from './woongebied.js';
-import { loadNlLevel, loadGemeenteGeo, gemeenteOf, findNlArea } from './nl-areas.js';
+import { loadNlLevel, loadGemeenteGeo, gemeenteOf, findNlArea, isNlLevelLoaded } from './nl-areas.js';
+import { withLoader } from './loader.js';
 
 const PANE = 'nlDrill';
 const STROKE = { wijk: { color: '#7c3aed', weight: 1.2, opacity: 0.8 }, buurt: { color: '#ea580c', weight: 0.6, opacity: 0.75 } };
@@ -70,7 +71,10 @@ function makeLayer(geo, lvl) {
 export async function showDrill(gm, level) {
   const my = ++seq;
   if (shown?.gemeente === gm && shown?.level === level && layer) return status;
-  const [geoR, dataR] = await Promise.allSettled([loadGemeenteGeo(level, gm), loadNlLevel(level)]);
+  const load = () => Promise.allSettled([loadGemeenteGeo(level, gm), loadNlLevel(level)]);
+  // First use of a level loads and scores every NL wijk/buurt: show the loader for that one.
+  const [geoR, dataR] = isNlLevelLoaded(level) ? await load()
+    : await withLoader(level === 'wijk' ? 'Wijken van Nederland laden…' : 'Buurten van Nederland laden…', load);
   if (my !== seq) return status;
   const map = getMap();
   hideDrill({ keepSeq: true });

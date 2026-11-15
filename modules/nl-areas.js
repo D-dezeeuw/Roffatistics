@@ -163,6 +163,7 @@ export function slimGeo(geojson, gm) {
 // ── Loaders ───────────────────────────────────────────────────────────────────
 
 const defaultFetcher = () => globalThis.fetch?.bind(globalThis);
+const yieldToMain = () => new Promise(r => setTimeout(r, 0));
 const levelPromises = new Map();   // 'wijk' | 'buurt' → Promise<Area[]>
 const loaded = { wijk: null, buurt: null };
 const geoPromises = new Map();     // 'wijk:GM0599' → Promise<FeatureCollection>
@@ -184,6 +185,7 @@ export function loadNlLevel(level, { fetcher = defaultFetcher() } = {}) {
   const p = (async () => {
     const parents = level === 'buurt' ? await loadNlLevel('wijk', { fetcher }) : null;
     const raw = addBouwShares(addPc4Shares(decodeLevel(await getJSON(NL_DATA_URLS[level], fetcher))));   // postcode herkomst, once loaded
+    await yieldToMain();   // decode and scoring in separate tasks: no single long block (docs/decisions.md 15 Nov 2026)
     const scored = withWoonscore(raw, { parents });
     loaded[level] = scored;
     return scored;
@@ -208,6 +210,9 @@ export function loadGemeenteGeo(level, gm, { fetcher = defaultFetcher() } = {}) 
   p.catch(() => geoPromises.delete(key));
   return p;
 }
+
+/** True once the areas of `level` are loaded and scored (no load is started). */
+export function isNlLevelLoaded(level) { return loaded[level] != null; }
 
 /** The loaded NL areas ({ wijken, buurten }, [] for a level not loaded); never starts a load. */
 export function peekNlAreas() { return { wijken: loaded.wijk ?? [], buurten: loaded.buurt ?? [] }; }
