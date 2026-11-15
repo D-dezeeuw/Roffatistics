@@ -159,6 +159,37 @@ export function sortRows(rows, column, dir = 'asc') {
     .map(x => x.row);
 }
 
+// ── Rank mode: 'fixed' (Vast) | 'sort' (Volgt sortering) ─────────────────────
+
+export const RANK_MODES = Object.freeze(['fixed', 'sort']);
+
+/** True when, in rank mode 'sort', `column` renumbers the rows ('rank' and 'name' never do). */
+export function sortDrivesRank(mode, column) {
+  return mode === 'sort' && column !== 'rank' && column !== 'name';
+}
+
+/**
+ * Rank numbers for rows that are already in display order (sortRows output).
+ * mode 'fixed' returns the rows unchanged: rank and score stay those of the
+ * "Rangschik op" basis (rankRows). mode 'sort' renumbers them from the sort
+ * column: 1 = top row, equal values share a rank (competition ranking 1-2-2-4),
+ * rows without a value in that column get rank null (sortRows already put them
+ * last). The score becomes that column's percentile score (scoreFor) and
+ * rankKey the column. Sorting on 'rank' or 'name' keeps the fixed ranks.
+ */
+export function applyRankMode(rows, { mode = 'fixed', column = 'rank', datasets = [] } = {}) {
+  if (!sortDrivesRank(mode, column)) return rows;
+  let rank = 0, prev;
+  return rows.map((row, i) => {
+    const v = columnValue(row, column);
+    const score = column === 'overall' ? (row.score ?? row.overall ?? null) : scoreFor(row, column, datasets);
+    const rankKey = column === 'overall' ? (row.rankKey ?? 'overall') : column;
+    if (v == null) return { ...row, rank: null, score, rankKey };
+    if (v !== prev) { rank = i + 1; prev = v; }
+    return { ...row, rank, score, rankKey };
+  });
+}
+
 /** Default direction when a column header is first clicked. */
 export function defaultSortDir(column) {
   return column === 'rank' || column === 'name' ? 'asc' : 'desc';
@@ -173,6 +204,7 @@ export function formatValue(value, unit) {
     case '%':         return `${nl(value, 1)}%`;
     case '×€1.000':   return `€ ${nl(Math.round(value * 1000))}`;
     case 'per 1.000': return nl(value, 1);
+    case 'misdrijven': return nl(Math.round(value));
     default:          return nl(value, Number.isInteger(value) ? 0 : 1);
   }
 }

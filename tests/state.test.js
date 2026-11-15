@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   sanitizePatch, parseHash, serializeHash, resolveInitialState, getState, setState, onStateChange,
-  initState, DEFAULT_STATE, SCOPE_STORAGE_KEY,
+  initState, DEFAULT_STATE, SCOPE_STORAGE_KEY, CRIME_STORAGE_KEY,
 } from '../modules/state.js';
 
 const memStorage = (init = {}) => {
@@ -12,7 +12,7 @@ const memStorage = (init = {}) => {
 
 describe('state helpers', () => {
   it('defaults to Rotterdam, map view, population', () => {
-    assert.deepEqual(DEFAULT_STATE, { scope: 'rotterdam', view: 'map', dataset: 'population', area: null });
+    assert.deepEqual(DEFAULT_STATE, { scope: 'rotterdam', view: 'map', dataset: 'population', area: null, crime: 'rate' });
   });
 
   it('sanitizePatch drops invalid values', () => {
@@ -35,6 +35,36 @@ describe('state helpers', () => {
     assert.equal(resolveInitialState({ hash: '#scope=rotterdam', storage: memStorage({ [SCOPE_STORAGE_KEY]: 'nederland' }) }).scope, 'rotterdam');
     const throwing = { getItem() { throw new Error('blocked'); } };
     assert.deepEqual(resolveInitialState({ storage: throwing }), { ...DEFAULT_STATE });
+  });
+});
+
+describe('crime mode in the state', () => {
+  it('accepts rate/abs only', () => {
+    assert.deepEqual(sanitizePatch({ crime: 'abs' }), { crime: 'abs' });
+    assert.deepEqual(sanitizePatch({ crime: 'rate' }), { crime: 'rate' });
+    assert.deepEqual(sanitizePatch({ crime: 'per1000' }), {});
+  });
+
+  it('writes &crime=abs to the hash only in absolute mode and reads it back', () => {
+    const s = { scope: 'rotterdam', view: 'map', area: null };
+    assert.equal(serializeHash({ ...s, crime: 'rate' }), '#scope=rotterdam&view=map');
+    assert.equal(serializeHash({ ...s, crime: 'abs' }), '#scope=rotterdam&view=map&crime=abs');
+    assert.deepEqual(parseHash('#scope=rotterdam&view=map&crime=abs'), { scope: 'rotterdam', view: 'map', crime: 'abs' });
+  });
+
+  it('initial crime mode: hash beats localStorage beats the default', () => {
+    assert.equal(resolveInitialState({}).crime, 'rate');
+    assert.equal(resolveInitialState({ storage: memStorage({ [CRIME_STORAGE_KEY]: 'abs' }) }).crime, 'abs');
+    assert.equal(resolveInitialState({ hash: '#crime=rate', storage: memStorage({ [CRIME_STORAGE_KEY]: 'abs' }) }).crime, 'rate');
+  });
+
+  it('persists a crime mode change in storage', () => {
+    const storage = memStorage();
+    initState({ hash: '', storage });
+    setState({ crime: 'abs' });
+    assert.equal(storage.map.get(CRIME_STORAGE_KEY), 'abs');
+    setState({ crime: 'rate' });
+    assert.equal(storage.map.get(CRIME_STORAGE_KEY), 'rate');
   });
 });
 

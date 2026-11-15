@@ -2,12 +2,14 @@
 // setState() validates, persists the scope, mirrors scope/view/area into the
 // URL hash and emits a 'state-change' event: on `document` in the browser,
 // on a private EventTarget under node.
-import { DATASET_KEYS } from './datasets.js';
+import { DATASET_KEYS, CRIME_MODES } from './datasets.js';
 
 export const SCOPES = Object.freeze(['rotterdam', 'nederland']);
 export const VIEWS  = Object.freeze(['map', 'dashboard', 'list']);
 export const SCOPE_STORAGE_KEY = 'roffatistics.scope';
-export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'population', area: null });
+export const CRIME_STORAGE_KEY = 'roffatistics.crime';
+// crime: 'rate' (per 1.000 inwoners) | 'abs' (registered offences); see datasets.js datasetFor().
+export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'population', area: null, crime: 'rate' });
 
 const AREA_RE = /^(PV\d{2}|GM\d{4}|WK\d{6}|BU\d{8})$/;
 
@@ -17,6 +19,7 @@ export function sanitizePatch(patch = {}) {
   if (SCOPES.includes(patch.scope))         out.scope   = patch.scope;
   if (VIEWS.includes(patch.view))           out.view    = patch.view;
   if (DATASET_KEYS.includes(patch.dataset)) out.dataset = patch.dataset;
+  if (CRIME_MODES.includes(patch.crime))    out.crime   = patch.crime;
   if ('area' in patch) {
     const a = patch.area == null ? '' : String(patch.area).trim().toUpperCase();
     if (a === '') out.area = null;
@@ -29,21 +32,22 @@ export function sanitizePatch(patch = {}) {
 export function parseHash(hash) {
   const params = new URLSearchParams(String(hash ?? '').replace(/^#/, ''));
   const raw = {};
-  for (const key of ['scope', 'view', 'area']) if (params.has(key)) raw[key] = params.get(key);
+  for (const key of ['scope', 'view', 'area', 'crime']) if (params.has(key)) raw[key] = params.get(key);
   return sanitizePatch(raw);
 }
 
-/** State → '#scope=…&view=…[&area=…]'. */
+/** State → '#scope=…&view=…[&area=…][&crime=abs]' (the default crime mode is left out). */
 export function serializeHash(state) {
   const params = new URLSearchParams({ scope: state.scope, view: state.view });
   if (state.area) params.set('area', state.area);
+  if (state.crime === 'abs') params.set('crime', 'abs');
   return `#${params}`;
 }
 
-/** Initial state: defaults < stored scope < URL hash. */
+/** Initial state: defaults < stored scope and crime mode < URL hash. */
 export function resolveInitialState({ hash = '', storage = null } = {}) {
   let stored = {};
-  try { stored = sanitizePatch({ scope: storage?.getItem(SCOPE_STORAGE_KEY) }); } catch { /* storage blocked */ }
+  try { stored = sanitizePatch({ scope: storage?.getItem(SCOPE_STORAGE_KEY), crime: storage?.getItem(CRIME_STORAGE_KEY) }); } catch { /* storage blocked */ }
   return { ...DEFAULT_STATE, ...stored, ...parseHash(hash) };
 }
 
@@ -66,6 +70,9 @@ export function setState(patch, { source = 'app' } = {}) {
   state = { ...state, ...clean };
   if (changed.includes('scope')) {
     try { storageRef?.setItem(SCOPE_STORAGE_KEY, state.scope); } catch { /* ignore */ }
+  }
+  if (changed.includes('crime')) {
+    try { storageRef?.setItem(CRIME_STORAGE_KEY, state.crime); } catch { /* ignore */ }
   }
   writeHash();
   bus.dispatchEvent(new CustomEvent('state-change', { detail: { state: getState(), prev: { ...prev }, changed, source } }));

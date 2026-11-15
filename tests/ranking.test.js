@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   percentileScores, scoreAreas, rankValue, rankRows, columnValue, sortRows, defaultSortDir, formatValue, formatScore,
-  scoreFor, orderColumns, scoreHeader,
+  scoreFor, orderColumns, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES,
 } from '../modules/ranking.js';
 
 const DS = [
@@ -197,5 +197,59 @@ describe('column order and score header', () => {
     assert.equal(scoreHeader('income', DS2).label, 'Score · Inkomen');
     assert.match(scoreHeader('crime', DS2).title, /lager is beter/);
     assert.match(scoreHeader('pop', DS2).title, /Percentiel van Inwoners/);
+  });
+});
+
+describe('rank mode (Vast | Volgt sortering)', () => {
+  const DS3 = [
+    { key: 'income', label: 'Inkomen', title: 'Gem. inkomen', higherIsBetter: true },
+    { key: 'crime',  label: 'Crim.',   title: 'Misdrijven',   higherIsBetter: false },
+    { key: 'pop',    label: 'Bevolking', title: 'Inwoners',   higherIsBetter: null },
+  ];
+  const scored = scoreAreas([
+    area('A', 'Alfa',    { income: 10,   crime: 4,    pop: 5 }),
+    area('B', 'Bravo',   { income: 30,   crime: 9,    pop: 9 }),
+    area('C', 'Charlie', { income: 20,   crime: 4,    pop: null }),
+    area('D', 'Delta',   { income: null, crime: null, pop: 1 }),
+  ], DS3);
+  const ranked = rankRows(scored, 'income', DS3);     // fixed basis: income
+  const view = (column, dir, mode) => applyRankMode(sortRows(ranked, column, dir), { mode, column, datasets: DS3 });
+
+  it('fixed: column sorting only reorders, ranks and scores stay with the areas', () => {
+    const rows = view('crime', 'asc', 'fixed');
+    assert.deepEqual(rows.map(r => [r.code, r.rank, r.score]), [['C', 2, 50], ['A', 3, 0], ['B', 1, 100], ['D', null, null]]);
+    assert.ok(rows.every(r => r.rankKey === 'income'));
+  });
+
+  it('sort, desc: 1 = top row, score = that column’s score, nulls unranked at the bottom', () => {
+    const rows = view('pop', 'desc', 'sort');
+    assert.deepEqual(rows.map(r => [r.code, r.rank]), [['B', 1], ['A', 2], ['D', 3], ['C', null]]);
+    assert.deepEqual(rows.map(r => r.score), [100, 50, 0, null]);      // neutral → raw-value percentile
+    assert.ok(rows.every(r => r.rankKey === 'pop'));
+  });
+
+  it('sort, asc with ties: equal values share a rank (1-1-3), direction-aware score', () => {
+    const rows = view('crime', 'asc', 'sort');
+    assert.deepEqual(rows.map(r => [r.code, r.rank]), [['C', 1], ['A', 1], ['B', 3], ['D', null]]);
+    assert.equal(rows[0].score, rows[1].score);
+    assert.equal(rows[2].score, 0);                                     // most crime → lowest score
+  });
+
+  it('sort on the rank or name column keeps the fixed ranks', () => {
+    assert.deepEqual(view('name', 'asc', 'sort').map(r => [r.code, r.rank]), [['A', 3], ['B', 1], ['C', 2], ['D', null]]);
+    assert.deepEqual(view('rank', 'asc', 'sort').map(r => r.rank), [1, 2, 3, null]);
+    assert.equal(sortDrivesRank('sort', 'name'), false);
+    assert.equal(sortDrivesRank('fixed', 'income'), false);
+    assert.equal(sortDrivesRank('sort', 'income'), true);
+    assert.deepEqual(RANK_MODES, ['fixed', 'sort']);
+  });
+
+  it('sort on the score column renumbers by the basis score', () => {
+    const rows = view('overall', 'asc', 'sort');
+    assert.deepEqual(rows.map(r => [r.code, r.rank, r.score]), [['A', 1, 0], ['C', 2, 50], ['B', 3, 100], ['D', null, null]]);
+  });
+
+  it('formats absolute crime counts as whole numbers', () => {
+    assert.equal(formatValue(1234, 'misdrijven'), '1.234');
   });
 });

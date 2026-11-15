@@ -424,7 +424,8 @@ export function aggregateCrime(rows) {
 }
 
 /**
- * Returns new areas with crime values from 47018NED rows: totalCrimes (count),
+ * Returns new areas with crime values from 47018NED rows: totalCrimes and
+ * <category>Count (counts, for the Absoluut mode),
  * crimeRate and the CRIME_CATEGORIES rates per 1,000 inhabitants, and
  * crimeTrend (% change of the total vs the previous year, panel only).
  * Areas without a crime row are returned unchanged.
@@ -436,7 +437,9 @@ export function mergeCrime(areas, rows, { minPopulation = CRIME_MIN_POPULATION }
     if (!c) return a;
     const pop = a.values?.population;
     const rates = Object.fromEntries(Object.keys(CRIME_CATEGORIES).map(k => [k, crimeRatePer1000(c[k], pop, minPopulation)]));
-    return { ...a, values: { ...a.values, totalCrimes: c.total, crimeRate: crimeRatePer1000(c.total, pop, minPopulation), ...rates, crimeTrend: percentChange(c.total, c.totalPrev) } };
+    // Raw counts for the "Absoluut" crime mode (DATASETS[key].countKey): no population threshold.
+    const counts = Object.fromEntries(Object.keys(CRIME_CATEGORIES).map(k => [`${k}Count`, c[k]]));
+    return { ...a, values: { ...a.values, totalCrimes: c.total, crimeRate: crimeRatePer1000(c.total, pop, minPopulation), ...rates, ...counts, crimeTrend: percentChange(c.total, c.totalPrev) } };
   });
 }
 

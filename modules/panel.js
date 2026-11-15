@@ -1,3 +1,5 @@
+import { getState, onStateChange } from './state.js';
+
 function cat(data, label) {
   const entry = data?.categories?.find(c => c.label === label);
   return entry?.count != null ? entry.count.toLocaleString('nl-NL') : '—';
@@ -15,13 +17,23 @@ function trend(v) {
   return `${v > 0 ? '+' : v < 0 ? '−' : '±'}${t}% t.o.v. 2024`;
 }
 
-export function formatPanelData(data) {
+function count(v) { return v != null ? `${v.toLocaleString('nl-NL')} misdrijven` : '—'; }
+
+/**
+ * Display strings for every panel field. `mode` is the crime mode (state.crime):
+ * in 'abs' the first crime row shows the registered offences ("Aantal 2025")
+ * and the second the rate, and the sub-layers show counts instead of rates.
+ */
+export function formatPanelData(data, mode = 'rate') {
+  const abs = mode === 'abs';
   return {
     population:          data?.population  != null ? data.population.toLocaleString('nl-NL')         : '—',
     density:             data?.density     != null ? `${data.density.toLocaleString('nl-NL')} /km²`  : '—',
     avgIncome:           data?.avgIncome   != null ? `€${data.avgIncome}k`                           : '—',
-    crimeRate:           data?.crimeRate   != null ? `${data.crimeRate.toFixed(1)} /1k inw.`         : '—',
-    totalCrimes:         num(data?.totalCrimes),
+    crimeLabel1:         abs ? 'Aantal 2025' : 'Per 1.000 inw.',
+    crimeRate:           abs ? count(data?.totalCrimes) : (data?.crimeRate != null ? `${data.crimeRate.toFixed(1)} /1k inw.` : '—'),
+    crimeLabel2:         abs ? 'Per 1.000 inw.' : 'Totaal',
+    totalCrimes:         abs ? (data?.crimeRate != null ? `${data.crimeRate.toFixed(1)} /1k inw.` : '—') : num(data?.totalCrimes),
     catVermogen:         cat(data, 'Vermogen'),
     catDiefstalInbraak:  cat(data, 'Diefstal/inbraak'),
     catVernieling:       cat(data, 'Vernieling'),
@@ -41,10 +53,10 @@ export function formatPanelData(data) {
     rentalPct:           pct(data?.rentalPct),
     welfarePer1000:      rate(data?.welfarePer1000),
     crimeTrend:          trend(data?.crimeTrend),
-    crimeBurglary:       rate(data?.crimeBurglary),
-    crimeBike:           rate(data?.crimeBike),
-    crimePickpocket:     rate(data?.crimePickpocket),
-    crimeViolence:       rate(data?.crimeViolence),
+    crimeBurglary:       abs ? count(data?.crimeBurglaryCount)   : rate(data?.crimeBurglary),
+    crimeBike:           abs ? count(data?.crimeBikeCount)       : rate(data?.crimeBike),
+    crimePickpocket:     abs ? count(data?.crimePickpocketCount) : rate(data?.crimePickpocket),
+    crimeViolence:       abs ? count(data?.crimeViolenceCount)   : rate(data?.crimeViolence),
     distGP:              km(data?.distGP),
     distSupermarket:     km(data?.distSupermarket),
   };
@@ -53,9 +65,17 @@ export function formatPanelData(data) {
 /** Every panel field key (the spektrum bindings are `panel.<key>` and `panel2.<key>`). */
 export const PANEL_FIELDS = Object.freeze(Object.keys(formatPanelData(null)));
 
+// Last content per slot, so a crime-mode switch can re-format an open panel.
+const lastSlot = { panel: null, panel2: null };
+onStateChange(({ changed }) => {
+  if (!changed.includes('crime')) return;
+  for (const [prefix, slot] of Object.entries(lastSlot)) if (slot?.data) setSlot(prefix, slot.name, slot.code, slot.data);
+});
+
 async function setSlot(prefix, name, code, data) {
+  lastSlot[prefix] = { name, code, data };
   const { setValue } = await import('spektrum');
-  const fmt = formatPanelData(data);
+  const fmt = formatPanelData(data, getState().crime);
   setValue(`${prefix}.name`,              name ?? '');
   setValue(`${prefix}.code`,              code ?? '');
   for (const [key, text] of Object.entries(fmt)) setValue(`${prefix}.${key}`, text);

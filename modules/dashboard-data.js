@@ -1,6 +1,6 @@
 // Pure helpers for the dashboard view: sorting, Rotterdam averages, scales,
 // ticks and nl-NL formatting. No DOM; covered by tests/dashboard-data.test.js.
-import { DATASETS } from './datasets.js';
+import { DATASETS, datasetFor, isCrimeDataset } from './datasets.js';
 
 const num = v => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 
@@ -36,13 +36,22 @@ export function weightedMean(areas, key, weightKey = 'population') {
 }
 
 /**
- * The Rotterdam figure for one dataset: the population total for 'population',
+ * True when the Rotterdam figure for `key` is a city total (sum over wijken)
+ * rather than an average: population, and every crime dataset in the
+ * Absoluut crime mode (areas then hold raw counts, see datasets.crimeAreas).
+ */
+export function isCityTotal(key, mode = 'rate') {
+  return key === 'population' || (mode === 'abs' && isCrimeDataset(key));
+}
+
+/**
+ * The Rotterdam figure for one dataset: the city total for isCityTotal keys,
  * otherwise the population-weighted mean (every other dataset is a per-person
  * share, rate or average, so a plain mean over wijken would over-weight the
  * almost empty port wijken).
  */
-export function cityValue(areas, key) {
-  return key === 'population' ? sumOf(areas, key) : weightedMean(areas, key);
+export function cityValue(areas, key, mode = 'rate') {
+  return isCityTotal(key, mode) ? sumOf(areas, key) : weightedMean(areas, key);
 }
 
 export const KPI_KEYS = Object.freeze(['population', 'avgIncome', 'highEdu', 'wozValue', 'ownerOccupiedPct', 'welfarePer1000', 'crimeRate', 'pop65plus', 'nonWesternPct']);
@@ -59,14 +68,15 @@ const KPI_LABELS = {
  * from an older year than `baseYear` gets that year in its label; the WOZ
  * label always names its year so it reads next to the 2026 city KPI.
  */
-export function cityKpis(areas, city = null, baseYear = 2025) {
+export function cityKpis(areas, city = null, baseYear = 2025, mode = 'rate') {
   return KPI_KEYS.map(key => {
     const own = num(city?.values?.[key]);
-    const value = own ?? cityValue(areas, key);
+    const value = own ?? cityValue(areas, key, mode);
     const year = own != null ? (city?.years?.[key] ?? baseYear) : null;
     let label = KPI_LABELS[key];
+    if (mode === 'abs' && isCrimeDataset(key)) label += ' (totaal)';
     if (year && (year !== baseYear || key === 'wozValue')) label += ` ${year}`;
-    return { key, label, value, text: formatValue(value, key), ...(own != null ? { note: 'CBS gemeentecijfer' } : {}) };
+    return { key, label, value, text: formatValue(value, key, mode), ...(own != null ? { note: 'CBS gemeentecijfer' } : {}) };
   });
 }
 
@@ -99,11 +109,12 @@ export function formatNumber(v, decimals = 0) {
   return n == null ? '—' : nf(decimals).format(n);
 }
 
-/** Value with its unit, by dataset key: '€ 38.400', '45,3%', '62,1 per 1.000 inw.', '12.345'. */
-export function formatValue(v, key) {
+/** Value with its unit, by dataset key (and crime mode): '€ 38.400', '45,3%', '62,1 per 1.000 inw.', '1.234 misdrijven'. */
+export function formatValue(v, key, mode = 'rate') {
   const n = num(v);
   if (n == null) return 'geen data';
-  const unit = DATASETS[key]?.unit;
+  const unit = datasetFor(key, mode)?.unit;
+  if (unit === 'misdrijven') return `${formatNumber(n)} misdrijven`;
   if (unit === '×€1.000')   return `€ ${formatNumber(Math.round(n * 1000 / 100) * 100)}`;
   if (unit === '%')         return `${formatNumber(n, 1)}%`;
   if (unit === 'per 1.000') return `${formatNumber(n, 1)} per 1.000 inw.`;
@@ -114,8 +125,8 @@ export function formatValue(v, key) {
 }
 
 /** Short axis label: thousands become 'k' for euro datasets, '%' kept. */
-export function formatTick(v, key) {
-  const unit = DATASETS[key]?.unit;
+export function formatTick(v, key, mode = 'rate') {
+  const unit = datasetFor(key, mode)?.unit;
   if (unit === '×€1.000') return `€${formatNumber(v, 1)}k`;
   if (unit === '%')       return `${formatNumber(v, 1)}%`;
   if (unit === 'km')      return `${formatNumber(v, 1)} km`;
@@ -175,12 +186,12 @@ export function scatterPoints(areas, xKey, yKey) {
 }
 
 /** Compact value for bar ends: like formatValue without the long unit suffixes. */
-export function formatShort(v, key) {
+export function formatShort(v, key, mode = 'rate') {
   const n = num(v);
   if (n == null) return '—';
-  const unit = DATASETS[key]?.unit;
-  if (unit === 'per 1.000' || key === 'population') return formatNumber(n, unit === 'per 1.000' ? 1 : 0);
-  return formatValue(n, key);
+  const unit = datasetFor(key, mode)?.unit;
+  if (unit === 'per 1.000' || unit === 'misdrijven' || key === 'population') return formatNumber(n, unit === 'per 1.000' ? 1 : 0);
+  return formatValue(n, key, mode);
 }
 
 // ── Compositions for the donut charts ────────────────────────────────────────

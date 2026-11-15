@@ -119,3 +119,15 @@ describe('formatPanelData', () => {
     assert.equal(result.highEdu, '—');
   });
 });
+
+describe('formatPanelData in the Absoluut crime mode', () => {
+  it('shows the count first and the rate second, sub-layers as counts', () => {
+    const r = formatPanelData({ crimeRate: 45.2, totalCrimes: 26973, crimeBike: 3.1, crimeBikeCount: 1800 }, 'abs');
+    assert.equal(r.crimeLabel1, 'Aantal 2025');
+    assert.equal(r.crimeLabel2, 'Per 1.000 inw.');
+    assert.match(r.crimeRate, /misdrijven/);
+    assert.match(r.totalCrimes, /45\.2/);
+    assert.match(r.crimeBike, /misdrijven/);
+    assert.equal(formatPanelData({ crimeRate: 45.2 }).crimeLabel1, 'Per 1.000 inw.');
+  });
+});
