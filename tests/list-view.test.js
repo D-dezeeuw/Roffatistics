@@ -37,9 +37,13 @@ describe('visibleColumns', () => {
     assert.equal(cols[0], 'avgIncome');
     assert.ok(cols.slice(1).every(k => categoryOf(k) === 'opleiding'));
   });
-  it('Totaalscore and Woonscore show no metric columns (score + Opbouw only)', () => {
-    assert.deepEqual(visibleColumns(all, { mode: 'simple', rankKey: 'overall' }), []);
-    assert.deepEqual(visibleColumns(all, { mode: 'simple', rankKey: 'woonscore' }), []);
+  it('Totaalscore and Woonscore show one headline metric per category, no scores', () => {
+    for (const rankKey of ['overall', 'woonscore']) {
+      const cols = keys(visibleColumns(all, { mode: 'simple', rankKey }));
+      assert.ok(cols.includes('crimeRate') && cols.includes('avgIncome') && cols.includes('highEdu'));
+      assert.ok(cols.every(k => DATASETS[k].unit !== 'score'));
+      assert.equal(new Set(cols.map(categoryOf)).size, cols.length);
+    }
     assert.equal(visibleColumns(all, { mode: 'adv', rankKey: 'woonscore' })[0].key, 'woonscore');
   });
   it('only columns with data are shown', () => {
