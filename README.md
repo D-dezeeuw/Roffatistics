@@ -18,6 +18,8 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 - **Crime: Per 1000 inwoners | Absoluut** — one toggle (legend, Ranglijst, Dashboard) switches every crime layer between the rate per 1.000 inhabitants and the raw 2025 count; in Absoluut the dashboard shows the Rotterdam total and every area gets a value
 - **Rang: Vast | Volgt sortering** — in the Ranglijst, "Vast" keeps the rank numbers of "Rangschik op" while you sort a column; "Volgt sortering" renumbers the rows (and shows the score) of the sorted column; the choice is remembered
 - **Robust colour scale** — every choropleth, the legend, the Ranglijst bars and the dashboard bars use 7 stepped quantile classes of the shown set (the median sits in the middle class), so one extreme area no longer flattens the rest; outliers (Tukey fences on raw and log scale) get a red border, a red dot in the Ranglijst and "uitschieter" in the tooltip; the legend lists the class breaks, the median and the outlier count, and "Schaal: Kwantiel | Lineair" switches back to the old min→max ramp (remembered)
+- **Herkomst** — layers group with % herkomst Nederland, Europa (excl. NL), buiten Europa and % born abroad per wijk/buurt (neutral, outside the totaalscore), a mini NL/Europa/buiten-Europa bar in the panel, and a dashboard section for the whole city: donut by 19 origin groups (Turkije, Marokko, Suriname, Nederlandse Cariben, Afrika bezuiden de Sahara, Midden-Oosten …), top 15 countries of origin, growth 2022–2026 per group, and a 100 % bar per wijk
+- **Rangschik op follows the layer** — picking a layer in the topnav also ranks the Ranglijst on it; Totaalscore stays selectable and leaves the map alone
 - **Deep links** — `#scope=rotterdam|nederland&view=map|dashboard|list&area=<CBS code>&crime=abs`; the scope and crime choice are remembered
 - **Province choropleth** — four selectable datasets color all 12 provinces
 - **Municipality drill-down** — zoom to level 10+ to see gemeente-level data
@@ -38,9 +40,11 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 | Fallback per field when 2025 is empty (income, education; some WOZ/65+/herkomst/bijstand cells) | CBS OData — Kerncijfers wijken en buurten 2024 | 85984NED |
 | Rotterdam wijk + buurt crime 2025 and 2024 (total, woninginbraak, fietsendiefstal, zakkenrollerij, geweld) | CBS dataderden (Politie) — Geregistreerde misdrijven; soort misdrijf, wijk, buurt | 47018NED |
 | Rotterdam average WOZ 2026 (gemeente, peildatum 1 januari 2026) | CBS OData — Gemiddelde WOZ-waarde van woningen; eigendom, regio | 85036NED |
+| Rotterdam wijk + buurt herkomst (Nederland_17, EuropaExclusiefNederland_18, BuitenEuropa_19; born abroad _23 + _24) | CBS OData — Kerncijfers wijken en buurten 2025 | 86165NED |
+| Rotterdam population by country of origin 2022–2026 (gemeente only; 19 groups, top 15 countries, trend) | CBS OData — Bevolking; herkomstland, geboorteland, leeftijd, regio, 1 januari | 85458NED |
 | Rotterdam gemeente + wijk geometry | PDOK CBS gebiedsindelingen 2024 (`gemeente_gegeneraliseerd`, `wijk_gegeneraliseerd`), pre-cached in `data/rotterdam_*.geojson` | — |
 
-Wijk/buurt datasets: population, income (standardised household income), higher education, WOZ value, 65+ and origin outside Europe. Wijk crime (misdrijven per 1.000 inwoners) comes from police table 47018NED; buurten and wijken under 1.000 inhabitants show "geen data" for crime. Regenerate the Rotterdam geometry with `node scripts/build-rotterdam-geo.mjs`.
+Wijk/buurt datasets: population, income (standardised household income), higher education, WOZ value, 65+, herkomst (Nederland / Europa / buiten Europa, born abroad). Wijk crime (misdrijven per 1.000 inwoners) comes from police table 47018NED; buurten and wijken under 1.000 inhabitants show "geen data" for crime. Regenerate the Rotterdam geometry with `node scripts/build-rotterdam-geo.mjs`.
 
 ## Run locally
 

@@ -1461,3 +1461,57 @@ footer {
 @media (prefers-reduced-motion: reduce) {
   .explain-entry { transition: none; }
 }
+
+/* ─── Dashboard: Herkomst section ─────────────────────────── */
+
+.dash-herkomst { display: flex; flex-direction: column; gap: 0.75rem; margin: 0.5rem 0; }
+.dash-section-head h2 {
+  font-size: 1rem;
+  display: flex; align-items: center; gap: 0.35rem;
+  color: var(--text-primary);
+}
+.dash-section-head p { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; max-width: 70rem; }
+.hk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+.hk-donut { grid-column: span 2; }
+.hk-wijken { grid-column: 1 / -1; }
+@media (max-width: 860px) { .hk-donut { grid-column: auto; } }
+.hk-donut .dash-legend { min-width: 14rem; }
+
+.hk-regions { list-style: none; display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; margin-top: 0.6rem; font-size: 0.72rem; color: var(--text-muted); }
+.hk-regions strong { font-family: var(--font-data); font-weight: 500; color: var(--text-primary); }
+
+.hk-bars { list-style: none; display: flex; flex-direction: column; gap: 0.22rem; font-size: 0.74rem; }
+.hk-bar { display: grid; grid-template-columns: 8.5rem 1fr 4rem; align-items: center; gap: 0.5rem; padding: 0.05rem 0.2rem; border-radius: 4px; outline: none; }
+.hk-bar:hover, .hk-bar:focus-visible { background: rgba(124, 58, 237, 0.14); }
+.hk-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hk-bar-track { height: 9px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); overflow: hidden; }
+.hk-bar-fill { display: block; height: 100%; border-radius: 4px; background: var(--accent-orange); }
+.hk-bar-val { font-family: var(--font-data); text-align: right; color: var(--text-primary); }
+
+.hk-multiples { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.5rem; }
+.hk-sm { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.35rem 0.45rem; border-radius: 6px; background: rgba(255, 255, 255, 0.03); outline: none; font-size: 0.68rem; min-width: 0; }
+.hk-sm:hover, .hk-sm:focus-visible { background: rgba(124, 58, 237, 0.14); }
+.hk-sm-head { display: flex; justify-content: space-between; gap: 0.3rem; align-items: baseline; }
+.hk-sm-label { display: inline-flex; align-items: center; gap: 0.25rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hk-sm-label i { flex: none; width: 7px; height: 7px; border-radius: 2px; }
+.hk-sm-change { font-family: var(--font-data); color: var(--text-primary); white-space: nowrap; }
+.hk-sm-foot { font-family: var(--font-data); color: var(--text-muted); }
+.hk-spark { width: 100%; height: 32px; }
+.hk-spark polyline { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+
+.hk-wijk-list { list-style: none; display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.4rem; font-size: 0.74rem; }
+.hk-wijk { display: grid; grid-template-columns: 11rem 1fr 3.5rem; align-items: center; gap: 0.6rem; padding: 0.1rem 0.25rem; border-radius: 4px; cursor: pointer; outline: none; }
+.hk-wijk:hover, .hk-wijk:focus-visible { background: rgba(124, 58, 237, 0.18); }
+.hk-wijk.is-selected { background: rgba(234, 88, 12, 0.16); }
+.hk-wijk-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hk-wijk-val { font-family: var(--font-data); text-align: right; color: var(--text-primary); }
+.hk-wijk .origin-bar { height: 12px; }
+@media (max-width: 520px) {
+  .hk-wijk { grid-template-columns: 7rem 1fr 3rem; }
+  .hk-bar { grid-template-columns: 6.5rem 1fr 3.5rem; }
+}

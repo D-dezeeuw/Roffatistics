@@ -6,6 +6,7 @@
 // returns to the opener. Any element with data-explain="<key>" opens it
 // scrolled to that entry ('score', 'crime-mode', 'nodata' for the general parts).
 import { DATASETS, groupDatasets, datasetFor } from './datasets.js';
+import { ORIGIN_GROUPS, HERKOMST_TABLE, HERKOMST_FIRST_YEAR, HERKOMST_YEAR } from './herkomst.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -103,6 +104,16 @@ export const GENERAL_SECTIONS = Object.freeze([
       'Standaard kleurt de kaart in 7 klassen op rangorde (kwantielen): elke klasse bevat ongeveer even veel gebieden van de getoonde set (alle wijken of alle buurten, in de gekozen criminaliteitsweergave). De middelste klasse bevat de mediaan; de legenda toont per klasse van welke tot welke waarde die loopt. Zo krijgen 26 en 85 misdrijven per 1.000 een duidelijk andere kleur, ook als één gebied er 500 heeft.',
       'Uitschieters krijgen een rode rand bovenop hun kleur, en een rood stipje in de Ranglijst en een rode rand in het dashboard. Een uitschieter ligt buiten de Tukey-grenzen (anderhalf keer de afstand tussen het 25e en 75e percentiel, onder of boven die percentielen), gemeten op de gewone én op een logaritmische schaal; alleen wat op beide ver buiten de rest valt telt. Bij criminaliteit zijn dat vooral gebieden waar veel mensen komen en weinig wonen (Centrum, station, winkelcentra).',
       'Met "Schaal: Lineair" in de legenda zie je de oude kleuring van laagste naar hoogste waarde; een enkele uitschieter maakt dan bijna alles dezelfde kleur. Je keuze wordt onthouden.',
+    ],
+  },
+  {
+    id: 'herkomst-groepen',
+    title: 'Herkomst: landengroepen (heel Rotterdam)',
+    paragraphs: [
+      'Herkomst volgt de CBS-definitie (sinds 2022): het eigen geboorteland; voor wie in Nederland is geboren het geboorteland van de moeder, of als zij ook in Nederland is geboren dat van de vader. Herkomst zegt dus iets over waar iemand of diens ouders zijn geboren, niet over nationaliteit, taal, religie of hoe iemand zich voelt. Kleinkinderen van migranten met twee in Nederland geboren ouders tellen als herkomst Nederland.',
+      `Het Dashboard toont de bevolking van heel Rotterdam op 1 januari ${HERKOMST_YEAR} naar herkomstgroep, de grootste herkomstlanden en de groei sinds ${HERKOMST_FIRST_YEAR} (CBS ${HERKOMST_TABLE}). Per wijk en buurt levert CBS alleen Nederland, Europa (exclusief Nederland) en buiten Europa, plus wie in het buitenland is geboren; landengroepen per wijk bestaan niet als open data.`,
+      'De groepen sluiten elkaar uit en tellen precies op tot het totaal. Samenstelling: ' + ORIGIN_GROUPS.map(g => `${g.label}: ${g.composition}.`).join(' '),
+      'Kanttekeningen: CBS rekent Turkije en de Kaukasische en Centraal-Aziatische landen tot Azië. CBS levert van Noord-Afrika alleen Marokko en Egypte apart; Algerije, Tunesië, Libië en Soedan zitten daardoor in "Afrika bezuiden de Sahara" (in Rotterdam een kleine groep naast onder meer Kaapverdië en Somalië). De top 15 noemt alleen landen die CBS apart publiceert (45 landen); verzamelposten als "voormalig Joegoslavië" en "voormalige Sovjet-Unie" overlappen hun opvolgers en blijven buiten de top. De groei is het verschil tussen de aantallen op 1 januari en zegt niets over de oorzaak (migratie, geboorte, verhuizing, sterfte).',
     ],
   },
   {

@@ -14,6 +14,8 @@ import {
   educationMix, areaEducationMix, shareSplit, populationItems, cityWozKpi,
 } from './dashboard-data.js';
 import { donutSlices, arcPath } from './donut.js';
+import { loadCityHerkomst } from './herkomst.js';
+import { herkomstSectionHtml } from './dashboard-herkomst.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const r1 = v => Math.round(v * 10) / 10;
@@ -36,7 +38,7 @@ export function initDashboard() {
   onStateChange(({ state, changed }) => {
     if (state.view !== 'dashboard') { hideTip(); return; }
     if (changed.some(k => k === 'view' || k === 'scope' || k === 'dataset' || k === 'crime')) render();
-    else if (changed.includes('area') && areas && root.querySelector('[data-donuts]')) { renderDonuts(); drawCharts(); }
+    else if (changed.includes('area') && areas && root.querySelector('[data-donuts]')) { renderDonuts(); drawCharts(); markHerkomstSelection(state.area); }
   });
 
   document.addEventListener(SCALE_EVENT, () => { if (getState().view === 'dashboard') drawCharts(); });
@@ -171,6 +173,7 @@ async function render() {
     </header>
     <ul class="dash-kpis" aria-label="Rotterdam totaal en gemiddelden">${kpis}</ul>
     <section class="dash-donuts" data-donuts aria-label="Samenstelling van Rotterdam"></section>
+    <section class="dash-herkomst" data-herkomst aria-labelledby="dash-h-herkomst"></section>
     <div class="dash-grid">
       ${barCard(order[0])}
       ${scatterCard}
@@ -178,6 +181,24 @@ async function render() {
     </div>`;
   renderDonuts();
   drawCharts();
+  renderHerkomst(seq);
+}
+
+// ── Herkomst ─────────────────────────────────────────────────────────────────
+
+async function renderHerkomst(seq) {
+  const box = root?.querySelector('[data-herkomst]');
+  if (!box) return;
+  const opts = () => ({ donutSvg, legendHtml, selected: getState().area });
+  box.innerHTML = herkomstSectionHtml(null, wijkView(), opts());
+  let summary = null, failed = false;
+  try { summary = await loadCityHerkomst(); } catch { failed = true; }
+  if (seq !== renderSeq || !box.isConnected) return;
+  box.innerHTML = herkomstSectionHtml(summary, wijkView(), { ...opts(), failed });
+}
+
+function markHerkomstSelection(code) {
+  root?.querySelectorAll('[data-herkomst] .hk-wijk').forEach(el => el.classList.toggle('is-selected', el.dataset.code === code));
 }
 
 // ── Donuts ───────────────────────────────────────────────────────────────────
