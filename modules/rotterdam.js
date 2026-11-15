@@ -100,12 +100,22 @@ const baseStroke = kind => kind === 'wijk'
 // Outlier border only on the level whose fill is shown (wijk fill is off at buurt zoom).
 const strokeFor = (kind, area) => (kind === 'wijk' && level === 'buurt' ? null : outlierStroke(valueOf(area), scales[kind])) ?? baseStroke(kind);
 
+/**
+ * What a map click on a wijk/buurt does: 'compare' fills panel slot B while
+ * another area is pinned (started from the modal's "Vergelijk"); otherwise
+ * 'modal' opens the area detail modal.
+ */
+export function mapClickAction(pinnedCode, code) {
+  return pinnedCode && pinnedCode !== code ? 'compare' : 'modal';
+}
+
 function selectArea(area, onSelect) {
-  if (pinnedArea && pinnedArea.code !== area.code) {
+  if (mapClickAction(pinnedArea?.code, area.code) === 'compare') {
     import('./panel.js').then(({ showCompareSlot }) => showCompareSlot({ name: area.name, code: area.code, data: areaPanelData(area) }));
   } else {
     activeArea = area;
-    import('./panel.js').then(({ showPanel }) => showPanel({ name: area.name, code: area.code, data: areaPanelData(area) }));
+    const trigger = globalThis.document?.getElementById('map') ?? null;
+    import('./area-modal.js').then(({ openAreaModal }) => openAreaModal(area.code, trigger));
   }
   onSelect?.(area);
 }
