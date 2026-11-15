@@ -43,7 +43,7 @@ describe('showLoader / hideLoader', () => {
     showLoader('Nederland laden…');
     assert.equal(loader.hidden, false);
     assert.ok(loader.classList.contains('is-visible'));
-    assert.ok(loader.classList.contains('is-indeterminate'));
+    assert.equal(loader.props.get('--progress'), '0', 'starts empty, determinate');
     assert.equal(loader.label.textContent, 'Nederland laden…');
     assert.ok(map.classList.contains('map-busy'));
     hideLoader();
@@ -83,6 +83,19 @@ describe('setLoaderProgress', () => {
     setLoaderProgress(null);
     assert.ok(loader.classList.contains('is-indeterminate'));
     assert.ok(!loader.props.has('--progress'));
+  });
+  it('never goes back while the loader is open, also across nested calls', () => {
+    showLoader('a');
+    setLoaderProgress(0.5);
+    showLoader('b');                       // nested: keeps the fill
+    assert.equal(loader.props.get('--progress'), '0.5');
+    setLoaderProgress(0.2);                // a lower step is ignored
+    assert.equal(loader.props.get('--progress'), '0.5');
+    hideLoader();
+    setLoaderProgress(0.7);
+    assert.equal(loader.props.get('--progress'), '0.7');
+    hideLoader();
+    assert.equal(loader.props.get('--progress'), '1', 'ends full');
   });
 });
 
