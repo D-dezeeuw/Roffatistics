@@ -8,6 +8,7 @@ import { updateLegend }                   from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
 import { initList, setNationalRows }      from './modules/list.js';   // Ranglijst view
 import { initSearch }                     from './modules/search.js';
+import { initDashboard }                  from './modules/dashboard.js';
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -309,7 +310,9 @@ onStateChange(({ state, changed, source }) => {
     activateDataset(state.dataset);
   }
   if (changed.includes('area') && state.area && source !== 'map' && state.scope === 'rotterdam') {
-    focusArea(state.area);
+    // Arriving from another view the map was hidden (size 0): focus after showView's resize frame.
+    if (changed.includes('view')) requestAnimationFrame(() => focusArea(state.area));
+    else focusArea(state.area);
   }
   if (changed.includes('area') && state.area && source !== 'map' && state.scope === 'nederland') {
     focusNederlandArea(state.area);   // search: gemeente / provincie
@@ -319,5 +322,6 @@ onStateChange(({ state, changed, source }) => {
 syncDatasetButtons(initialState.dataset);
 showView(initialState.view);
 initList();   // after showView so a #view=list start renders visible
+initDashboard();
 applyScope(initialState.scope, { initial: true });
 initSearch();
