@@ -1,3 +1,5 @@
+import { addThemeSwitcher } from './theme.js';
+
 // ── Basemap configuration (pure data, unit-tested) ───────────────────────────
 // Keyless providers only: OpenFreeMap vector styles (rendered by MapLibre GL
 // through @maplibre/maplibre-gl-leaflet) and the PDOK aerial photo WMTS.
@@ -110,6 +112,7 @@ export function initMap() {
   try { storage = window.localStorage; } catch { /* storage blocked */ }
   setBasemap(pickInitialBasemap(storage));
   addBasemapSwitcher();
+  addThemeSwitcher(L, map);
 
   // invalidateSize fires Leaflet 'resize', which the maplibre layer forwards to its GL canvas.
   window.addEventListener('resize', () => map.invalidateSize());
