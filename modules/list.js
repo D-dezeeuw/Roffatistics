@@ -11,6 +11,7 @@ import { openAreaModal, themeBarHtml } from './area-modal.js';
 import { scoreResult, themeBreakdown } from './presets.js';
 import { splitResidential, nonResidentialLabel, classifyWoongebied } from './woongebied.js';
 import { scoreKind, scoreTitle } from './wizard-model.js';
+import { visibleColumns, visibleSort } from './list-view.js';
 
 /** The Woonscore follows the active preset: personalised title and a `personal` flag (header tooltip, note). */
 function withScorePreset(ds) {
@@ -18,7 +19,7 @@ function withScorePreset(ds) {
   return ds?.unit === 'score' && scoreKind(score) !== 'standaard' ? { ...ds, title: scoreTitle(score, ds.title), personal: scoreKind(score) } : ds;
 }
 import { buildScale, getScaleMethod, outlierLabel, SCALE_EVENT } from './scale.js';
-import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, orderColumns, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES, rankKeyAfterDatasetChange } from './ranking.js';
+import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES, rankKeyAfterDatasetChange } from './ranking.js';
 
 const LEVELS = {
   rotterdam: [{ key: 'wijken', label: 'Wijken' }, { key: 'buurten', label: 'Buurten' }],
@@ -113,6 +114,10 @@ export function initList(root = document.getElementById('view-list')) {
           <select class="list-rank-select" aria-label="Rangschik op: onderdeel"></select>
         </label>
       </div>
+      <div class="seg list-viewmode" role="group" aria-label="Kolommen">
+        <button type="button" class="seg-opt" data-listview="simple" title="Alleen de kolommen van de gekozen categorie">Eenvoudig</button>
+        <button type="button" class="seg-opt" data-listview="adv" title="Alle kolommen">Uitgebreid</button>
+      </div>
       <div class="seg list-rankmode" role="group" aria-label="Rangnummer">
         <span class="seg-label" aria-hidden="true">Rang:</span>
         <button type="button" class="seg-opt" data-rankmode="fixed" title="Rang en score volgen 'Rangschik op'; kolommen sorteren alleen de rijen">Vast</button>
@@ -145,6 +150,11 @@ export function initList(root = document.getElementById('view-list')) {
     storeRankMode(ui.rankMode);
     render();
   });
+  // Eenvoudig | Uitgebreid lives in the state (#lv=adv, localStorage via state.js).
+  root.querySelector('.list-viewmode').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-listview]');
+    if (btn) setState({ listView: btn.dataset.listview }, { source: 'list' });
+  });
   root.querySelector('.list-level').addEventListener('click', e => {
     const btn = e.target.closest('button[data-level]');
     if (!btn || btn.disabled) return;
@@ -176,7 +186,7 @@ export function initList(root = document.getElementById('view-list')) {
       return;
     }
     if (!isVisible()) return;
-    if (changed.includes('scope') || changed.includes('crime') || changed.includes('score')) { render(); return; }
+    if (changed.includes('scope') || changed.includes('crime') || changed.includes('score') || changed.includes('listView')) { render(); return; }
     if (rankChanged) { render(); return; }
     if (changed.includes('area')) {
       markSelected(state.area);
@@ -303,6 +313,7 @@ async function doRender() {
 
   const mode = getState().crime;
   renderRankMode();
+  renderListView();
   const { areas, dataOk } = await loadRows(scope, level, mode);
   if (scope !== getState().scope || level !== ui.level[scope] || mode !== getState().crime) return;   // superseded
 
@@ -317,6 +328,10 @@ async function doRender() {
   // Only the score rankings (Totaalscore, Woonscore) leave them out; ranked on
   // a plain metric they take part like any other area, with their icon.
   const scoreRanking = isScoreRanking(rankKey);
+  // Eenvoudig: only the ranking category's columns; a sort on a hidden column falls back to the rank.
+  const listView = getState().listView;
+  const columns = visibleColumns(datasets, { mode: listView, rankKey });
+  if (listView !== 'adv') ui.sort = visibleSort(ui.sort, columns);
   const { peers, excluded } = scoreRanking ? splitResidential(areas) : { peers: areas, excluded: [] };
   const ranked = rankRows(scoreAreas(peers, datasets), rankKey, datasets).map(r => ({ ...r, nonResidential: nonResidentialLabel(r) }));
   const unranked = scoreAreas(excluded, datasets).map(r => ({
@@ -354,13 +369,22 @@ async function doRender() {
   if (hidden.length) notes.push(`Geen data: ${hidden.join(', ')}.`);
   setNote(notes.join(' '));
 
-  ui.root.querySelector('.list-table-wrap').innerHTML = tableHtml(rows, orderColumns(datasets, rankKey), level, rankKey, sortDs);
+  ui.root.querySelector('.list-table-wrap').innerHTML = tableHtml(rows, columns, level, rankKey, sortDs, datasets, listView);
   markSelected(getState().area);
 }
 
 function renderRankMode() {
   ui.root.querySelectorAll('.list-rankmode [data-rankmode]').forEach(b => {
     const on = b.dataset.rankmode === ui.rankMode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
+function renderListView() {
+  const mode = getState().listView;
+  ui.root.querySelectorAll('.list-viewmode [data-listview]').forEach(b => {
+    const on = b.dataset.listview === mode;
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', String(on));
   });
@@ -404,15 +428,16 @@ function directionHint(ds) {
   return `${ds.title} — telt niet mee in de score`;
 }
 
-function tableHtml(rows, datasets, level, rankKey, sortDs = null) {
+/** `datasets` = the shown columns; `all` = every dataset with data (score header, Opbouw). */
+function tableHtml(rows, datasets, level, rankKey, sortDs = null, all = datasets, listView = 'adv') {
   const nameLabel = { wijken: 'Wijk', buurten: 'Buurt', provincies: 'Provincie', gemeenten: 'Gemeente' }[level];
   // Rank mode 'sort' on a dataset column: the score column shows that column's score and says so.
   const scoreKey = sortDs ? sortDs.key : rankKey;
-  const base = scoreHeader(scoreKey, datasets);
+  const base = scoreHeader(scoreKey, all);
   const sh = sortDs ? { label: base.label, title: `${base.title} · volgt de sortering` } : base;
   const single = scoreKey !== 'overall';
   // Breakdown column (points per theme) while a score layer ranks the list.
-  const scoreLayer = !sortDs && datasets.find(d => d.key === rankKey)?.unit === 'score' ? rankKey : null;
+  const scoreLayer = !sortDs && all.find(d => d.key === rankKey)?.unit === 'score' ? rankKey : null;
   const legendThemes = scoreLayer ? breakdownLegend(rows, scoreLayer) : [];
   const head = `<tr>
     ${headerCell('rank', '#', 'col-rank', ui.rankMode === 'sort' ? 'Rang (volgt de sortering)' : 'Rang')}
@@ -451,7 +476,7 @@ function tableHtml(rows, datasets, level, rankKey, sortDs = null) {
       ${cells}
     </tr>`;
   }).join('');
-  return `<table class="list-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+  return `<table class="list-table${listView === 'adv' ? '' : ' is-simple'}"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 
 /** Totaalscore and the Woonscore layers rank woongebieden only; any other metric ranks every area. */
