@@ -143,7 +143,7 @@ opt-in attraction only**:
 |---|---|---|
 | W1 | score.js + presets.js (Standaard, Gelijk gewogen), shrinkage, coverage rule, explain; Woonscore layer as default; Ranglijst + modal breakdown | unit tests for engine and presets; page opens on Woonscore for NL and Rotterdam |
 | W2 | age bands, households with kids, building age, nabijheid, distance to centrum | datasets in DATASETS with INFO/Uitleg; data tests |
-| W3 | wizard steps 1–5, Jouw score layer, top 10, sliders, URL/localStorage | wizard state ↔ preset mapping tested; happy flow |
+| W3 | wizard steps 1–5, Jouw score layer, top 10, sliders, URL/localStorage | wizard state ↔ preset mapping tested; happy flow — **built 15 Nov 2026 (v0.20.0)**, see decisions.md |
 | W4 | Gemeenschap step with the §5 rules; Uitleg text | tests that no preset or URL can produce a negative origin weight |
 | W5 | NL gemeenten extra metrics, "Jouw vs Standaard" compare, polish | — |
 

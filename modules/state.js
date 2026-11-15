@@ -8,8 +8,11 @@ export const SCOPES = Object.freeze(['rotterdam', 'nederland']);
 export const VIEWS  = Object.freeze(['map', 'dashboard', 'list']);
 export const SCOPE_STORAGE_KEY = 'roffatistics.scope';
 export const CRIME_STORAGE_KEY = 'roffatistics.crime';
+/** Active Jouw score preset (#score=…, see wizard-model.js); restored when the hash has none. */
+export const SCORE_STORAGE_KEY = 'roffatistics.score';
+const SCORE_RE = /^[a-z0-9.]{1,120}$/;
 // crime: 'rate' (per 1.000 inwoners) | 'abs' (registered offences); see datasets.js datasetFor().
-export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate' });
+export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate', score: null });
 
 const AREA_RE = /^(PV\d{2}|GM\d{4}|WK\d{6}|BU\d{8})$/;
 
@@ -20,6 +23,11 @@ export function sanitizePatch(patch = {}) {
   if (VIEWS.includes(patch.view))           out.view    = patch.view;
   if (DATASET_KEYS.includes(patch.dataset)) out.dataset = patch.dataset;
   if (CRIME_MODES.includes(patch.crime))    out.crime   = patch.crime;
+  if ('score' in patch) {
+    const sc = patch.score == null ? '' : String(patch.score).trim().toLowerCase();
+    if (sc === '') out.score = null;
+    else if (SCORE_RE.test(sc)) out.score = sc;
+  }
   if ('area' in patch) {
     const a = patch.area == null ? '' : String(patch.area).trim().toUpperCase();
     if (a === '') out.area = null;
@@ -32,12 +40,12 @@ export function sanitizePatch(patch = {}) {
 export function parseHash(hash) {
   const params = new URLSearchParams(String(hash ?? '').replace(/^#/, ''));
   const raw = {};
-  for (const key of ['scope', 'view', 'dataset', 'area', 'crime']) if (params.has(key)) raw[key] = params.get(key);
+  for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score']) if (params.has(key)) raw[key] = params.get(key);
   return sanitizePatch(raw);
 }
 
 /**
- * State → '#scope=…&view=…[&dataset=…][&area=…][&crime=abs]'. The default
+ * State → '#scope=…&view=…[&dataset=…][&area=…][&crime=abs][&score=…]'. The default
  * dataset (Woonscore) and crime mode are left out, so a hash without
  * dataset opens on the Woonscore.
  */
@@ -46,13 +54,15 @@ export function serializeHash(state) {
   if (state.dataset && state.dataset !== DEFAULT_STATE.dataset && DATASET_KEYS.includes(state.dataset)) params.set('dataset', state.dataset);
   if (state.area) params.set('area', state.area);
   if (state.crime === 'abs') params.set('crime', 'abs');
+  if (state.score && SCORE_RE.test(state.score)) params.set('score', state.score);
   return `#${params}`;
 }
 
 /** Initial state: defaults < stored scope and crime mode < URL hash. */
 export function resolveInitialState({ hash = '', storage = null } = {}) {
   let stored = {};
-  try { stored = sanitizePatch({ scope: storage?.getItem(SCOPE_STORAGE_KEY), crime: storage?.getItem(CRIME_STORAGE_KEY) }); } catch { /* storage blocked */ }
+  try { stored = sanitizePatch({ scope: storage?.getItem(SCOPE_STORAGE_KEY), crime: storage?.getItem(CRIME_STORAGE_KEY), score: storage?.getItem(SCORE_STORAGE_KEY) });
+    if (stored.score === null) delete stored.score; } catch { /* storage blocked */ }
   return { ...DEFAULT_STATE, ...stored, ...parseHash(hash) };
 }
 
@@ -78,6 +88,9 @@ export function setState(patch, { source = 'app' } = {}) {
   }
   if (changed.includes('crime')) {
     try { storageRef?.setItem(CRIME_STORAGE_KEY, state.crime); } catch { /* ignore */ }
+  }
+  if (changed.includes('score')) {
+    try { if (state.score) storageRef?.setItem(SCORE_STORAGE_KEY, state.score); else storageRef?.removeItem(SCORE_STORAGE_KEY); } catch { /* ignore */ }
   }
   writeHash();
   bus.dispatchEvent(new CustomEvent('state-change', { detail: { state: getState(), prev: { ...prev }, changed, source } }));

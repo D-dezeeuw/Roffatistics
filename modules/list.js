@@ -7,7 +7,8 @@ import { loadRotterdamAreas, getAreaIndex, DATASETS, DATASET_KEYS } from './area
 import { datasetFor, crimeAreas, crimeValues, isCrimeDataset } from './datasets.js';
 import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
-import { openAreaModal } from './area-modal.js';
+import { openAreaModal, themeBarHtml } from './area-modal.js';
+import { scoreResult, themeBreakdown } from './presets.js';
 import { buildScale, getScaleMethod, outlierLabel, SCALE_EVENT } from './scale.js';
 import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, orderColumns, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES, rankKeyAfterDatasetChange } from './ranking.js';
 
@@ -117,7 +118,7 @@ export function initList(root = document.getElementById('view-list')) {
       return;
     }
     if (!isVisible()) return;
-    if (changed.includes('scope') || changed.includes('crime')) { render(); return; }
+    if (changed.includes('scope') || changed.includes('crime') || changed.includes('score')) { render(); return; }
     if (rankChanged) { render(); return; }
     if (changed.includes('area')) {
       markSelected(state.area);
@@ -272,7 +273,8 @@ async function doRender() {
   else if (follows) notes.push(`Rang volgt de sortering op de score, ${ui.sort.dir === 'desc' ? 'hoogste' : 'laagste'} eerst.`);
   if (sortDs) { /* the score note above replaces the basis note */ }
   else if (!rankDs) notes.push('Score = percentiel 0–100 binnen de lijst, gemiddeld over de datasets met een richting.');
-  else if (rankDs.unit === 'score') notes.push('Gerangschikt op de Woonscore: 0–100 binnen de lijst, gewogen over veiligheid (35), welvaart (20), voorzieningen (25), opleiding (10) en koopwoningen (10).');
+  else if (rankDs.key === 'jouwscore') notes.push('Gerangschikt op Jouw score: 0–100 binnen de lijst, gewogen met je antwoorden uit "Vind jouw ideale woonplek". Gebieden boven je budget (als je die verbergt) staan zonder rang onderaan. De kolom Opbouw toont de punten per thema.');
+  else if (rankDs.unit === 'score') notes.push('Gerangschikt op de Woonscore: 0–100 binnen de lijst, gewogen over veiligheid (35), welvaart (20), voorzieningen (25), opleiding (10) en koopwoningen (10). De kolom Opbouw toont de punten per thema.');
   else if (rankDs.higherIsBetter == null) notes.push(`Gerangschikt op ${rankDs.title}, hoogste waarde eerst; score = percentiel 0–100 van die waarde.`);
   else notes.push(`Score = percentiel 0–100 op ${rankDs.title} alleen (${rankDs.higherIsBetter ? 'hoger' : 'lager'} is beter).`);
   if ((rankDs || follows) && rows.some(r => r.rank == null)) notes.push('Gebieden zonder waarde staan onderaan, zonder rang.');
@@ -312,6 +314,18 @@ function headerCell(column, label, cls = '', title = '', explain = null) {
     <button type="button" data-sort="${column}">${esc(label)}<span class="list-sort-arrow" aria-hidden="true">${arrow}</span></button>${explain ? infoButton(explain, label) : ''}</th>`;
 }
 
+/** Theme order of the breakdown column: first appearance over the listed rows (same colour per theme in every row). */
+function breakdownLegend(rows, key) {
+  const seen = new Map();
+  for (const r of rows) for (const t of themeBreakdown(scoreResult(key, r.code))) if (!seen.has(t.theme)) seen.set(t.theme, { theme: t.theme, label: t.label });
+  return [...seen.values()];
+}
+/** A row's themes in legend order, with zero-point placeholders, so colours line up across rows. */
+function alignThemes(themes, legend) {
+  const by = new Map(themes.map(t => [t.theme, t]));
+  return themes.length ? legend.map(l => by.get(l.theme) ?? { ...l, points: 0, weight: 0 }) : [];
+}
+
 function directionHint(ds) {
   if (ds.higherIsBetter === true)  return `${ds.title} — hoger is beter`;
   if (ds.higherIsBetter === false) return `${ds.title} — lager is beter`;
@@ -325,10 +339,14 @@ function tableHtml(rows, datasets, level, rankKey, sortDs = null) {
   const base = scoreHeader(scoreKey, datasets);
   const sh = sortDs ? { label: base.label, title: `${base.title} · volgt de sortering` } : base;
   const single = scoreKey !== 'overall';
+  // Breakdown column (points per theme) while a score layer ranks the list.
+  const scoreLayer = !sortDs && datasets.find(d => d.key === rankKey)?.unit === 'score' ? rankKey : null;
+  const legendThemes = scoreLayer ? breakdownLegend(rows, scoreLayer) : [];
   const head = `<tr>
     ${headerCell('rank', '#', 'col-rank', ui.rankMode === 'sort' ? 'Rang (volgt de sortering)' : 'Rang')}
     ${headerCell('name', nameLabel, 'col-name')}
     ${headerCell('overall', sh.label, `col-score${single ? ' is-single' : ''}`, sh.title, 'score')}
+    ${scoreLayer ? `<th scope="col" class="col-breakdown" title="Punten per thema: ${esc(legendThemes.map(t => t.label).join(', '))}">Opbouw</th>` : ''}
     ${datasets.map(d => headerCell(d.key, d.label, `col-data${d.higherIsBetter == null ? ' is-neutral' : ''}${rankKey === d.key ? ' is-rank-key' : ''}`, rankKey === d.key ? `${directionHint(d)} · rangschikt de lijst` : directionHint(d), d.key)).join('')}
   </tr>`;
   // Same colour scale as the map (scale.js), built per column from the listed rows:
@@ -355,6 +373,7 @@ function tableHtml(rows, datasets, level, rankKey, sortDs = null) {
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>
         </button></th>
       <td class="col-score">${scoreColor ? `<span class="list-chip" style="background:${scoreColor}"></span>` : ''}<strong>${formatScore(r.score)}</strong><small>${!single && r.score != null ? `${r.used}/${r.possible}` : ''}</small></td>
+      ${scoreLayer ? `<td class="col-breakdown">${themeBarHtml(alignThemes(themeBreakdown(scoreResult(scoreLayer, r.code)), legendThemes), { cls: 'score-themes list-themes' })}</td>` : ''}
       ${cells}
     </tr>`;
   }).join('');

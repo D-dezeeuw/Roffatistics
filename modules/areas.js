@@ -586,6 +586,7 @@ const defaultStorage = () => { try { return globalThis.sessionStorage; } catch {
 
 let areasPromise = null;
 let indexPromise = null;
+let loadedAreas = null;   // resolved value of areasPromise (peekRotterdamAreas)
 
 /**
  * Loads all Rotterdam wijken and buurten with their values (cached).
@@ -634,7 +635,7 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
       dataYears: describeDataYears([...wijken, ...buurten]),
     };
   })();
-  areasPromise.catch(() => { areasPromise = null; });
+  areasPromise.then(a => { loadedAreas = a; }, () => { areasPromise = null; });
   return areasPromise;
 }
 
@@ -662,5 +663,8 @@ export function getAreaIndex({ fetcher = globalThis.fetch?.bind(globalThis), sto
   return indexPromise;
 }
 
+/** The Rotterdam areas once loadRotterdamAreas() has resolved, else null (never starts a load). */
+export function peekRotterdamAreas() { return loadedAreas; }
+
 /** Test hook: forget cached loads. */
-export function _resetAreaCache() { areasPromise = null; indexPromise = null; }
+export function _resetAreaCache() { areasPromise = null; indexPromise = null; loadedAreas = null; }

@@ -40,8 +40,37 @@ function eduDonutHtml(items) {
     <ul class="area-edu-legend">${slices.map(s => `<li><i style="background:${s.color}"></i>${esc(s.short)} ${nl(s.value, 1)}%</li>`).join('')}</ul></div>`;
 }
 
-/** Full dialog body for a buildAreaDetail() result. */
-export function areaModalHtml(d, { dataYears = '' } = {}) {
+const THEME_COLORS = ['#7c3aed', '#ea580c', '#0ea5e9', '#22c55e', '#eab308', '#ec4899', '#14b8a6', '#a3a3a3', '#f97316'];
+/** Colour of the i-th theme in a breakdown bar (shared with the Ranglijst and the wizard). */
+export const themeColor = i => THEME_COLORS[i % THEME_COLORS.length];
+
+/** Stacked bar of points per theme (presets.themeBreakdown rows); '' without themes. */
+export function themeBarHtml(themes, { cls = 'score-themes' } = {}) {
+  if (!themes?.length) return '';
+  const total = themes.reduce((s, t) => s + t.points, 0);
+  const title = themes.map(t => `${t.label} ${nl(t.points, 0)}`).join(' · ');
+  return `<span class="${cls}" role="img" aria-label="Opbouw: ${esc(title)}" title="${esc(title)}">${themes.map((t, i) =>
+    `<i style="width:${total ? (100 * t.points) / Math.max(total, 100) : 0}%;background:${themeColor(i)}"></i>`).join('')}</span>`;
+}
+
+function whyHtml(ws) {
+  if (!ws.plus.length && !ws.minus.length) return '';
+  return `<div class="area-ws-why">${ws.plus.length ? `<p class="area-ws-plus"><span>Sterk:</span> ${ws.plus.map(f => esc(f.label)).join(' · ')}</p>` : ''}${ws.minus.length ? `<p class="area-ws-minus"><span>Zwak:</span> ${ws.minus.map(f => esc(f.label)).join(' · ')}</p>` : ''}</div>`;
+}
+
+/** The "Jouw score" block: match %, rank, pluses/minuses and the points per theme. */
+export function personalScoreHtml(js, lvl) {
+  if (!js) return '';
+  const legend = js.themes.map((t, i) => `<li><i style="background:${themeColor(i)}"></i>${esc(t.label)} ${nl(t.points, 0)}</li>`).join('');
+  return `<div class="area-score area-jouwscore"><span class="area-score-num">${Math.round(js.score)}%</span>
+      <span>Jouw score${js.rank ? ` · <strong>#${js.rank}</strong> van ${js.of} ${lvl}` : ''}${js.filtered ? ' <span class="area-badge">boven je budget</span>' : ''}<small>match met jouw antwoorden, 0–100 t.o.v. andere ${lvl}</small></span>
+      ${infoButton('jouwscore', 'Jouw score')}</div>
+    ${whyHtml(js)}
+    ${js.themes.length ? `<div class="area-ws-themes">${themeBarHtml(js.themes)}<ul class="score-theme-legend">${legend}</ul></div>` : ''}`;
+}
+
+/** Full dialog body for a buildAreaDetail() result; `personal` adds the Jouw score block first. */
+export function areaModalHtml(d, { dataYears = '', personal = false } = {}) {
   if (!d) return '<p class="area-empty">Geen gegevens voor dit gebied.</p>';
   const lvl = d.level === 'wijk' ? 'wijken' : 'buurten';
   const facts = [
@@ -62,7 +91,8 @@ export function areaModalHtml(d, { dataYears = '' } = {}) {
     ? `<div class="area-score area-woonscore"><span class="area-score-num">${Math.round(ws.score)}</span>
         <span>Woonscore${ws.rank ? ` · <strong>#${ws.rank}</strong> van ${ws.of} ${lvl}` : ''}${ws.shrunk ? ' <span class="area-badge" title="Minder dan 300 inwoners: criminaliteit en bijstand zijn naar de wijk toe getrokken">weinig inwoners</span>' : ''}<small>0–100 t.o.v. andere ${lvl}; veiligheid, welvaart, voorzieningen, opleiding en koopwoningen</small></span>
         ${infoButton('woonscore', 'Woonscore')}</div>
-      ${ws.plus.length || ws.minus.length ? `<div class="area-ws-why">${ws.plus.length ? `<p class="area-ws-plus"><span>Sterk:</span> ${ws.plus.map(f => esc(f.label)).join(' · ')}</p>` : ''}${ws.minus.length ? `<p class="area-ws-minus"><span>Zwak:</span> ${ws.minus.map(f => esc(f.label)).join(' · ')}</p>` : ''}</div>` : ''}` : '';
+      ${whyHtml(ws)}` : '';
+  const jouw = personal ? personalScoreHtml(d.jouwscore, lvl) : '';
 
   const chips = d.notable.length
     ? `<section class="area-sec"><h3>Opvallend</h3><ul class="area-chips">${d.notable.map(e =>
@@ -110,7 +140,7 @@ export function areaModalHtml(d, { dataYears = '' } = {}) {
         <button type="button" class="area-btn" data-area-action="compare">Vergelijk</button>
         <button type="button" class="area-btn" data-area-action="copy">Kopieer link</button>
       </div>
-      ${woonscore}${overall}${chips}
+      ${jouw}${woonscore}${overall}${chips}
       ${extras.length ? `<section class="area-sec"><div class="area-extras">${extras.join('')}</div></section>` : ''}
       ${table}${children}
     </div>`;
@@ -128,7 +158,7 @@ async function render(code) {
   const areas = await loadRotterdamAreas();
   const area = areas.wijken.find(a => a.code === code) ?? areas.buurten.find(a => a.code === code);
   const detail = buildAreaDetail(area, areas, { mode: getState().crime });
-  els.dialog.innerHTML = areaModalHtml(detail, { dataYears: area ? areaPanelData(area).dataYears : '' });
+  els.dialog.innerHTML = areaModalHtml(detail, { dataYears: area ? areaPanelData(area).dataYears : '', personal: getState().dataset === 'jouwscore' });
   els.dialog.scrollTop = 0;
   els.dialog.querySelector('.area-body')?.scrollTo?.(0, 0);
   return !!area;
@@ -217,7 +247,7 @@ export function initAreaModal() {
     openAreaModal(t.dataset.areaModal, modal.contains(t) ? returnFocus : t);
   });
   onStateChange(({ changed }) => {
-    if (changed.includes('crime') && isOpen() && current) render(current);
+    if ((changed.includes('crime') || changed.includes('score') || changed.includes('dataset')) && isOpen() && current) render(current);
     if (changed.includes('scope') && isOpen()) closeAreaModal();
   });
 }

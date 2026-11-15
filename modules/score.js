@@ -120,7 +120,7 @@ export function scoreAreas(areas, factors, { parents = null, shrinkKeys = [], fi
   return list.map((a, i) => {
     const rows = specs.map(f => {
       const value = a.values?.[f.key];
-      return { key: f.key, label: f.label ?? f.key, weight: f.weight, value: isNum(value) ? value : null, f: preferenceFactor(f, pcts[f.key][i], value) };
+      return { key: f.key, label: f.label ?? f.key, ...(f.theme ? { theme: f.theme } : {}), weight: f.weight, value: isNum(value) ? value : null, f: preferenceFactor(f, pcts[f.key][i], value) };
     });
     const used = rows.filter(r => r.f != null);
     const w = used.reduce((s, r) => s + r.weight, 0);

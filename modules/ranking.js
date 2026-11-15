@@ -123,7 +123,7 @@ export function orderColumns(datasets, key) {
 export function scoreHeader(key, datasets) {
   const ds = key === 'overall' ? null : datasets.find(d => d.key === key);
   if (!ds) return { label: 'Score', title: 'Gemiddelde percentielscore over de datasets met een richting' };
-  if (ds.unit === 'score') return { label: ds.label, title: `${ds.title}: gewogen score uit veiligheid, welvaart, voorzieningen, opleiding en koopwoningen` };
+  if (ds.unit === 'score') return { label: ds.label, title: ds.key === 'jouwscore' ? `${ds.title}: gewogen met jouw antwoorden uit "Vind jouw ideale woonplek"` : `${ds.title}: gewogen score uit veiligheid, welvaart, voorzieningen, opleiding en koopwoningen` };
   const title = ds.higherIsBetter == null
     ? `Percentiel van ${ds.title} binnen de lijst (hoog = hoge waarde)`
     : `Percentielscore op ${ds.title} — ${ds.higherIsBetter ? 'hoger' : 'lager'} is beter`;

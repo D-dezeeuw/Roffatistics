@@ -8,6 +8,7 @@ import { scoreAreas, rankRows } from './ranking.js';
 import { buildScale } from './scale.js';
 import { originSplit } from './herkomst.js';
 import { explain, scoreRank } from './score.js';
+import { themeBreakdown } from './presets.js';
 import { areaEducationMix } from './dashboard-data.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
@@ -141,12 +142,12 @@ export function overallRank(code, peers, mode = 'rate') {
  * The Woonscore block of the modal: { score, rank, of, coverage, shrunk, plus, minus }
  * from the score.js result that areas.js attached (area.woonscore), or null.
  */
-export function woonscoreDetail(area, peers) {
-  const r = area?.woonscore;
+export function woonscoreDetail(area, peers, key = 'woonscore') {
+  const r = area?.[key];
   if (!r || !isNum(r.score)) return null;
-  const rank = scoreRank((peers ?? []).map(p => p.woonscore).filter(Boolean), area.code);
+  const rank = scoreRank((peers ?? []).map(p => p[key]).filter(p => p && !p.filtered), area.code);
   const { plus, minus } = explain(r, { top: 3 });
-  return { score: r.score, rank: rank?.rank ?? null, of: rank?.of ?? null, coverage: r.coverage, shrunk: !!r.shrunk, plus, minus };
+  return { score: r.score, rank: r.filtered ? null : rank?.rank ?? null, of: r.filtered ? null : rank?.of ?? null, coverage: r.coverage, shrunk: !!r.shrunk, filtered: !!r.filtered, plus, minus, themes: themeBreakdown(r) };
 }
 
 const levelOf = area => area?.level ?? (String(area?.code).startsWith('BU') ? 'buurt' : 'wijk');
@@ -195,6 +196,7 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
     entries, notable,
     overall: overallRank(area.code, peers, mode),
     woonscore: woonscoreDetail(area, peers),
+    jouwscore: woonscoreDetail(area, peers, 'jouwscore'),
     crimeTrend: isNum(v.crimeTrend) ? v.crimeTrend : null,
     origin: originSplit(v),
     education: areaEducationMix(area),
