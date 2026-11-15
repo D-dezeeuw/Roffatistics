@@ -9,19 +9,20 @@ import { datasetValue, DATASETS } from './datasets.js';
 import { createScoreLabels } from './score-labels.js';
 import { formatValue } from './dashboard-data.js';
 import { nonResidentialLabel } from './woongebied.js';
+import { rotterdamLevel, ZOOM_BUURT_RD } from './zoom-plan.js';
 
 export { NO_DATA_COLOR };
 export const MASK_COLOR      = '#0d0a14';
 export const MASK_OPACITY    = 0.85;
-export const ZOOM_BUURT_RD   = 13;
+export { ZOOM_BUURT_RD };
 const ACCENT = '#7c3aed';
 
 // Leaflet's Web Mercator stops at ±85.05°.
 const WORLD_RING = [[-85, -180], [-85, 180], [85, 180], [85, -180]];
 
-/** 'wijk' below ZOOM_BUURT_RD, 'buurt' from there on. */
-export function resolveRotterdamLevel(zoom) {
-  return zoom >= ZOOM_BUURT_RD ? 'buurt' : 'wijk';
+/** 'wijk' below ZOOM_BUURT_RD, 'buurt' from there on while the buurten have values (zoom-plan.js). */
+export function resolveRotterdamLevel(zoom, opts) {
+  return rotterdamLevel(zoom, opts);
 }
 
 /** Fill style for one area; null/undefined values (or an empty scale) get the neutral colour. */
@@ -146,11 +147,14 @@ async function ensureLayers() {
   layers.buurt = makeAreaLayer(areas.geo.buurten, areas.buurten, 'buurt', onSelect);
 }
 
-function syncLevel() {
-  if (!enabled) return;
+/** Level the plan wants now: buurt only when some buurt has a value for the active layer. */
+function targetLevel() {
+  const buurtReady = areas.buurten.some(a => toNumber(valueOf(a)) != null);
+  return resolveRotterdamLevel(getMap().getZoom(), { buurtReady });
+}
+
+function placeLevel(next) {
   const map = getMap();
-  const next = resolveRotterdamLevel(map.getZoom());
-  if (next === level) return;
   level = next;
   if (level === 'buurt') {
     layers.buurt.addTo(map);
@@ -159,6 +163,13 @@ function syncLevel() {
   } else if (map.hasLayer(layers.buurt)) {
     map.removeLayer(layers.buurt);
   }
+}
+
+function syncLevel() {
+  if (!enabled) return;
+  const next = targetLevel();
+  if (next === level) return;
+  placeLevel(next);
   recolor();
   document.dispatchEvent(new CustomEvent('rotterdam-level-change', { detail: { level } }));
 }
@@ -230,6 +241,10 @@ export function disableRotterdam() {
 export function applyRotterdamDataset(key, mode = crimeMode) {
   dataset = key;
   crimeMode = mode;
+  if (enabled && layers.wijk) {
+    const next = targetLevel();   // a layer without buurt values stays on the wijken
+    if (next !== level) placeLevel(next);
+  }
   recolor();
   const lvl = level ?? 'wijk';
   const scale = scales[lvl];

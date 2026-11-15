@@ -5,13 +5,45 @@
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 
-/** Lowest zoom at which the stamps of a level are shown (below it they would overlap). */
-export const LABEL_MIN_ZOOM = Object.freeze({ provincie: 0, gemeente: 9, wijk: 12, buurt: 14 });
+// Which level is stamped at which zoom is the plan's (zoom-plan.js); re-exported for older importers.
+import { LABEL_MIN_ZOOM, labelsVisibleAt } from './zoom-plan.js';
+export { LABEL_MIN_ZOOM, labelsVisibleAt };
 
-/** True when stamps of `level` are readable at `zoom`. Unknown levels never show. */
-export function labelsVisibleAt(level, zoom) {
-  const min = LABEL_MIN_ZOOM[level];
-  return isNum(min) && isNum(zoom) && zoom >= min;
+/** Label box in screen pixels for declutter (11 px bold digits plus halo). */
+export const LABEL_BOX = Object.freeze({ w: 24, h: 14 });
+
+/**
+ * Greedy screen-space declutter: indices of `points` ({ x, y } or null) kept,
+ * in input order, so that no two kept boxes of w×h px around them overlap.
+ * The first valid point is always kept, so a level with stamps never shows zero.
+ */
+export function declutter(points, { w = LABEL_BOX.w, h = LABEL_BOX.h } = {}) {
+  const kept = [];
+  const grid = new Map();
+  const key = (cx, cy) => `${cx},${cy}`;
+  points.forEach((p, i) => {
+    if (!p || !isNum(p.x) || !isNum(p.y)) return;
+    const cx = Math.floor(p.x / w), cy = Math.floor(p.y / h);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (const q of grid.get(key(cx + dx, cy + dy)) ?? []) {
+          if (Math.abs(q.x - p.x) < w && Math.abs(q.y - p.y) < h) return;
+        }
+      }
+    }
+    const k = key(cx, cy);
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(p);
+    kept.push(i);
+  });
+  return kept;
+}
+
+/** Total outer-ring area of a Polygon/MultiPolygon (degrees², for ordering only). */
+export function geometryArea(geometry) {
+  const polys = geometry?.type === 'Polygon' ? [geometry.coordinates]
+    : geometry?.type === 'MultiPolygon' ? geometry.coordinates : [];
+  return polys.reduce((s, p) => s + (p?.[0]?.length ? Math.abs(ringArea(p[0])) : 0), 0);
 }
 
 /** Text of one stamp: the rounded score, or null without a number. */
@@ -99,8 +131,9 @@ const PANE = 'scoreLabels';
 
 /**
  * A stamp layer on `map`. set(items, level) draws [{ code, geometry, value }]
- * (label points cached per code); clear() removes them. The group is only on
- * the map while labelsVisibleAt(level, zoom), re-checked on every zoomend.
+ * (label points cached per code); clear() removes them. The group is on the
+ * map while labelsVisibleAt(level, zoom); on every zoomend the stamps are
+ * decluttered (larger areas first), never down to zero.
  */
 export function createScoreLabels(map) {
   if (!map.getPane(PANE)) {
@@ -109,31 +142,41 @@ export function createScoreLabels(map) {
     pane.style.pointerEvents = 'none';
   }
   const group = L.layerGroup();
-  const points = new Map();
+  const points = new Map();   // code → { at, size }
+  let entries = [];           // [{ marker, at }], larger areas first
   let level = null;
   const sync = () => {
-    const on = level != null && group.getLayers().length > 0 && labelsVisibleAt(level, map.getZoom());
-    if (on && !map.hasLayer(group)) group.addTo(map);
-    else if (!on && map.hasLayer(group)) map.removeLayer(group);
+    const on = level != null && entries.length > 0 && labelsVisibleAt(level, map.getZoom());
+    if (!on) { if (map.hasLayer(group)) map.removeLayer(group); return; }
+    const keep = new Set(declutter(entries.map(e => map.latLngToLayerPoint(e.at))));
+    entries.forEach((e, i) => {
+      const has = group.hasLayer(e.marker);
+      if (keep.has(i) && !has) group.addLayer(e.marker);
+      else if (!keep.has(i) && has) group.removeLayer(e.marker);
+    });
+    if (!map.hasLayer(group)) group.addTo(map);
   };
   map.on('zoomend', sync);
   return {
     set(items, lvl) {
       group.clearLayers();
       level = lvl;
+      entries = [];
       for (const { code, geometry, value } of items ?? []) {
         const text = labelText(value);
         if (text == null) continue;
-        if (!points.has(code)) points.set(code, labelPoint(geometry));
-        const at = points.get(code);
+        if (!points.has(code)) points.set(code, { at: labelPoint(geometry), size: geometryArea(geometry) });
+        const { at, size } = points.get(code);
         if (!at) continue;
-        L.marker(at, {
+        const marker = L.marker(at, {
           pane: PANE, interactive: false, keyboard: false,
           icon: L.divIcon({ className: 'score-label', html: `<span>${text}</span>`, iconSize: null }),
-        }).addTo(group);
+        });
+        entries.push({ marker, at, size });
       }
+      entries.sort((a, b) => b.size - a.size);
       sync();
     },
-    clear() { group.clearLayers(); level = null; sync(); },
+    clear() { group.clearLayers(); entries = []; level = null; sync(); },
   };
 }

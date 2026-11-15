@@ -38,12 +38,12 @@ describe('score stamps: label placement (pure)', () => {
     assert.equal(labelText(0), '0');
     assert.equal(labelText(null), null);
     assert.equal(labelText(NaN), null);
-    assert.deepEqual({ ...LABEL_MIN_ZOOM }, { provincie: 0, gemeente: 9, wijk: 12, buurt: 14 });
-    assert.equal(labelsVisibleAt('buurt', 13), false);
-    assert.equal(labelsVisibleAt('buurt', 14), true);
-    assert.equal(labelsVisibleAt('wijk', 11), false);
-    assert.equal(labelsVisibleAt('wijk', 12), true);
-    assert.equal(labelsVisibleAt('gemeente', 9), true);
+    // W10: thresholds follow the drawn level (zoom-plan.js); buurten are stamped from 13, Rotterdam wijken below 12.
+    assert.deepEqual({ ...LABEL_MIN_ZOOM }, { provincie: 0, gemeente: 10, wijk: 0, buurt: 13 });
+    assert.equal(labelsVisibleAt('buurt', 12), false);
+    assert.equal(labelsVisibleAt('buurt', 13), true);
+    assert.equal(labelsVisibleAt('wijk', 10), true);
+    assert.equal(labelsVisibleAt('gemeente', 10), true);
     assert.equal(labelsVisibleAt('onbekend', 18), false);
   });
 });

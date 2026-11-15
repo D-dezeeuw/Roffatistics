@@ -3,13 +3,10 @@ import assert from 'node:assert/strict';
 import { resolveZoomTier, interpolateColor, gemeenteAt, DRILL_ZOOM } from '../modules/overlays.js';
 
 describe('resolveZoomTier', () => {
-  it('returns national at zoom ≤ 6', () => {
-    assert.equal(resolveZoomTier(1), 'national');
-    assert.equal(resolveZoomTier(5), 'national');
-    assert.equal(resolveZoomTier(6), 'national');
-  });
-
-  it('returns province at zoom 7–9', () => {
+  it('returns province at zoom ≤ 9 (W10: no uncoloured national tier at the minimum zoom 6)', () => {
+    assert.equal(resolveZoomTier(1), 'province');
+    assert.equal(resolveZoomTier(5), 'province');
+    assert.equal(resolveZoomTier(6), 'province');
     assert.equal(resolveZoomTier(7), 'province');
     assert.equal(resolveZoomTier(8), 'province');
     assert.equal(resolveZoomTier(9), 'province');

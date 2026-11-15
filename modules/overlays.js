@@ -5,13 +5,12 @@ import { buildScale, getScaleMethod, outlierLabel, OUTLIER_COLOR } from './scale
 import { pointInRings, labelPoint } from './score-labels.js';
 import { showDrill, hideDrill, getDrillStatus, focusDrillArea } from './nl-drill.js';
 import { gemeenteOf } from './nl-areas.js';
+import { nlTier, nlPlan, ZOOM_MUNICIPALITY, ZOOM_WIJK, ZOOM_BUURT } from './zoom-plan.js';
+import { drillReadyGemeente } from './nl-drill.js';
 
 export { getDrillStatus };
 
-const ZOOM_NATIONAL     = 6;
-const ZOOM_MUNICIPALITY = 10;
-const ZOOM_WIJK         = 12;   // Nederland drill-down: wijken of the gemeente at the map centre
-const ZOOM_BUURT        = 13;   // … then its buurten
+// Tier thresholds live in zoom-plan.js (wijk 12 = drill-down of the gemeente at the map centre, buurt 13).
 export const DRILL_ZOOM = Object.freeze({ wijk: ZOOM_WIJK, buurt: ZOOM_BUURT });
 
 const GEMEENTE_URL = 'https://service.pdok.nl/cbs/gebiedsindelingen/2024/wfs/v1_0?request=GetFeature&service=WFS&version=2.0.0&typeName=gebiedsindelingen:gemeente_gegeneraliseerd&outputFormat=json&srsName=EPSG:4326';
@@ -22,14 +21,6 @@ const STYLE_DEFAULT = {
   color:       '#7c3aed',
   weight:      1,
   opacity:     0.6,
-};
-
-const STYLE_NATIONAL = {
-  fillColor:   '#7c3aed',
-  fillOpacity: 0.08,
-  color:       '#7c3aed',
-  weight:      1,
-  opacity:     0.35,
 };
 
 const STYLE_HOVER = {
@@ -45,15 +36,10 @@ export { interpolateColor } from './scale.js';
 // Solid red border on top of the class fill marks an outlier (see scale.js).
 const STYLE_OUTLIER = { color: OUTLIER_COLOR, weight: 2.5, opacity: 1 };
 
-export function resolveZoomTier(zoom) {
-  if (zoom <= ZOOM_NATIONAL)     return 'national';
-  if (zoom >= ZOOM_BUURT)        return 'buurt';
-  if (zoom >= ZOOM_WIJK)         return 'wijk';
-  if (zoom >= ZOOM_MUNICIPALITY) return 'municipality';
-  return 'province';
-}
+/** Nederland tier at `zoom` (zoom-plan.js nlTier). The old 'national' tier (zoom ≤ 6, uncoloured) is gone. */
+export const resolveZoomTier = nlTier;
 
-const layers   = { national: null, province: null, municipality: null };
+const layers   = { province: null, municipality: null };
 const isDrillTier = tier => tier === 'wijk' || tier === 'buurt';
 let activeTier = null;
 let provinceData     = [];
@@ -101,11 +87,11 @@ export function gemeenteName(code) {
 export function getActiveGemeente()     { return activeGemeente; }
 export function getActiveGemeenteName() { return activeGemeenteName; }
 
-// Choropleth fill opacity by tier.
-// At wijk/buurt zoom the gemeente fill drops to 0 — the drill-down layer
-// (nl-drill.js) colours the gemeente at the centre; the rest stay outlines.
-function choroplethOpacity() {
-  if (isDrillTier(activeTier))       return 0;
+// Choropleth fill opacity by tier. At wijk/buurt zoom the gemeenten keep their
+// colour (zoom-plan.js): only the drilled gemeente, once its drill layer is
+// ready, drops to 0 so its wijken/buurten show.
+function choroplethOpacity(code) {
+  if (isDrillTier(activeTier)) return code && code === drillReadyGemeente() ? 0 : 0.45;
   if (activeTier === 'municipality') return 0.45;
   return 0.65;
 }
@@ -133,32 +119,34 @@ export function applyDataset(data, valueKey, method = getScaleMethod()) {
 }
 
 /**
- * Score stamps for the shown NL level: gemeenten at the municipality tier,
- * provincies at the province tier; none at the wijk/buurt tiers (nl-drill.js stamps those),
- * at the national tier or for a non-score layer.
+ * Score stamps for the coarse NL level of the plan (zoom-plan.js nlPlan):
+ * provincies at the province tier, gemeenten from the municipality tier on —
+ * at wijk/buurt zoom every gemeente but the drilled one (nl-drill.js stamps
+ * that one's wijken/buurten once they are ready). None for a non-score layer.
  */
 function stampScores(valueKey, lookup) {
-  const lvl = activeTier === 'municipality' ? 'gemeente' : activeTier === 'province' ? 'provincie' : null;
+  const plan = activeTier ? nlPlan(activeTier, { readyGemeente: drillReadyGemeente(), isScore: DATASETS[valueKey]?.unit === 'score' }) : null;
+  const coarse = plan?.draw.find(d => d.level === 'gemeente' || d.level === 'provincie');
+  const lvl = coarse && plan.labels.includes(coarse.level) ? coarse.level : null;
   const layer = lvl === 'gemeente' ? layers.municipality : lvl === 'provincie' ? layers.province : null;
-  if (!enabled || !layer || DATASETS[valueKey]?.unit !== 'score') { scoreLabels?.clear(); return; }
+  if (!enabled || !layer) { scoreLabels?.clear(); return; }
   scoreLabels ??= createScoreLabels(getMap());
   const items = [];
   layer.eachLayer(fl => {
     const code = fl.feature?.properties?.statcode;
-    if (code) items.push({ code: `${lvl}:${code}`, geometry: fl.feature.geometry, value: lookup[code] });
+    if (code && code !== coarse.except) items.push({ code: `${lvl}:${code}`, geometry: fl.feature.geometry, value: lookup[code] });
   });
   scoreLabels.set(items, lvl);
 }
 
 function restoreStyle(code) {
-  const base = isDrillTier(activeTier)
-    ? { ...STYLE_DEFAULT, fillOpacity: 0 }
-    : { ...STYLE_DEFAULT };
+  const drilled = isDrillTier(activeTier) && code && code === drillReadyGemeente();
+  const base = drilled ? { ...STYLE_DEFAULT, fillOpacity: 0 } : { ...STYLE_DEFAULT };
   if (!activeColorState) return base;
   const value = activeColorState.lookup[code];
   if (value == null) return base;
   const { scale } = activeColorState;
-  return { ...base, fillColor: scale.colorFor(value), fillOpacity: choroplethOpacity(), ...(scale.isOutlier(value) ? STYLE_OUTLIER : {}) };
+  return { ...base, fillColor: scale.colorFor(value), fillOpacity: choroplethOpacity(code), ...(!drilled && scale.isOutlier(value) ? STYLE_OUTLIER : {}) };
 }
 
 /** Popup HTML: the name, plus the outlier note when the value is one. */
@@ -243,10 +231,6 @@ function makeGemeenteLayer(geojson) {
   });
 }
 
-function makeNationalLayer(geojson) {
-  return L.geoJSON(geojson, { style: () => ({ ...STYLE_NATIONAL }) });
-}
-
 export function addKeyboardNav(geoLayer) {
   geoLayer.eachLayer(fl => {
     const el = fl.getElement?.();
@@ -305,8 +289,8 @@ async function _doSwap(tier) {
   const map = getMap();
 
   if (tier === 'municipality') {
-    // Remove province/national if that was active; remove the drill-down layer.
-    if (activeTier === 'province' || activeTier === 'national') {
+    // Remove the province layer if that was active; remove the drill-down layer.
+    if (activeTier === 'province') {
       if (layers[activeTier]) map.removeLayer(layers[activeTier]);
     }
     hideDrill();
@@ -323,8 +307,8 @@ async function _doSwap(tier) {
   }
 
   if (isDrillTier(tier)) {
-    // Remove province/national if that was active.
-    if (activeTier === 'province' || activeTier === 'national') {
+    // Remove the province layer if that was active.
+    if (activeTier === 'province') {
       if (layers[activeTier]) map.removeLayer(layers[activeTier]);
     }
     // Keep the gemeente layer on the map: outlines around the drilled gemeente.
@@ -342,7 +326,7 @@ async function _doSwap(tier) {
     return;
   }
 
-  // province or national — tear down the municipality and drill-down layers.
+  // province — tear down the municipality and drill-down layers.
   hideDrill();
   if (layers.municipality && map.hasLayer(layers.municipality)) {
     map.removeLayer(layers.municipality);
@@ -354,7 +338,7 @@ async function _doSwap(tier) {
 
 function removeAllTierLayers() {
   const map = getMap();
-  for (const k of ['national', 'province', 'municipality']) {
+  for (const k of ['province', 'municipality']) {
     if (layers[k] && map.hasLayer(layers[k])) map.removeLayer(layers[k]);
   }
   hideDrill();
@@ -385,7 +369,8 @@ async function swapToTier(tier) {
     return;
   }
   isSwapping = true;
-  scoreLabels?.clear();   // the next applyDataset (tier-change) stamps the new level
+  // Stamps of the current level stay until the next applyDataset (tier-change) restamps:
+  // no empty map while the drill-down geometry or data loads.
   try {
     await _doSwap(tier);
   } finally {
@@ -409,7 +394,6 @@ export async function initOverlays({ enabled: startEnabled = true } = {}) {
   const map  = getMap();
   const data = await loadGeoJSON('./data/provinces.json');
 
-  layers.national = makeNationalLayer(data);
   layers.province = makeProvinceLayer(data);
   enabled = startEnabled;
 

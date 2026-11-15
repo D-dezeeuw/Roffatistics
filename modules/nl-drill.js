@@ -100,18 +100,32 @@ export function hideDrill({ keepSeq = false } = {}) {
   labels?.clear();
 }
 
+/**
+ * GM code of the shown drill layer when it is ready to replace the gemeente
+ * colour (zoom-plan.js): geometry drawn, values loaded and at least one area of
+ * the gemeente with a value for the active layer. Null otherwise; the gemeente
+ * layer (overlays.js) then keeps colouring and stamping that gemeente.
+ */
+export function drillReadyGemeente() {
+  if (!layer || !shown || status?.error) return null;
+  for (const a of lookup.values()) if (Number.isFinite(valueOf(a))) return shown.gemeente;
+  return null;
+}
+
 function recolor() {
   scale = buildScale(areas.map(valueOf), { method: getScaleMethod() });   // national peers of the level
   if (!layer) return;
   const lvl = shown.level;
+  const ready = drillReadyGemeente() != null;
   const outliers = [];
   layer.eachLayer(fl => {
     const a = lookup.get(fl.feature.properties.statcode);
-    fl.setStyle({ ...strokeFor(lvl, a), fill: true, ...areaFillStyle(valueOf(a), scale, 0.65) });
-    if (scale.isOutlier(valueOf(a))) outliers.push(fl);
+    // Not ready: outlines only, so the gemeente colour underneath stays visible.
+    fl.setStyle({ ...strokeFor(lvl, a), ...(ready ? { fill: true, ...areaFillStyle(valueOf(a), scale, 0.65) } : { fill: true, fillOpacity: 0 }) });
+    if (ready && scale.isOutlier(valueOf(a))) outliers.push(fl);
   });
   outliers.forEach(fl => fl.bringToFront());
-  if (DATASETS[dataset]?.unit !== 'score') { labels?.clear(); return; }
+  if (!ready || DATASETS[dataset]?.unit !== 'score') { labels?.clear(); return; }
   labels ??= createScoreLabels(getMap());
   const items = [];
   layer.eachLayer(fl => {

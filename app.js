@@ -284,8 +284,9 @@ async function activateDataset(key) {
   const rows       = useGemeente ? gemeenteRows : provinceRows;
   document.body.classList.toggle('nl-drill', atDrillTier(tier));   // every layer has wijk/buurt figures
   if (atDrillTier(tier)) {
-    if (gemeenteRows.length) applyDataset(gemeenteRows.map(r => crimeValues(r, mode)), ds.key);   // gemeente outlines
+    // Drill first: the gemeente layer asks nl-drill whether the drilled gemeente is ready (zoom-plan.js).
     const { scale, level, hasData, status } = applyDrillDataset(key, mode);
+    if (gemeenteRows.length) applyDataset(gemeenteRows.map(r => crimeValues(r, mode)), ds.key);   // other gemeenten keep colour + stamps
     const suffix = !status ? 'geen gemeente in beeld'
       : status.error === 'geo' ? `wijk- en buurtgrenzen niet beschikbaar (PDOK) · ${gemeenteName(status.gemeente)}`
       : status.error === 'data' || !hasData ? `geen ${level}data · ${gemeenteName(status.gemeente)}`
