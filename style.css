@@ -2247,3 +2247,32 @@ footer {
   .nav-menu-list .nav-menu-search { display: flex; }
   .nav-menu-btn { padding: 0.3rem 0.4rem; }
 }
+
+/* ─── Keyboard (W28, shortcuts.js): skip link, focus rings, Sneltoetsen dialog ─── */
+.skip-link {
+  position: fixed; top: 0.5rem; left: 0.5rem; z-index: 4000;
+  padding: 0.5rem 0.9rem; border-radius: var(--radius);
+  background: var(--bg-surface); color: var(--text-primary);
+  font: 600 0.85rem var(--font-ui); text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip-link:focus, .skip-link:focus-visible { transform: none; outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.layers-btn:focus-visible, .layer-opt:focus-visible,
+.nav-menu-list .nav-menu-item:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+.list-table tbody tr:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+#map.leaflet-container:focus-visible { outline: 3px solid var(--accent-2); outline-offset: -3px; }
+#view-dashboard:focus-visible, #view-list:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+.leaflet-control-zoom a:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.shortcuts-modal { padding-top: 8vh; z-index: 3100; }   /* above the splash (3000): `?` works over every dialog */
+.shortcuts-dialog { width: min(520px, 100%); max-height: 84vh; }
+.shortcuts-body { overflow-y: auto; padding: 0.4rem 0.9rem 1rem; outline: none; }
+.shortcuts-group h3 { margin: 0.8rem 0 0.3rem; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.shortcuts-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; color: var(--text-primary); }
+.shortcuts-table th { width: 7.5rem; padding: 0.25rem 0.5rem 0.25rem 0; text-align: left; font-weight: 400; white-space: nowrap; }
+.shortcuts-table td { padding: 0.25rem 0; color: var(--text-muted); }
+.shortcuts-modal kbd {
+  display: inline-block; min-width: 1.5em; padding: 0.05rem 0.35rem;
+  border: 1px solid rgba(var(--accent-rgb), 0.45); border-radius: 4px;
+  background: rgba(var(--accent-rgb), 0.1); color: var(--text-primary);
+  font: 600 0.78rem var(--font-data); text-align: center;
+}
