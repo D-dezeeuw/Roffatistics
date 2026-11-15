@@ -2192,3 +2192,53 @@ footer {
 .share-actions [hidden], .share-url[hidden] { display: none; }
 .share-url { width: 100%; margin-top: 0.5rem; }
 .share-status:empty { display: none; }
+
+/* ─── Header hamburger menu (W24, modules/nav-menu.js) ───────────────────────
+   Visible in the bar: logo, scope, Kaart/Dashboard/Ranglijst, Layers, Zoeken
+   (Zoeken moves into the menu on phones) and ☰. The items keep their old
+   classes; `.nav-menu-list .nav-menu-item` outranks the old bar-button rules. */
+.nav-menu { position: relative; }
+.nav-menu-btn {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(var(--accent-rgb), 0.3); border-radius: 4px;
+  background: transparent; color: var(--text-muted); cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.nav-menu-btn:hover,
+.nav-menu-btn[aria-expanded="true"] { color: var(--text-primary); border-color: rgba(var(--accent-rgb), 0.6); }
+.nav-menu-btn[aria-expanded="true"] { background: rgba(var(--accent-rgb), 0.15); }
+.nav-menu-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.nav-menu-list {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 1010;
+  display: flex; flex-direction: column;
+  min-width: 15rem; max-width: calc(100vw - 1rem);
+  padding: 0.3rem;
+  background: var(--bg-surface);
+  border: 1px solid rgba(var(--accent-rgb), 0.35); border-radius: var(--radius);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+.nav-menu-list[hidden] { display: none; }
+.nav-menu-list .nav-menu-item {
+  display: flex; align-items: center; gap: 0.65rem;
+  width: 100%; min-height: 2.75rem;   /* touch target */
+  padding: 0.5rem 0.75rem;
+  border: 0; border-radius: 4px;
+  background: transparent; color: var(--text-primary);
+  font: 500 0.82rem var(--font-ui); letter-spacing: 0.02em; text-align: left;
+  cursor: pointer;
+}
+.nav-menu-list .nav-menu-item svg { flex: none; color: var(--text-muted); }
+.nav-menu-list .nav-menu-item:hover { background: rgba(var(--accent-rgb), 0.12); }
+.nav-menu-list .nav-menu-item:hover svg { color: var(--text-primary); }
+.nav-menu-list .nav-menu-item:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+.nav-menu-list .wizard-btn svg { color: var(--accent-2); }
+.nav-menu-list .panel-toggle-btn[aria-pressed="true"] { background: rgba(var(--accent-rgb), 0.18); }
+.nav-menu-list .panel-toggle-btn[aria-pressed="true"] svg { color: var(--accent); }
+.nav-menu-list .nav-menu-search { display: none; }
+.nav-menu-label { white-space: nowrap; }
+@media (max-width: 480px) {
+  .nav-actions > .search-btn { display: none; }
+  .nav-menu-list .nav-menu-search { display: flex; }
+  .nav-menu-btn { padding: 0.3rem 0.4rem; }
+}

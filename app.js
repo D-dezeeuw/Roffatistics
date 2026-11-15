@@ -9,6 +9,7 @@ import { initState, getState, setState, onStateChange } from './modules/state.js
 import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea, pinActiveArea, clearPinnedArea, getActiveArea } from './modules/rotterdam.js';
 import { updateLegend, initScaleToggle, initLegendCollapse, SCALE_EVENT } from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
+import { initNavMenu }                    from './modules/nav-menu.js';
 import { initList, setNationalRows, setListOptions } from './modules/list.js';   // Ranglijst view
 import { initSearch }                     from './modules/search.js';
 import { initDashboard }                  from './modules/dashboard.js';
@@ -42,6 +43,7 @@ setValue('legend.title',           '');
 bindDOM();
 run();
 
+initNavMenu();   // header ☰ menu (wizard, Delen, Uitleg, Vergelijken, Over; Zoeken on phones)
 initSplash();
 // ── Shared link ("Delen", share-link.js) ─────────────────────────────────────
 // The one-shot view keys (map, modal, lvl/rank/sort, basemap, theme) are read
