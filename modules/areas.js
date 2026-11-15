@@ -7,6 +7,7 @@
 import { DATASETS, DATASET_KEYS } from './datasets.js';
 import { addPc4Shares } from './herkomst-pc4.js';
 import { addBouwShares } from './bouwjaar-pc4.js';
+import { addP2000Values } from './p2000.js';
 import { withWoonscore } from './presets.js';
 import { adjacencyFromFeatures, addOmgeving } from './omgeving.js';
 import { loadOvAfstand, withOvValues } from './ov.js';
@@ -703,6 +704,7 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
     // Woonscore per level among its peers; buurt rates shrink toward the parent wijk.
     addBouwShares(wijkenRaw); addBouwShares(buurtenRaw);   // bouwstijl via postcode (v0.29.0), once loaded
     addPc4Shares(wijkenRaw); addPc4Shares(buurtenRaw);   // postcode herkomst (v0.25.0), once loaded
+    addP2000Values(wijkenRaw); addP2000Values(buurtenRaw);   // P2000 meldingen (W30), once loaded; no score uses them
     const wijken  = withWoonscore(wijkenRaw);
     const buurten = withWoonscore(buurtenRaw, { parents: wijkenRaw });
     const [city] = joinAreas([{ properties: { statcode: ROTTERDAM.gemeente, statnaam: ROTTERDAM.name } }], rows, oldRows);

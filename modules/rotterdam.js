@@ -9,6 +9,7 @@ import { buildScale, getScaleMethod, outlierLabel, NO_DATA_COLOR, OUTLIER_COLOR 
 import { datasetValue, DATASETS } from './datasets.js';
 import { createScoreLabels } from './score-labels.js';
 import { formatValue } from './dashboard-data.js';
+import { p2000Note } from './p2000.js';
 import { nonResidentialLabel } from './woongebied.js';
 import { rotterdamLevel, ZOOM_BUURT_RD } from './zoom-plan.js';
 
@@ -82,13 +83,16 @@ let labels = null;       // score stamps (score-labels.js), made on first use
 
 const byCode = code => areas && (areas.wijken.find(a => a.code === code) ?? areas.buurten.find(a => a.code === code));
 
+/** Tooltip note: non-residential label and, on a P2000 layer, the count (or why there is none). */
+export const areaNote = (area, key) => [nonResidentialLabel(area), p2000Note(area?.values, key)].filter(Boolean).join(' · ') || null;
+
 function makeAreaLayer(geojson, list, kind, onSelect) {
   const lookup = new Map(list.map(a => [a.code, a]));
   return L.geoJSON(geojson, {
     style: () => ({ color: kind === 'wijk' ? ACCENT : '#ea580c', weight: kind === 'wijk' ? 1.2 : 0.6, opacity: 0.7, fillColor: NO_DATA_COLOR, fillOpacity: 0.45 }),
     onEachFeature(feature, fl) {
       const area = lookup.get(feature.properties.statcode);
-      fl.bindTooltip(() => tooltipHtml(area.name, valueOf(area), v => formatValue(v, dataset, crimeMode), scales[kind].outlierSide(valueOf(area)), nonResidentialLabel(area)), { sticky: true, direction: 'top', className: 'area-tooltip' });
+      fl.bindTooltip(() => tooltipHtml(area.name, valueOf(area), v => formatValue(v, dataset, crimeMode), scales[kind].outlierSide(valueOf(area)), areaNote(area, dataset)), { sticky: true, direction: 'top', className: 'area-tooltip' });
       fl.on({
         mouseover(e) { e.target.setStyle({ weight: 2.5, color: '#ea580c', opacity: 1 }); e.target.bringToFront(); },
         mouseout(e)  { e.target.setStyle(strokeFor(kind, area)); },

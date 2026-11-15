@@ -1,0 +1,22 @@
+{
+  "window": "30d",
+  "from": "2026-10-16T00:00:00Z",
+  "to": "2026-11-15T00:00:00Z",
+  "generatedAt": "2026-11-15T09:00:00Z",
+  "regions": ["VRR", "ZHZ"],
+  "groups": ["totaal", "verkeer", "brand", "explosie", "geweld", "spoed"],
+  "buurten": {
+    "BU05990110": { "totaal": 12, "verkeer": 2, "brand": 3, "explosie": 1, "geweld": 2, "spoed": 4 },
+    "bu05990111 ": { "totaal": 5, "spoed": 5, "onbekend": 9 },
+    "BU05990112": { "totaal": 3, "brand": -1, "verkeer": "x", "spoed": 3 }
+  },
+  "wijken": {
+    "WK059901": { "totaal": 20, "verkeer": 2, "brand": 3, "explosie": 1, "geweld": 2, "spoed": 12 },
+    "XX123": { "totaal": 1 }
+  },
+  "gemeenten": {
+    "GM0599": { "totaal": 900, "verkeer": 100, "brand": 120, "explosie": 6, "geweld": 80, "spoed": 500 },
+    "GM0505": { "totaal": 300, "spoed": 200 }
+  },
+  "unlocated": 17
+}

@@ -13,6 +13,7 @@ import { areaEducationMix } from './dashboard-data.js';
 import { classifyWoongebied, isResidentialArea, woongebiedFacts } from './woongebied.js';
 import { omgevingDetail, omgevingText, crimeNoRateNote } from './omgeving.js';
 import { CRIME_MIN_POPULATION, CRIME_MIN_POPULATION_BUURT } from './areas.js';
+import { p2000Detail } from './p2000.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -173,6 +174,7 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
   const entries = [];
   for (const key of DATASET_KEYS) {
     if (DATASETS[key].unit === 'score') continue;   // the Woonscore has its own block
+    if (DATASETS[key].live) continue;   // P2000 meldingen (W30): own block, no rank among peers
     const ds = datasetFor(key, mode);
     const value = datasetValue(area.values, key, mode);
     if (!isNum(value)) continue;
@@ -207,6 +209,7 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
     overall: woongebied.residential ? overallRank(area.code, peers, mode) : null,
     woonscore: woonscoreDetail(area, peers),
     crimeTrend: isNum(v.crimeTrend) ? v.crimeTrend : null,
+    p2000: p2000Detail(v),   // null until the Actueel layer loaded the meldingen
     // Own crime count + per km² where a per-1.000 rate is missing (non-residential, few inwoners).
     crimeNote: crimeNoRateNote(v, level, level === 'wijk' ? CRIME_MIN_POPULATION : CRIME_MIN_POPULATION_BUURT),
     // Crime in and around the area (omgeving.js); neighbours of every kind count.

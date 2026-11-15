@@ -10,8 +10,7 @@ import { buildScale, getScaleMethod } from './scale.js';
 import { datasetValue, DATASETS } from './datasets.js';
 import { createScoreLabels } from './score-labels.js';
 import { formatValue } from './dashboard-data.js';
-import { areaFillStyle, outlierStroke, tooltipHtml } from './rotterdam.js';
-import { nonResidentialLabel } from './woongebied.js';
+import { areaFillStyle, outlierStroke, tooltipHtml, areaNote } from './rotterdam.js';
 import { loadNlLevel, loadGemeenteGeo, gemeenteOf, findNlArea, isNlLevelLoaded } from './nl-areas.js';
 import { withLoader } from './loader.js';
 
@@ -53,7 +52,7 @@ function makeLayer(geo, lvl) {
       const name = feature.properties.statnaam;
       fl.bindTooltip(() => {
         const a = lookup.get(code);
-        return tooltipHtml(a?.name ?? name, valueOf(a), v => formatValue(v, dataset, crimeMode), scale.outlierSide(valueOf(a)), a ? nonResidentialLabel(a) : null);
+        return tooltipHtml(a?.name ?? name, valueOf(a), v => formatValue(v, dataset, crimeMode), scale.outlierSide(valueOf(a)), a ? areaNote(a, dataset) : null);
       }, { sticky: true, direction: 'top', className: 'area-tooltip', pane: 'tooltipPane' });
       fl.on({
         mouseover(e) { e.target.setStyle({ weight: 2.5, color: '#ea580c', opacity: 1 }); e.target.bringToFront(); },

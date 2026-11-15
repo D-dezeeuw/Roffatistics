@@ -536,6 +536,14 @@ footer {
 }
 .legend-crime { display: none; margin-top: 0.5rem; }
 #legend.legend-has-crime .legend-crime { display: block; }
+/* Actueel (P2000, W30): window toggle, note and load status under the scale. */
+.legend-live { display: none; margin-top: 0.5rem; }
+#legend.legend-has-live .legend-live { display: block; }
+.legend-live-note { margin: 0.4rem 0 0; font-size: 0.72rem; line-height: 1.4; color: var(--text-muted); max-width: 16rem; }
+.legend-live-note a { color: var(--accent); }
+.legend-live-status { margin: 0.35rem 0 0; font-size: 0.75rem; color: var(--text-primary); }
+.legend-live-status:empty { display: none; }
+.area-p2000-list { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; margin: 0.2rem 0 0.3rem; padding: 0; list-style: none; font-size: 0.85rem; }
 
 .legend-strip {
   position: relative;
@@ -960,6 +968,21 @@ footer {
 @media (max-width: 720px) {
   .splash-nl { grid-template-columns: minmax(0, 1fr); }
   .splash-nl-icon { display: none; }
+}
+
+/* "Meer van ons" (W30): two sister projects, compact cards; one column on phones. */
+.splash-more { margin: 0 0 1.1rem; }
+.splash-more-title { margin: 0 0 0.45rem; font: 600 0.78rem var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.splash-more-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+.splash-more-item { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.6rem 0.8rem; border: 1px solid rgba(var(--accent-rgb), 0.3); border-radius: var(--radius); background: rgba(var(--accent-rgb), 0.04); }
+.splash-more-item:hover { border-color: rgba(var(--accent-rgb), 0.6); }
+.splash-more-link { display: flex; flex-direction: column; gap: 0.15rem; color: var(--text-primary); text-decoration: none; }
+.splash-more-link strong { font-size: 0.9rem; color: var(--accent); }
+.splash-more-link span { font-size: 0.82rem; line-height: 1.4; color: var(--text-muted); }
+.splash-more-link:hover strong, .splash-more-sub:hover { text-decoration: underline; }
+.splash-more-sub { align-self: flex-start; font-size: 0.8rem; color: var(--accent); }
+@media (max-width: 720px) {
+  .splash-more-list { grid-template-columns: minmax(0, 1fr); }
 }
 
 .splash-foot {

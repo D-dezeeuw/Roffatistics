@@ -27,7 +27,7 @@ const LEVELS = {
 };
 const HIGHLIGHT_MS = 2200;
 // Layer datasets only (15 Nov 2026): the retired herkomst indelingen are no columns or rank keys.
-const ALL_DATASETS = LAYER_KEYS.map(k => DATASETS[k]);
+const ALL_DATASETS = LAYER_KEYS.map(k => DATASETS[k]).filter(d => !d.live);   // live P2000 layers (W30) stay off the Ranglijst
 export const RANK_MODE_STORAGE_KEY = 'roffatistics.rankMode';
 
 function storedRankMode() {
@@ -78,7 +78,7 @@ export function setListOptions({ level, rankKey, sort } = {}) {
 function renderRankPickers(scope) {
   const catSel = ui.root.querySelector('.list-cat-select'), subSel = ui.root.querySelector('.list-rank-select');
   const cat = ui.rankKey === 'overall' ? 'overall' : (categoryOf(ui.rankKey) ?? 'overall');
-  const cats = LAYER_CATEGORIES.filter(c => categoryDatasets(c.key, scope).length);
+  const cats = LAYER_CATEGORIES.filter(c => !c.live && categoryDatasets(c.key, scope).length);
   catSel.innerHTML = `<option value="overall">Totaalscore (gelijk gewogen)</option>${cats.map(c => `<option value="${c.key}">${esc(c.label)}</option>`).join('')}`;
   catSel.value = cat;
   if (cat === 'overall') {
