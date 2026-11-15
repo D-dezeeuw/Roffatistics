@@ -1671,6 +1671,11 @@ footer {
   border: 1px solid rgba(124, 58, 237, 0.4); border-radius: var(--radius); padding: 0.45rem 0.6rem;
 }
 .wiz-check { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.82rem; margin-top: 0.4rem; }
+.wiz-share { margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid rgba(127,127,127,0.25); }
+.wiz-share h3 { margin: 0 0 0.3rem; font-size: 0.9rem; }
+.wiz-share-row { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+.wiz-share-url { flex: 1; min-width: 0; font: inherit; font-size: 0.78rem; padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid rgba(127,127,127,0.35); background: transparent; color: inherit; }
+.wiz-share-status:empty { display: none; }
 .wiz-range input, .wiz-slider input { width: 100%; accent-color: var(--accent-orange); }
 .wiz-range-ends { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); }
 .wiz-foot {

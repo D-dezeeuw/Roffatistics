@@ -123,8 +123,10 @@ opt-in attraction only**:
   by the absence of a group. Choosing "Nederlands" is allowed under the same
   rule (more of the chosen group = plus). Absence of others is never a factor.
 - The personal score is computed in the browser and nothing is sent anywhere.
-  A shared URL carries the preference only if the user ticks "deel ook
-  gemeenschap" (unticked by default).
+  A shared URL carries the preference only if the user ticks it in the
+  result's "Deellink maken" block (unticked by default; v0.26.0, see
+  docs/decisions.md). The broad groups are gone: one dropdown of detailed
+  groups, Nederland included, default "Geen specifieke groep".
 - The Uitleg panel gets a paragraph on this, and the result shows the factor
   as "nabijheid gemeenschap", not as an ethnic score of the area.
 

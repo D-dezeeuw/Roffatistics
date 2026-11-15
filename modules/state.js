@@ -3,7 +3,7 @@
 // URL hash and emits a 'state-change' event: on `document` in the browser,
 // on a private EventTarget under node.
 import { DATASET_KEYS, CRIME_MODES } from './datasets.js';
-import { shareableScore, restoreLocalScore } from './wizard-model.js';
+import { shareableScore, restoreLocalScore, isShareOf, SHARE_NONE } from './wizard-model.js';
 
 export const SCOPES = Object.freeze(['rotterdam', 'nederland']);
 export const VIEWS  = Object.freeze(['map', 'dashboard', 'list']);
@@ -53,13 +53,13 @@ export function parseHash(hash) {
  * dataset (Woonscore) and crime mode are left out, so a hash without
  * dataset opens on the Woonscore.
  */
-export function serializeHash(state) {
+export function serializeHash(state, shareOpts = shareChoice) {
   const params = new URLSearchParams({ scope: state.scope, view: state.view });
   if (state.dataset && state.dataset !== DEFAULT_STATE.dataset && DATASET_KEYS.includes(state.dataset)) params.set('dataset', state.dataset);
   if (state.area) params.set('area', state.area);
   if (state.crime === 'abs') params.set('crime', 'abs');
-  // A private Gemeenschap choice (not ticked "deel ook gemeenschap") never goes into the URL.
-  const shared = state.score && SCORE_RE.test(state.score) ? shareableScore(state.score) : null;
+  // Sensitive parts (gemeenschap, opleiding, inkomen) only when ticked in "Deellink maken" (default: none).
+  const shared = state.score && SCORE_RE.test(state.score) ? shareableScore(state.score, shareOpts) : null;
   if (shared) params.set('score', shared);
   return `#${params}`;
 }
@@ -113,6 +113,21 @@ export function onStateChange(fn) {
   return () => bus.removeEventListener('state-change', handler);
 }
 
+/**
+ * The share choices of "Deellink maken" (v0.26.0): which sensitive parts the
+ * address bar and the share link carry. Per page load, default none.
+ */
+let shareChoice = SHARE_NONE;
+export function getShareOptions() { return { ...shareChoice }; }
+export function setShareOptions(opts = {}) {
+  shareChoice = Object.freeze(Object.fromEntries(Object.keys(SHARE_NONE).map(k => [k, opts[k] === true])));
+  writeHash();
+}
+/** The link to share: this page with the current state and the given share choices. */
+export function shareUrl(opts = shareChoice, base = globalThis.location?.href ?? '') {
+  return `${String(base).split('#')[0]}${serializeHash(state, opts)}`;
+}
+
 function writeHash() {
   if (typeof location === 'undefined' || typeof history === 'undefined') return;
   const next = serializeHash(state);
@@ -132,7 +147,7 @@ export function initState({ hash = globalThis.location?.hash ?? '', storage } = 
   writeHash();
   globalThis.addEventListener?.('hashchange', () => {
     const patch = { area: null, ...parseHash(location.hash) };
-    if (state.score && shareableScore(state.score) === (patch.score ?? null)) delete patch.score;   // same answers, local Gemeenschap kept
+    if (state.score && isShareOf(patch.score ?? null, state.score)) delete patch.score;   // same answers, local sensitive parts kept
     setState(patch, { source: 'hash' });
   });
   return getState();

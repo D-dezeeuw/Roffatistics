@@ -8,7 +8,7 @@
 // the result, because app.js subscribed first. The legend's Reset clears `score`.
 
 
-import { getState, setState, onStateChange, resetScore } from './state.js';
+import { getState, setState, onStateChange, resetScore, getShareOptions, setShareOptions, shareUrl } from './state.js';
 import { loadRotterdamAreas, peekRotterdamAreas, getAreaIndex } from './areas.js';
 import { getRotterdamLevel } from './rotterdam.js';
 import { scoreResult, getPersonalPreset, THEME_LABELS } from './presets.js';
@@ -19,7 +19,7 @@ import {
   STEPS, LEVENSFASEN, OUD_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
-  GEMEENSCHAP_GROUPS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS,
+  SHARE_PARTS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS,
   SITUATIE_EDU, SITUATIE_INCOME, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance,
 } from './wizard-model.js';
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
@@ -105,18 +105,14 @@ function stepBody(key) {
     const level = gemeenschapLevel(g?.pct ?? GEMEENSCHAP_DEFAULT_PCT);
     return `
     <p class="wiz-hint">Optioneel en standaard uit. Wil je graag dichter bij mensen met dezelfde herkomst wonen, dan kun je hier een groep kiezen. Herkomst volgt de CBS-definitie: je eigen geboorteland, of als je in Nederland bent geboren dat van je moeder (of anders je vader). Het zijn totalen per gebied, geen gegevens over personen.</p>
-    <label class="wiz-field" id="wiz-q">Specifieke herkomstgroep <small>(alleen per gemeente, Nederland-kaart)</small>
+    <label class="wiz-field" id="wiz-q">Herkomstgroep
       <select data-field="gemDetail">
         <option value="">Geen specifieke groep</option>
-        ${Object.entries(DETAIL_GROUPS).map(([k, d]) => `<option value="${esc(k)}"${g?.detail === k ? ' selected' : ''}>${esc(d.label)}${d.wijk ? ' · ook per wijk/buurt (geschat)' : ''}</option>`).join('')}
+        ${Object.entries(DETAIL_GROUPS).map(([k, d]) => `<option value="${esc(k)}"${g?.detail === k ? ' selected' : ''}>${esc(d.long ?? d.label)}${d.direct ? ' · gemeente, wijk en buurt' : d.wijk ? ' · ook per wijk/buurt (geschat)' : ' · alleen per gemeente'}</option>`).join('')}
       </select></label>
-    <p class="wiz-hint wiz-note"><strong>Let op:</strong> per wijk en buurt levert CBS geen specifieke herkomstgroepen. Op wijk- en buurtniveau telt een specifieke groep daarom <strong>niet</strong> mee; we vervangen hem niet stilletjes door een brede groep. Wil je op wijk- en buurtniveau wel een factor, kies dan hieronder ook een brede groep.</p>
-    <p class="wiz-q" id="wiz-q2">${g?.detail ? (DETAIL_GROUPS[g.detail]?.wijk ? 'Brede groep voor wijken en buurten zonder postcodecijfers (optioneel)' : 'Brede groep voor wijken en buurten (optioneel)') : 'Of een brede groep (wijk, buurt en gemeente)'}</p>
-    <div class="wiz-opts" role="group" aria-labelledby="wiz-q2">${Object.entries(GEMEENSCHAP_GROUPS).map(([k, grp]) => optBtn('gemGroup', k, grp.label, g?.group === k)).join('')}${optBtn('gemGroup', '', 'Geen brede groep', !g?.group)}</div>
-    ${g ? `
-    ${impSlider('data-field="gemLevel"', level, 'Hoe belangrijk', 1)}
-    <label class="wiz-check"><input type="checkbox" data-field="gemShare"${g.share ? ' checked' : ''}> Deel ook gemeenschap (zet je keuze in de link die je deelt)</label>` : ''}
-    <p class="wiz-hint">Alleen een plus: een groter aandeel van de gekozen groep telt mee als “nabijheid gemeenschap”. Een gebied krijgt nooit minpunten voor wie er (niet) woont. Je score wordt in je browser berekend; er wordt niets verstuurd. Zonder vinkje blijft je keuze alleen op dit apparaat.</p>`;
+    <p class="wiz-hint wiz-note"><strong>Waar telt het?</strong> Nederland: CBS-kerncijfers per gemeente, wijk en buurt. Groepen met “ook per wijk/buurt (geschat)”: per gemeente CBS-cijfers, per wijk en buurt geschat via de postcode. De andere groepen tellen alleen per gemeente (Nederland-kaart); op wijk- en buurtniveau valt de factor dan weg en tellen de andere thema’s naar verhouding zwaarder.</p>
+    ${g ? impSlider('data-field="gemLevel"', level, 'Hoe belangrijk', 1) : ''}
+    <p class="wiz-hint">Alleen een plus: een groter aandeel van de gekozen groep telt mee als “nabijheid gemeenschap”. Een gebied krijgt nooit minpunten voor wie er (niet) woont. Je score wordt in je browser berekend; er wordt niets verstuurd. Je keuze blijft op dit apparaat; in een link staat ze alleen als je dat bij “Deellink maken” aanvinkt.</p>`;
   }
   if (key === 'situatie') {
     const st = a.situatie;
@@ -127,8 +123,7 @@ function stepBody(key) {
     <p class="wiz-hint">Gebieden waar het gemiddelde inkomen in de buurt van het jouwe ligt tellen als plus, in plaats van het Standaard-cijfer “meer inkomen = beter”. Bij de laagste standen telt ook een groter aandeel mensen met bijstand als plus, waar dat cijfer er is.</p>
     ${sitSlider('sitEdu', 'wiz-q2', 'Hoogst behaalde opleiding', SITUATIE_EDU, eduPos)}
     <p class="wiz-hint">Een groter aandeel inwoners met hetzelfde opleidingsniveau telt als plus, in plaats van het Standaard-thema Opleiding (meer hbo/wo = beter).</p>
-    ${st ? `<label class="wiz-check"><input type="checkbox" data-field="sitShare"${st.share ? ' checked' : ''}> Deel ook mijn situatie (zet je keuze in de link die je deelt)</label>` : ''}
-    <p class="wiz-hint">Alleen een plus: een gebied krijgt nooit minpunten voor wie er woont. Hoe zwaar dit telt stel je in bij het resultaat (“Hoe belangrijk”).</p>`;
+    <p class="wiz-hint">Alleen een plus: een gebied krijgt nooit minpunten voor wie er woont. Hoe zwaar dit telt stel je in bij het resultaat (“Hoe belangrijk”). Je keuze blijft op dit apparaat; in een link staat ze alleen als je dat bij “Deellink maken” aanvinkt.</p>`;
   }
   return `
     <p class="wiz-q" id="wiz-q">Welke misdrijven wegen voor jou het zwaarst?</p>
@@ -196,6 +191,42 @@ function themeSliders() {
     .map(t => impSlider(`data-theme="${esc(t.key)}"`, imp[t.key] ?? IMPORTANCE_DEFAULT, THEME_LABELS[t.key] ?? t.label)).join('') + gem;
 }
 
+/** Sensitive parts the current answers hold (only those get a checkbox). */
+function sharePartsPresent() {
+  const s = answers.situatie;
+  return { origin: !!answers.gemeenschap, education: !!s?.edu, income: s?.income != null || !!s?.bijstand };
+}
+
+/** "Deellink maken": the link to share, with one opt-in checkbox per sensitive part. */
+function shareHtml() {
+  const present = sharePartsPresent(), opts = getShareOptions();
+  const boxes = Object.entries(SHARE_PARTS).filter(([k]) => present[k])
+    .map(([k, label]) => `<label class="wiz-check"><input type="checkbox" data-share="${k}"${opts[k] ? ' checked' : ''}> Neem ${esc(label.toLowerCase())} op in de link</label>`).join('');
+  return `<section class="wiz-share" aria-labelledby="wiz-share-title">
+      <h3 id="wiz-share-title">Deellink maken</h3>
+      <p class="wiz-hint">${boxes ? 'Gevoelige onderdelen staan alleen in de link als je ze hieronder aanvinkt; de adresbalk volgt je keuze.' : 'Je antwoorden bevatten geen gevoelige onderdelen.'} Op dit apparaat blijven al je antwoorden bewaard.</p>
+      ${boxes}
+      <div class="wiz-share-row">
+        <input type="text" class="wiz-share-url" readonly aria-label="Deellink" value="${esc(shareUrl(opts))}">
+        <button type="button" class="area-btn" data-wiz="copyLink">Kopieer link</button>
+      </div>
+      <p class="wiz-hint wiz-share-status" aria-live="polite"></p>
+    </section>`;
+}
+
+/** Copies the share link; falls back to selecting it (execCommand), then to asking the user to copy it. */
+async function copyShareLink() {
+  const input = els?.dialog.querySelector('.wiz-share-url');
+  const status = els?.dialog.querySelector('.wiz-share-status');
+  const url = shareUrl(getShareOptions());
+  if (input) input.value = url;
+  let ok = false;
+  try { await navigator.clipboard.writeText(url); ok = true; } catch { /* no clipboard API or no permission */ }
+  if (!ok && input) { try { input.select(); ok = document.execCommand('copy'); } catch { ok = false; } }
+  if (!ok) input?.select();
+  if (status) status.textContent = ok ? 'Link gekopieerd.' : 'Kopiëren lukte niet: de link is geselecteerd, kopieer hem zelf (Ctrl/Cmd+C).';
+}
+
 async function resultHtml() {
   const state = getState();
   const kind = scoreKind(state.score);
@@ -239,6 +270,7 @@ async function resultHtml() {
       ${list}
       <p class="wiz-hint">Match = ${esc(scoreLabel(state.score))}, 0–100 t.o.v. de andere ${esc(levelLabel)} op de kaart. Std = de Woonscore (Standaard) ter vergelijking.</p>
       ${kind === 'custom' || kind === 'standaard' ? `<details class="wiz-tune"${kind === 'custom' ? ' open' : ''}><summary>Hoe belangrijk is elk thema?</summary><div class="wiz-sliders">${themeSliders()}</div></details>` : ''}
+      ${shareHtml()}
     </div>
     <footer class="wiz-foot">
       <button type="button" class="area-btn" data-wiz="restart">Antwoorden aanpassen</button>
@@ -304,9 +336,7 @@ function onClick(e) {
   const set = t.closest('[data-set]');
   if (set) {
     const { set: k, value } = set.dataset;
-    const cur = answers.gemeenschap;
-    if (k === 'gemGroup') { const group = value && cur?.group !== value ? value : null; answers = { ...answers, gemeenschap: { ...(cur ?? {}), group } }; }
-    else if (k === 'mode') answers = { ...answers, budget: { ...(answers.budget ?? {}), mode: value } };
+    if (k === 'mode') answers = { ...answers, budget: { ...(answers.budget ?? {}), mode: value } };
     else answers = { ...answers, [k]: answers[k] === value || value === '' ? null : value };
     answers = normalizeAnswers(answers);
     render({ focus: `[data-set="${k}"][data-value="${CSS.escape(value)}"]` });
@@ -328,6 +358,7 @@ function onClick(e) {
   else if (act === 'next') go(step + 1);
   else if (act === 'restart') { step = 0; render(); }
   else if (act === 'map') { returnFocus = null; closeWizard(); setState({ view: 'map' }, { source: 'wizard' }); }
+  else if (act === 'copyLink') copyShareLink();
   else if (act === 'compare') { choosePreset(scoreKind(getState().score) === 'standaard' ? 'custom' : 'standaard'); }
 }
 
@@ -352,6 +383,13 @@ function onInput(e) {
 function onChange(e) {
   const t = e.target;
   const f = t.dataset.field;
+  if (t.dataset.share) {
+    // The address bar and the link follow the choice at once; nothing to re-render.
+    setShareOptions({ ...getShareOptions(), [t.dataset.share]: t.checked });
+    const input = els.dialog.querySelector('.wiz-share-url');
+    if (input) input.value = shareUrl(getShareOptions());
+    return;
+  }
   if (f === 'income' || f === 'maxPrice') {
     answers = normalizeAnswers({ ...answers, budget: { ...answers.budget, [f]: parseEuroK(t.value) } });
     render({ focus: `[data-field="${f}"]` });
@@ -360,19 +398,16 @@ function onChange(e) {
     answers = normalizeAnswers({ ...answers, gemeenschap: { ...(answers.gemeenschap ?? {}), detail } });
     if (detail) loadGemeenteGroup(detail).catch(() => { /* CBS down: the factor is skipped, as at wijk/buurt */ });
     render({ focus: '[data-field="gemDetail"]' });
-  } else if (f === 'gemLevel' || f === 'gemShare') {
+  } else if (f === 'gemLevel') {
     if (!answers.gemeenschap) return;
     // Level 0 ("Niet belangrijk", result only) switches Gemeenschap off.
-    const pct = f === 'gemLevel' ? GEMEENSCHAP_LEVEL_PCT[+t.value] : null;
-    answers = normalizeAnswers({ ...answers, gemeenschap: f === 'gemLevel' && !pct ? null : { ...answers.gemeenschap, ...(f === 'gemLevel' ? { pct } : { share: t.checked }) } });
+    const pct = GEMEENSCHAP_LEVEL_PCT[+t.value];
+    answers = normalizeAnswers({ ...answers, gemeenschap: !pct ? null : { ...answers.gemeenschap, pct } });
     if (step === 'result') { applyAnswers(); render({ focus: `[data-field="${f}"]` }); }
   } else if (f === 'sitEdu' || f === 'sitIncome') {
     const opts = f === 'sitEdu' ? SITUATIE_EDU : SITUATIE_INCOME;
     const pick = +t.value > 0 ? Object.keys(opts)[+t.value - 1] ?? null : null;
     answers = normalizeAnswers({ ...answers, situatie: { ...(answers.situatie ?? {}), [f === 'sitEdu' ? 'edu' : 'income']: pick } });
-    render({ focus: `[data-field="${f}"]` });
-  } else if (f === 'sitShare') {
-    answers = normalizeAnswers({ ...answers, situatie: { ...(answers.situatie ?? {}), share: t.checked } });
     render({ focus: `[data-field="${f}"]` });
   } else if (f === 'hide') {
     answers = normalizeAnswers({ ...answers, budget: { ...answers.budget, hide: t.checked } });

@@ -6,11 +6,11 @@ import assert from 'node:assert/strict';
 import {
   STEPS, normalizeAnswers, isEmptyAnswers, answersToPreset, encodeAnswers, decodeAnswers, presetFromScore,
   shareableScore, restoreLocalScore, guardOrigin, describeAnswers, saveAnswers, loadAnswers,
-  GEMEENSCHAP_GROUPS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_MAX_PCT, GEMEENSCHAP_MIN_PCT,
+  shareableAnswers, isShareOf, SHARE_NONE, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_MAX_PCT, GEMEENSCHAP_MIN_PCT,
 } from '../modules/wizard-model.js';
 import { STANDAARD, GELIJK, PRESETS, ORIGIN_KEYS, resolvePreset, scoreWithPreset, themeBreakdown } from '../modules/presets.js';
 import { explain } from '../modules/score.js';
-import { serializeHash, resolveInitialState, SCORE_STORAGE_KEY, DEFAULT_STATE } from '../modules/state.js';
+import { serializeHash, resolveInitialState, SCORE_STORAGE_KEY, DEFAULT_STATE, setShareOptions, getShareOptions, shareUrl } from '../modules/state.js';
 import { GENERAL_SECTIONS } from '../modules/explain.js';
 import { DATASET_KEYS } from '../modules/datasets.js';
 
@@ -36,7 +36,15 @@ describe('Gemeenschap: off by default, never in Standaard or Gelijk', () => {
     assert.equal(normalizeAnswers({}).gemeenschap, null);
     assert.equal(originMetrics(answersToPreset({})).length, 0);
     assert.ok(isEmptyAnswers({}));
-    assert.ok(!isEmptyAnswers({ gemeenschap: { group: 'europa' } }));
+    assert.ok(!isEmptyAnswers({ gemeenschap: { detail: 'suriname' } }));
+  });
+  it('the default "Geen specifieke groep" gives no Gemeenschap metric at all; old broad Europa / Buiten Europa neither', () => {
+    for (const g of [{ detail: '' }, { detail: null }, {}, { group: 'europa' }, { group: 'buitenEuropa', pct: 30 }]) {
+      assert.equal(normalizeAnswers({ gemeenschap: g }).gemeenschap, null, JSON.stringify(g));
+      const p = answersToPreset({ sfeer: 30, gemeenschap: g });
+      assert.ok(!p.themes.some(t => t.key === 'gemeenschap'), JSON.stringify(g));
+      assert.equal(originMetrics(p).length, 0);
+    }
   });
   it('no fixed preset uses any origin metric', () => {
     for (const p of [STANDAARD, GELIJK, ...Object.values(PRESETS)]) assert.equal(originMetrics(p).length, 0, p.id);
@@ -47,8 +55,8 @@ describe('Gemeenschap: off by default, never in Standaard or Gelijk', () => {
 
 describe('Gemeenschap: one group, higher, user weight', () => {
   it('adds one `higher` factor on the chosen group at the default 10 % of the total', () => {
-    for (const [group, g] of Object.entries(GEMEENSCHAP_GROUPS)) {
-      const p = answersToPreset({ gemeenschap: { group } });
+    for (const [group, g] of Object.entries(DETAIL_GROUPS)) {
+      const p = answersToPreset({ gemeenschap: { detail: group } });
       const t = p.themes.find(x => x.key === 'gemeenschap');
       assert.deepEqual(t.metrics.map(m => [m.key, m.pref]), [[g.key, 'higher']]);
       assert.match(t.metrics[0].label, /^Nabijheid gemeenschap/);
@@ -57,36 +65,38 @@ describe('Gemeenschap: one group, higher, user weight', () => {
     }
   });
   it('weight is clamped to 5–30 %; zero, negative or junk turns it off', () => {
-    assert.equal(normalizeAnswers({ gemeenschap: { group: 'nederland', pct: 99 } }).gemeenschap.pct, GEMEENSCHAP_MAX_PCT);
-    assert.equal(normalizeAnswers({ gemeenschap: { group: 'nederland', pct: 1 } }).gemeenschap.pct, GEMEENSCHAP_MIN_PCT);
-    for (const pct of [0, -10, -0.5, NaN, 'x', Infinity * -1]) assert.equal(normalizeAnswers({ gemeenschap: { group: 'nederland', pct } }).gemeenschap, null, String(pct));
-    assert.equal(normalizeAnswers({ gemeenschap: { group: 'iedereen-behalve' } }).gemeenschap, null);
+    assert.equal(normalizeAnswers({ gemeenschap: { detail: 'nederland', pct: 99 } }).gemeenschap.pct, GEMEENSCHAP_MAX_PCT);
+    assert.equal(normalizeAnswers({ gemeenschap: { detail: 'nederland', pct: 1 } }).gemeenschap.pct, GEMEENSCHAP_MIN_PCT);
+    for (const pct of [0, -10, -0.5, NaN, 'x', Infinity * -1]) assert.equal(normalizeAnswers({ gemeenschap: { detail: 'nederland', pct } }).gemeenschap, null, String(pct));
+    assert.equal(normalizeAnswers({ gemeenschap: { detail: 'iedereen-behalve' } }).gemeenschap, null);
+    assert.deepEqual(normalizeAnswers({ gemeenschap: { group: 'nederland', share: true } }).gemeenschap, { detail: 'nederland', pct: GEMEENSCHAP_DEFAULT_PCT }, 'old broad Nederland');
   });
   it('answers carry no direction: lower / avoid / target fields are ignored', () => {
     for (const extra of [{ pref: 'lower' }, { direction: 'lower' }, { avoid: true }, { pref: 'target', ideal: 0 }, { weight: -50 }]) {
-      const p = answersToPreset({ gemeenschap: { group: 'buitenEuropa', ...extra } });
+      const p = answersToPreset({ gemeenschap: { detail: 'turkije', ...extra } });
       assertPositiveOnly(p, JSON.stringify(extra));
       assert.equal(originMetrics(p)[0].pref, 'higher');
     }
   });
   it('slider weights cannot reach the Gemeenschap theme', () => {
-    const a = normalizeAnswers({ gemeenschap: { group: 'europa' }, weights: { gemeenschap: 100, veiligheid: 50 } });
+    const a = normalizeAnswers({ gemeenschap: { detail: 'nederland' }, weights: { gemeenschap: 100, veiligheid: 50 } });
     assert.deepEqual(a.weights, { veiligheid: 50 });
-    const off = answersToPreset({ weights: { veiligheid: 0, welvaart: 0, voorzieningen: 0, opleiding: 0, woningmarkt: 0 }, gemeenschap: { group: 'europa' } });
+    const off = answersToPreset({ weights: { veiligheid: 0, welvaart: 0, voorzieningen: 0, opleiding: 0, woningmarkt: 0 }, gemeenschap: { detail: 'nederland' } });
     assert.equal(originMetrics(off).length, 0, 'no other weight: no community-only score');
   });
-  it('breakdown shows "Nabijheid gemeenschap" and never as a minus; missing field drops the factor', () => {
+  it('Nederland: breakdown shows "Nabijheid gemeenschap" and never as a minus; missing field drops the factor', () => {
     const areas = [area('A', 80), area('B', 50), area('C', 20)];
-    const { results, factors } = scoreWithPreset(areas, answersToPreset({ gemeenschap: { group: 'nederland', pct: 30 } }));
+    const { results, factors } = scoreWithPreset(areas, answersToPreset({ gemeenschap: { detail: 'nederland', pct: 30 } }));
     assert.ok(factors.some(f => f.key === 'originDutchPct' && f.pref === 'higher' && f.theme === 'gemeenschap'));
     const low = results.find(r => r.code === 'C');
     assert.ok(!explain(low).minus.some(r => r.theme === 'gemeenschap'));
     assert.ok(explain(results.find(r => r.code === 'A')).plus.some(r => r.label.startsWith('Nabijheid gemeenschap')));
     assert.ok(themeBreakdown(low).some(r => r.label === 'Nabijheid gemeenschap'));
-    const none = scoreWithPreset(areas.map(a => ({ code: a.code, values: { ...a.values, originDutchPct: undefined } })), answersToPreset({ gemeenschap: { group: 'nederland' } }));
+    const none = scoreWithPreset(areas.map(a => ({ code: a.code, values: { ...a.values, originDutchPct: undefined } })), answersToPreset({ gemeenschap: { detail: 'nederland' } }));
     assert.ok(!none.factors.some(f => f.theme === 'gemeenschap'));
     assert.ok(Math.abs(none.factors.reduce((s, f) => s + f.weight, 0) - 1) < 1e-9, 'renormalised');
-    assert.match(describeAnswers({ gemeenschap: { group: 'nederland' } }), /nabijheid gemeenschap: Nederland/);
+    assert.match(describeAnswers({ gemeenschap: { detail: 'nederland' } }), /nabijheid gemeenschap: Nederland \(gemeente, wijk en buurt\)/);
+    assertPositiveOnly(answersToPreset({ gemeenschap: { detail: 'nederland', pct: 30, pref: 'lower', avoid: true } }), 'nederland junk');
   });
 });
 
@@ -125,6 +135,7 @@ describe('Gemeenschap: guards against scoring a group down', () => {
     assert.equal(decodeAnswers('gdl10').gemeenschap, null);
     assert.equal(decodeAnswers('gd0').gemeenschap, null);
     assert.equal(decodeAnswers('gd999').gemeenschap.pct, GEMEENSCHAP_MAX_PCT, 'clamped');
+    assert.equal(decodeAnswers('ghnl-10').gemeenschap, null);
     // Slider letters cannot address origin: w-segment for an unknown theme is ignored.
     assertPositiveOnly(presetFromScore('wg100.wv0'), 'w');
   });
@@ -142,33 +153,68 @@ describe('Gemeenschap: guards against scoring a group down', () => {
   });
 });
 
-describe('Gemeenschap: shared link only with "deel ook gemeenschap"', () => {
-  it('encodes the choice; the share flag defaults to off', () => {
-    const a = normalizeAnswers({ sfeer: 30, gemeenschap: { group: 'buitenEuropa', pct: 15 } });
-    assert.equal(a.gemeenschap.share, false);
-    assert.equal(encodeAnswers(a), 's30.gb15');
-    assert.deepEqual(decodeAnswers('s30.gb15'), a);
-    assert.equal(encodeAnswers({ ...a, gemeenschap: { ...a.gemeenschap, share: true } }), 's30.gb15x');
+describe('Sharing: sensitive parts only when ticked in "Deellink maken"', () => {
+  const full = { sfeer: 30, situatie: { edu: 'hoog', income: 'm5000' }, gemeenschap: { detail: 'suriname', pct: 15 } };
+  it('shareableAnswers strips each part unless ticked, and drops an empty situatie', () => {
+    const none = shareableAnswers(full);
+    assert.equal(none.gemeenschap, null);
+    assert.equal(none.situatie, null);
+    assert.equal(none.sfeer, 30);
+    assert.deepEqual(shareableAnswers(full, { origin: true }).gemeenschap, full.gemeenschap);
+    assert.deepEqual(shareableAnswers(full, { education: true }).situatie, { edu: 'hoog' });
+    assert.deepEqual(shareableAnswers(full, { income: true }).situatie, { income: 'm5000' });
+    assert.equal(shareableAnswers({ situatie: { bijstand: true } }).situatie, null, 'old bijstand field goes with income');
+    assert.deepEqual(shareableAnswers(full, { origin: true, education: true, income: true }), full);
+    assert.deepEqual(full.situatie, { edu: 'hoog', income: 'm5000' }, 'input not mutated');
+    assert.equal(shareableAnswers({ situatie: { edu: 'laag' } }, { income: true }).situatie, null);
+    assert.deepEqual(SHARE_NONE, { origin: false, education: false, income: false });
   });
-  it('shareableScore drops an unticked choice; ticked stays', () => {
-    assert.equal(shareableScore('s30.gb15'), 's30');
-    assert.equal(shareableScore('gb15'), null);
-    assert.equal(shareableScore('s30.gb15x'), 's30.gb15x');
+  it('hash round-trips; shareableScore leaves sensitive parts out by default', () => {
+    const a = normalizeAnswers({ sfeer: 30, situatie: { edu: 'hoog' }, gemeenschap: { detail: 'nederland', pct: 15 } });
+    const s = encodeAnswers(a);
+    assert.equal(s, 's30.jh.ghnl15');
+    assert.deepEqual(decodeAnswers(s), a);
+    assert.equal(shareableScore(s), 's30');
+    assert.equal(shareableScore(s, { origin: true }), 's30.ghnl15');
+    assert.equal(shareableScore(s, { education: true }), 's30.jh');
+    assert.equal(shareableScore(s, { origin: true, education: true }), s);
+    assert.equal(shareableScore('ghnl15'), null);
     assert.equal(shareableScore('gelijk'), 'gelijk');
-    assert.equal(serializeHash({ ...DEFAULT_STATE, score: 's30.gd10' }), '#scope=rotterdam&view=map&score=s30');
-    assert.equal(serializeHash({ ...DEFAULT_STATE, score: 'gd10' }), '#scope=rotterdam&view=map');
-    assert.match(serializeHash({ ...DEFAULT_STATE, score: 's30.gd10x' }), /score=s30\.gd10x$/);
+    assert.ok(isShareOf('s30.ghnl15', s) && isShareOf(null, 'ghnl15') && !isShareOf('lg', s));
   });
-  it('localStorage keeps the private choice and a reload restores it', () => {
+  it('old hashes with the share flag x still decode; the flag is ignored', () => {
+    assert.deepEqual(decodeAnswers('s30.gd10x').gemeenschap, { detail: 'nederland', pct: 10 });
+    assert.equal(decodeAnswers('s30.ge15x').gemeenschap, null, 'old broad Europa: no group');
+    assert.equal(decodeAnswers('gb15').gemeenschap, null, 'old broad Buiten Europa: no group');
+    assert.deepEqual(decodeAnswers('gbhsr20x').gemeenschap, { detail: 'suriname', pct: 20 }, 'detailed wins');
+    assert.deepEqual(decodeAnswers('s40.jlbx').situatie, { edu: 'laag', income: 'bijstand' });
+    assert.equal(decodeAnswers('s30.gd10x').sfeer, 30);
+    assert.equal(encodeAnswers(decodeAnswers('s30.gd10x')), 's30.ghnl10');
+  });
+  it('the address-bar hash uses the stripped default unless a link was made with a part', () => {
+    try {
+      assert.equal(serializeHash({ ...DEFAULT_STATE, score: 's30.ghnl10' }), '#scope=rotterdam&view=map&score=s30');
+      assert.equal(serializeHash({ ...DEFAULT_STATE, score: 'ghnl10' }), '#scope=rotterdam&view=map');
+      assert.equal(serializeHash({ ...DEFAULT_STATE, score: 's30.gd10x' }), '#scope=rotterdam&view=map&score=s30', 'old x does not share');
+      assert.match(serializeHash({ ...DEFAULT_STATE, score: 's30.ghnl10' }, { origin: true }), /score=s30\.ghnl10$/);
+      setShareOptions({ origin: true, education: 'yes' });
+      assert.deepEqual(getShareOptions(), { origin: true, education: false, income: false });
+      assert.match(serializeHash({ ...DEFAULT_STATE, score: 's30.jm.ghnl10' }), /score=s30\.ghnl10$/);
+      assert.match(shareUrl(undefined, 'https://x.test/a?b#old'), /^https:\/\/x\.test\/a\?b#scope=/);
+    } finally { setShareOptions(SHARE_NONE); }
+    assert.equal(serializeHash({ ...DEFAULT_STATE, score: 's30.ghnl10' }), '#scope=rotterdam&view=map&score=s30');
+  });
+  it('localStorage keeps the private choices and a reload restores them', () => {
     const st = memStorage();
-    saveAnswers(st, { sfeer: 30, gemeenschap: { group: 'nederland' } });
-    assert.equal(loadAnswers(st).gemeenschap.group, 'nederland');
-    st.setItem(SCORE_STORAGE_KEY, 's30.gd10');
-    assert.equal(resolveInitialState({ hash: '#score=s30', storage: st }).score, 's30.gd10');
-    assert.equal(resolveInitialState({ hash: '', storage: st }).score, 's30.gd10');
+    saveAnswers(st, { sfeer: 30, gemeenschap: { detail: 'nederland' } });
+    assert.equal(loadAnswers(st).gemeenschap.detail, 'nederland');
+    st.setItem(SCORE_STORAGE_KEY, 's30.ghnl10');
+    assert.equal(resolveInitialState({ hash: '#score=s30', storage: st }).score, 's30.ghnl10');
+    assert.equal(resolveInitialState({ hash: '', storage: st }).score, 's30.ghnl10');
     assert.equal(resolveInitialState({ hash: '#score=lg', storage: st }).score, 'lg', 'another link wins');
-    assert.equal(restoreLocalScore(null, 'gd10'), 'gd10');
+    assert.equal(restoreLocalScore(null, 'ghnl10'), 'ghnl10');
     assert.equal(restoreLocalScore('s30', null), 's30');
+    assert.equal(restoreLocalScore('s30', 's30.jh.ghnl10'), 's30.jh.ghnl10');
   });
 });
 
@@ -178,20 +224,14 @@ describe('Gemeenschap: Uitleg', () => {
     assert.ok(s);
     assert.match(s.text, /nabijheid gemeenschap/);
     assert.match(s.text, /geen optie om een groep te vermijden/);
-    assert.match(s.text, /Deel ook gemeenschap/);
+    assert.match(s.text, /Deellink maken/);
+    assert.ok(!/Deel ook/.test(GENERAL_SECTIONS.map(x => x.text).join(' ')));
   });
 });
 
 // v0.25.0: detailed groups per wijk/buurt (postcode estimate) and three new detailed groups.
 import { PC4_KEYS, PC4_GROUPS } from '../modules/herkomst-pc4.js';
 import { DETAIL_GROUPS } from '../modules/wizard-model.js';
-// A detailed group next to a broad one gives two `higher` metrics; the broad one only where the detailed share is missing.
-const assertPositivePair = (p, msg) => {
-  const ms = originMetrics(p);
-  assert.ok(ms.length <= 2, msg);
-  if (ms.length === 2) assert.ok(ms[1].unless === ms[0].key, msg);
-  assertPositiveOnly({ ...p, themes: p.themes.map(t => ({ ...t, metrics: t.metrics.filter(m => !m.unless) })) }, msg);
-};
 
 describe('Gemeenschap: postcode-estimated groups keep every §5 guard', () => {
   it('every postcode key is an origin key; no fixed preset uses one', () => {
@@ -236,10 +276,11 @@ describe('Gemeenschap: postcode-estimated groups keep every §5 guard', () => {
     }
     assert.equal(encodeAnswers({ gemeenschap: { detail: 'polen', pct: 10 } }), 'ghpl10');
     assert.equal(shareableScore('s30.ghpl10'), 's30');
-    assert.equal(shareableScore('s30.ghpl10x'), 's30.ghpl10x');
-    assert.deepEqual(decodeAnswers('gd10x').gemeenschap, { group: 'nederland', pct: 10, share: true });
-    assert.deepEqual(decodeAnswers('ghsr10x').gemeenschap, { group: null, detail: 'suriname', pct: 10, share: true });
-    assert.deepEqual(decodeAnswers('gbhtr20').gemeenschap, { group: 'buitenEuropa', detail: 'turkije', pct: 20, share: false });
+    assert.equal(shareableScore('s30.ghpl10x'), 's30');
+    assert.equal(shareableScore('s30.ghpl10x', { origin: true }), 's30.ghpl10');
+    assert.deepEqual(decodeAnswers('gd10x').gemeenschap, { detail: 'nederland', pct: 10 });
+    assert.deepEqual(decodeAnswers('ghsr10x').gemeenschap, { detail: 'suriname', pct: 10 });
+    assert.deepEqual(decodeAnswers('gbhtr20').gemeenschap, { detail: 'turkije', pct: 20 });
     for (const bad of ['ghpl-10', 'ghpl0', 'ghplx10', 'ghpll10']) assert.equal(decodeAnswers(bad).gemeenschap, null, bad);
   });
   it('fuzz: no gh… string can produce a negative weight on any detailed key', () => {
@@ -250,7 +291,7 @@ describe('Gemeenschap: postcode-estimated groups keep every §5 guard', () => {
     for (let i = 0; i < 3000; i++) {
       let s = `g${rnd(2) ? 'bdeh'[rnd(4)] : ''}h${codes[rnd(codes.length)]}`;
       for (let j = rnd(5); j > 0; j--) s += junk[rnd(junk.length)];
-      assertPositivePair(presetFromScore(s), s);
+      assertPositiveOnly(presetFromScore(s), s);
     }
   });
 });
