@@ -10,6 +10,8 @@
 //   lvl=<level>              Ranglijst level (wijken, buurten, provincies, gemeenten)
 //   rank=<key>               Ranglijst "Rangschik op" (overall or a dataset key)
 //   sort=<column>.<asc|desc> Ranglijst sort column and direction
+// The Ranglijst view mode (lv=adv, state.listView) is address-bar state and
+// rides on the same "list" checkbox (15 Nov 2026).
 //   basemap=<id>             background map (map.js BASEMAPS)
 //   theme=<id>               colour theme (theme.js THEMES)
 // The sensitive answer parts (herkomst/gemeenschap, opleiding, inkomen) go in
@@ -35,7 +37,7 @@ export const SHARE_GROUPS = Object.freeze([
     { key: 'dataset', label: 'Kaartlaag' },
     { key: 'map',     label: 'Kaartpositie en zoom (bepaalt het niveau op de kaart)' },
     { key: 'area',    label: 'Geselecteerd gebied en open detailvenster' },
-    { key: 'list',    label: 'Ranglijst: niveau, rangschikking en sortering' },
+    { key: 'list',    label: 'Ranglijst: niveau, rangschikking, sortering en weergave' },
     { key: 'basemap', label: 'Achtergrondkaart' },
     { key: 'theme',   label: 'Kleurthema' },
     { key: 'dtab',    label: 'Dashboardtabblad (Algemeen of Jouw dashboard)' },
@@ -104,6 +106,7 @@ export function buildShareHash(snap = {}, options = {}) {
     if (LIST_LEVELS.includes(l.level)) p.set('lvl', l.level);
     if (l.rankKey === 'overall' || DATASET_KEYS.includes(l.rankKey)) p.set('rank', l.rankKey);
     if (l.sort && SORT_RE.test(l.sort.column ?? '') && ['asc', 'desc'].includes(l.sort.dir)) p.set('sort', `${l.sort.column}.${l.sort.dir}`);
+    if (core.has('lv')) p.set('lv', core.get('lv'));
   }
   if (o.basemap && Object.hasOwn(BASEMAPS, snap.basemap ?? '')) p.set('basemap', snap.basemap);
   if (o.theme && Object.hasOwn(THEMES, snap.theme ?? '')) p.set('theme', snap.theme);
@@ -163,7 +166,7 @@ export function partSummary(snap = {}, key) {
     case 'dataset': return DATASETS[st.dataset] ? `${DATASETS[st.dataset].label}${st.crime === 'abs' ? ' · aantallen' : ''}` : '';
     case 'map':     return snap.map ? `zoom ${round(snap.map.zoom, 1).toLocaleString('nl-NL')}` : '';
     case 'area':    return st.area ? `${st.area}${snap.modal ? ' · detailvenster open' : ''}` : 'geen gebied geselecteerd';
-    case 'list':    return snap.list ? [snap.list.level, snap.list.sort ? `sortering ${snap.list.sort.column} ${snap.list.sort.dir === 'desc' ? '↓' : '↑'}` : ''].filter(Boolean).join(', ') : '';
+    case 'list':    return snap.list ? [snap.list.level, st.listView === 'adv' ? 'uitgebreid' : 'eenvoudig', snap.list.sort ? `sortering ${snap.list.sort.column} ${snap.list.sort.dir === 'desc' ? '↓' : '↑'}` : ''].filter(Boolean).join(', ') : '';
     case 'basemap': return BASEMAPS[snap.basemap]?.label ?? '';
     case 'theme':   return THEMES[snap.theme]?.label ?? '';
     case 'dtab':    return st.dtab === 'jouw' ? 'Jouw dashboard' : 'Algemeen';

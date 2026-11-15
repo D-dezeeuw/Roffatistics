@@ -1695,6 +1695,14 @@ footer {
 .seg-opt.active { background: rgba(var(--accent-rgb), 0.25); color: var(--text-primary); }
 .seg-opt:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
 .list-rankmode-wrap, .list-crime { display: inline-flex; align-items: center; }
+/* Ranglijst Eenvoudig | Uitgebreid (15 Nov 2026): centred in the free space of the toolbar row; a full-width row on phones. */
+.list-viewmode { margin-inline: auto; }
+.list-table.is-simple { width: 100%; }
+@media (max-width: 640px) {
+  .list-viewmode { flex: 1 0 100%; margin-inline: 0; }
+  .list-viewmode .seg-opt { flex: 1; padding-block: 0.4rem; }
+  .list-table.is-simple .col-name .list-name { white-space: normal; overflow-wrap: anywhere; }
+}
 .list-crime[hidden] { display: none; }
 .dash-head-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
 

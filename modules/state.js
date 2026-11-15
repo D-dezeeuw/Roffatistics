@@ -11,13 +11,16 @@ export const VIEWS  = Object.freeze(['map', 'dashboard', 'list']);
 export const DASH_TABS = Object.freeze(['algemeen', 'jouw']);
 export const SCOPE_STORAGE_KEY = 'roffatistics.scope';
 export const CRIME_STORAGE_KEY = 'roffatistics.crime';
+/** Ranglijst "Eenvoudig | Uitgebreid" (15 Nov 2026): 'simple' (default, not in the hash) | 'adv' (#lv=adv). */
+export const LIST_VIEWS = Object.freeze(['simple', 'adv']);
+export const LIST_VIEW_STORAGE_KEY = 'roffatistics.listView';
 /** Active Woonscore preset (#score=…, see wizard-model.js); restored when the hash has none. */
 export const SCORE_STORAGE_KEY = 'roffatistics.score';
 const SCORE_RE = /^[a-z0-9.]{1,120}$/;
 /** Retired layer keys still accepted in links: `jouwscore` is now the Woonscore with the `score` preset (v0.22.0). */
 export const LEGACY_DATASETS = Object.freeze({ jouwscore: 'woonscore' });
 // crime: 'rate' (per 1.000 inwoners) | 'abs' (registered offences); see datasets.js datasetFor().
-export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate', score: null, dtab: 'algemeen' });
+export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate', score: null, dtab: 'algemeen', listView: 'simple' });
 
 const AREA_RE = /^(PV\d{2}|GM\d{4}|WK\d{4}[0-9A-Z]{2}|BU\d{4}[0-9A-Z]{4})$/;   // Amsterdam: WK0363AA, BU0363AA01
 
@@ -31,6 +34,7 @@ export function sanitizePatch(patch = {}) {
   if (DATASET_KEYS.includes(dataset))       out.dataset = dataset;
   if (CRIME_MODES.includes(patch.crime))    out.crime   = patch.crime;
   if (DASH_TABS.includes(patch.dtab))       out.dtab    = patch.dtab;
+  if (LIST_VIEWS.includes(patch.listView))  out.listView = patch.listView;
   if ('score' in patch) {
     const sc = patch.score == null ? '' : String(patch.score).trim().toLowerCase();
     if (sc === '') out.score = null;
@@ -49,11 +53,14 @@ export function parseHash(hash) {
   const params = new URLSearchParams(String(hash ?? '').replace(/^#/, ''));
   const raw = {};
   for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score', 'dtab']) if (params.has(key)) raw[key] = params.get(key);
+  for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score']) if (params.has(key)) raw[key] = params.get(key);
+  if (params.get('lv') === 'adv') raw.listView = 'adv';   // no lv (every old link) = Eenvoudig default
   return sanitizePatch(raw);
 }
 
 /**
  * State → '#scope=…&view=…[&dataset=…][&area=…][&crime=abs][&score=…][&dtab=jouw]'. The default
+ * State → '#scope=…&view=…[&dataset=…][&area=…][&crime=abs][&lv=adv][&score=…]'. The default
  * dataset (Woonscore) and crime mode are left out, so a hash without
  * dataset opens on the Woonscore.
  */
@@ -62,6 +69,7 @@ export function serializeHash(state, shareOpts = shareChoice) {
   if (state.dataset && state.dataset !== DEFAULT_STATE.dataset && DATASET_KEYS.includes(state.dataset)) params.set('dataset', state.dataset);
   if (state.area) params.set('area', state.area);
   if (state.crime === 'abs') params.set('crime', 'abs');
+  if (state.listView === 'adv') params.set('lv', 'adv');
   // Sensitive parts (gemeenschap, opleiding, inkomen) only when ticked in "Deellink maken" (default: none).
   const shared = state.score && SCORE_RE.test(state.score) ? shareableScore(state.score, shareOpts) : null;
   if (shared) params.set('score', shared);
@@ -72,7 +80,7 @@ export function serializeHash(state, shareOpts = shareChoice) {
 /** Initial state: defaults < stored scope and crime mode < URL hash. */
 export function resolveInitialState({ hash = '', storage = null } = {}) {
   let stored = {};
-  try { stored = sanitizePatch({ scope: storage?.getItem(SCOPE_STORAGE_KEY), crime: storage?.getItem(CRIME_STORAGE_KEY), score: storage?.getItem(SCORE_STORAGE_KEY) });
+  try { stored = sanitizePatch({ scope: storage?.getItem(SCOPE_STORAGE_KEY), crime: storage?.getItem(CRIME_STORAGE_KEY), listView: storage?.getItem(LIST_VIEW_STORAGE_KEY), score: storage?.getItem(SCORE_STORAGE_KEY) });
     if (stored.score === null) delete stored.score; } catch { /* storage blocked */ }
   const fromHash = parseHash(hash);
   const out = { ...DEFAULT_STATE, ...stored, ...fromHash };
@@ -102,6 +110,9 @@ export function setState(patch, { source = 'app' } = {}) {
   }
   if (changed.includes('crime')) {
     try { storageRef?.setItem(CRIME_STORAGE_KEY, state.crime); } catch { /* ignore */ }
+  }
+  if (changed.includes('listView')) {
+    try { storageRef?.setItem(LIST_VIEW_STORAGE_KEY, state.listView); } catch { /* ignore */ }
   }
   if (changed.includes('score')) {
     try { if (state.score) storageRef?.setItem(SCORE_STORAGE_KEY, state.score); else storageRef?.removeItem(SCORE_STORAGE_KEY); } catch { /* ignore */ }
