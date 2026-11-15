@@ -89,7 +89,7 @@ the epic starts.
 A small modal, 6 steps, each skippable. "Overslaan" keeps the Standaard
 weights. Mobile first. Answers live in localStorage and the URL hash.
 
-1. **Levensfase:** student/starter, stel, gezin met kinderen, 50+, senior →
+1. **Levenstype** (was Levensfase; renamed 15 Nov 2026, see decisions): student/starter, stel, gezin met kinderen, 50+, senior, solo onder de mensen, solo op mezelf →
    age-mix target (share 25–44 or 65+), and for gezin: school and
    kinderopvang weights up.
 2. **Budget:** huur or koop, household income or max price → WOZ `target`

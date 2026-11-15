@@ -16,7 +16,7 @@ import { explain } from './score.js';
 import { openAreaModal } from './area-modal.js';
 import { infoButton } from './explain.js';
 import {
-  STEPS, LEVENSFASEN, BOUW_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
+  STEPS, LEVENSTYPEN, LEVENSTYPE_HINT, BOUW_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
   SHARE_PARTS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS, gemeenschapOptgroups,
@@ -30,7 +30,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const storage = () => { try { return globalThis.localStorage ?? null; } catch { return null; } };
 
-const STEP_TITLES = { levensfase: 'Levensfase', budget: 'Budget', vervoer: 'Vervoer', sfeer: 'Sfeer', veiligheid: 'Veiligheid', situatie: 'Jouw situatie (optioneel)', gemeenschap: 'Gemeenschap (optioneel)' };
+const STEP_TITLES = { levensfase: 'Levenstype', budget: 'Budget', vervoer: 'Vervoer', sfeer: 'Sfeer', veiligheid: 'Veiligheid', situatie: 'Jouw situatie (optioneel)', gemeenschap: 'Gemeenschap (optioneel)' };
 
 let els = null;
 let step = 0;                 // 0..STEPS.length-1, or 'result'
@@ -65,8 +65,9 @@ const sitSlider = (field, id, label, opts, pos) => `
 function stepBody(key) {
   const a = answers;
   if (key === 'levensfase') return `
-    <p class="wiz-q" id="wiz-q">In welke fase van je leven zit je?</p>
-    <div class="wiz-opts" role="group" aria-labelledby="wiz-q">${Object.entries(LEVENSFASEN).map(([k, l]) => optBtn('levensfase', k, l, a.levensfase === k)).join('')}</div>
+    <p class="wiz-q" id="wiz-q">Welk levenstype past het best bij jou?</p>
+    <div class="wiz-opts" role="group" aria-labelledby="wiz-q">${Object.entries(LEVENSTYPEN).map(([k, l]) => optBtn('levensfase', k, l, a.levensfase === k)).join('')}</div>
+    <p class="wiz-hint">${esc(LEVENSTYPE_HINT)}</p>
     <p class="wiz-q" id="wiz-q2">Wat voor huizen zoek je: een oudere buurt met karakter of juist moderne woningen?</p>
     <div class="wiz-opts" role="group" aria-labelledby="wiz-q2">${Object.entries(BOUW_OPTIONS).map(([k, l]) => optBtn('bouw', k, l, a.bouw === k)).join('')}${optBtn('bouw', '', 'Maakt niet uit', !a.bouw)}</div>
     <p class="wiz-hint">Oudere bouw: meer woningen van vóór 1945. Moderne woningen: meer woningen van 2005 of later. Per wijk en buurt, geschat via de postcode.</p>`;

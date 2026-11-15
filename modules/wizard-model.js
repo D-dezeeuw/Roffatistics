@@ -129,13 +129,26 @@ export function importanceFromRatio(r) { return isNum(r) ? nearest(IMPORTANCE.ma
 /** Importance level (1–4) of a Gemeenschap pct. */
 export function gemeenschapLevel(pct) { return Math.max(1, nearest(GEMEENSCHAP_LEVEL_PCT, pct)); }
 
-export const LEVENSFASEN = Object.freeze({
+/**
+ * Levenstype (v0.30; was "Levensfase"): how you like to live, not a life stage.
+ * The answer field, step key and hash letter stay `levensfase` / `l` so stored
+ * answers and old links keep working. Solo options are worded as equal choices.
+ */
+export const LEVENSTYPEN = Object.freeze({
   student: 'Student of starter',
   stel:    'Stel',
   gezin:   'Gezin met kinderen',
   '50plus': '50-plusser',
   senior:  'Senior',
+  soloMensen: 'Solo, graag onder de mensen',
+  soloRust:   'Solo, graag op mezelf',
 });
+/** Helper line under the Levenstype options. */
+export const LEVENSTYPE_HINT = 'Het gaat om hoe je graag woont, niet om relaties of plannen. Solo onder de mensen: levendig, dichter bij het centrum, horeca om de hoek. Solo op jezelf: rustig, ruimte en water in de buurt. Elke keuze geeft alleen pluspunten.';
+/** @deprecated name before v0.30; same object. */
+export const LEVENSFASEN = LEVENSTYPEN;
+/** Sfeer theme weight the solo options add while the Sfeer step is unanswered. */
+export const SOLO_SFEER_WEIGHT = 12;
 /** Bouwstijl (v0.29.0): older buildings with character or modern dwellings. Replaces the v0.21 "oud" question. */
 export const BOUW_OPTIONS = Object.freeze({ karakter: 'Oudere bouw met karakter', modern: 'Moderne woningen' });
 export const VERVOER = Object.freeze({ fiets: 'Fiets', ov: 'OV', auto: 'Auto', lopen: 'Lopen' });
@@ -216,7 +229,7 @@ export function normalizeAnswers(a = {}) {
   const importance = {};
   for (const [k, v] of Object.entries(a?.importance ?? {})) if (Object.hasOwn(THEME_LABELS, k) && k !== 'gemeenschap' && isNum(v)) importance[k] = Math.round(clamp(v, 0, IMPORTANCE.length - 1));
   return {
-    levensfase: Object.hasOwn(LEVENSFASEN, a?.levensfase) ? a.levensfase : null,
+    levensfase: Object.hasOwn(LEVENSTYPEN, a?.levensfase) ? a.levensfase : null,
     // v0.21–0.28 stored `oud`: 'gebouwen' (nieuwe woningen) becomes modern; 'bewoners' (jonge bewoners) is gone.
     bouw: Object.hasOwn(BOUW_OPTIONS, a?.bouw) ? a.bouw : a?.oud === 'gebouwen' ? 'modern' : null,
     budget,
@@ -282,6 +295,13 @@ const LIFE_METRICS = {
   gezin:    [['hhWithKidsPct', 1]],
   '50plus': [['pop45to64', 1]],
   senior:   [['pop65plus', 1]],
+  soloMensen: [['singleHhPct', 2], ['pop25to44', 1]],
+  soloRust:   [['waterPct', 1]],
+};
+/** Busy vs quiet for the solo options, only while the Sfeer step is unanswered (an explicit Sfeer wins). */
+const SOLO_SFEER = {
+  soloMensen: [['density', 'higher', 2], ['horeca1km', 'higher', 1], ['distCentrum', 'lower', 1]],
+  soloRust:   [['density', 'lower', 2], ['distCentrum', 'higher', 1]],
 };
 
 /** Step appliers, in STEPS order. Each mutates the draft from normalised answers. */
@@ -291,8 +311,9 @@ export const APPLY = Object.freeze({
     if (a.levensfase) for (const [key, w] of LIFE_METRICS[a.levensfase]) metric(d, 'leeftijd', key, 'higher', w, L);
     if (a.levensfase === 'gezin') { metric(d, 'voorzieningen', 'distSchool', 'lower', STRESS_W); metric(d, 'voorzieningen', 'distKinderopvang', 'lower', STRESS_W); }
     if (a.levensfase === 'senior') { metric(d, 'voorzieningen', 'distGP', 'lower', STRESS_W); metric(d, 'voorzieningen', 'distSupermarket', 'lower', 2); }
+    if (SOLO_SFEER[a.levensfase] && a.sfeer == null) for (const [key, pref, w] of SOLO_SFEER[a.levensfase]) metric(d, 'sfeer', key, pref, w, SOLO_SFEER_WEIGHT);
     // Bouwstijl (v0.29.0): buildings only, never the people. Living among young
-    // families comes from levensfase Gezin (hhWithKidsPct), busy vs quiet from Sfeer.
+    // families comes from levenstype Gezin (hhWithKidsPct), busy vs quiet from Sfeer.
     // Shares estimated via postcode (bouwjaar-pc4.js); modern also keeps the CBS
     // "afgelopen tien jaar" share, which covers 2025 buurten without a 2023 code.
     const N = EXTRA_THEME_WEIGHTS.nieuwbouw;
@@ -457,7 +478,8 @@ export function guardOrigin(preset) {
 // '.'-separated segments, each led by one letter; only [a-z0-9.] so the
 // value survives URLSearchParams unescaped. Unknown segments are ignored.
 // 'gelijk' / 'standaard' name a fixed preset.
-//   l<s|p|g|v|r>        levensfase      a<k|m>          bouwstijl = karakter/modern
+//   l<s|p|g|v|r|o|m>    levenstype (field levensfase; o/m = solo onder de mensen / op mezelf, v0.30)
+//                           a<k|m>          bouwstijl = karakter/modern
 //                       (old o<b|g> still read: og = modern, ob = nothing)
 //   b<h|k>[i<n>][p<n>][x] budget        v<f|o|a|l>…     vervoer
 //   s<0-100>            sfeer           c<in|gw|…>…     veiligheid chips
@@ -476,7 +498,7 @@ export function guardOrigin(preset) {
 // Gemeenschap, opleiding or inkomen.
 //   i<theme letter><0-4>…  importance level per theme (5-step scale); wins over w.
 
-const LF = { student: 's', stel: 'p', gezin: 'g', '50plus': 'v', senior: 'r' };
+const LF = { student: 's', stel: 'p', gezin: 'g', '50plus': 'v', senior: 'r', soloMensen: 'o', soloRust: 'm' };
 const BOUW = { karakter: 'k', modern: 'm' };
 const VV = { fiets: 'f', ov: 'o', auto: 'a', lopen: 'l' };
 const CR = { inbraak: 'in', geweld: 'gw', straatroof: 'sr', fiets: 'fd', auto: 'ad', vandalisme: 'vd', drugs: 'dr', omgeving: 'om' };
@@ -661,7 +683,7 @@ export function topAreas(items, n = 10) {
 export function describeAnswers(answers) {
   const a = normalizeAnswers(answers);
   const parts = [];
-  if (a.levensfase) parts.push(LEVENSFASEN[a.levensfase].toLowerCase());
+  if (a.levensfase) parts.push(LEVENSTYPEN[a.levensfase].toLowerCase());
   if (a.budget) {
     const c = budgetCeiling(a.budget);
     parts.push(a.budget.mode === 'huur' ? 'huur' : c != null ? `koop tot ≈ €${Math.round(c).toLocaleString('nl-NL')}k` : 'koop');

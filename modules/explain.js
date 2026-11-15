@@ -163,12 +163,23 @@ export const GENERAL_SECTIONS = Object.freeze([
     ],
   },
   {
+    id: 'levenstype',
+    title: 'Jouw score: levenstype',
+    paragraphs: [
+      'De eerste stap van de wizard heet Levenstype, niet levensfase: niet iedereen wil of kan kinderen, en wonen is geen ladder die je afloopt. Het gaat erom hoe je graag woont, niet om relaties of plannen. Elke keuze geeft alleen pluspunten; geen keuze is beter dan een andere.',
+      'Student of starter: plus voor meer 15–24- en 25–44-jarigen. Stel: meer 25–44-jarigen. Gezin met kinderen: meer huishoudens met kinderen, en school en kinderopvang dichtbij wegen zwaarder. 50-plusser: meer 45–64-jarigen. Senior: meer 65-plussers, huisarts en supermarkt dichtbij wegen zwaarder.',
+      'Solo, graag onder de mensen: plus voor veel eenpersoonshuishoudens (laag Alleenwonenden) en 25–44-jarigen, en zolang je de stap Sfeer niet invult ook voor een hogere bevolkingsdichtheid, cafés en restaurants binnen 1 km en een kortere afstand tot het centrum.',
+      'Solo, graag op mezelf: plus voor meer water in de oppervlakte (laag Water), en zolang je de stap Sfeer niet invult ook voor een lagere bevolkingsdichtheid en meer afstand tot het centrum. Cafés tellen dan niet mee, ook niet als min.',
+      'Groen en natuur meet CBS niet meer per buurt met de huidige indeling. Daarom staan lage dichtheid (parken en ruimte drukken het aantal inwoners per km²) en het aandeel water er als benadering voor. Echt groene buurten zijn zeldzaam in Rotterdam, dus de score is relatief: de rustigste en waterrijkste buurten van de lijst krijgen de meeste plus, ook als ze niet landelijk zijn. Kies je bij Sfeer zelf drukte of rust, dan wint die keuze voor dichtheid en afstand tot het centrum.',
+    ],
+  },
+  {
     id: 'bouwstijl',
     title: 'Jouw score: oudere bouw of moderne woningen',
     paragraphs: [
       `In de eerste stap van de wizard kies je "Oudere bouw met karakter", "Moderne woningen" of "Maakt niet uit". Oudere bouw: een gebied telt als plus naarmate meer woningen van vóór ${OLD_BUILD_BEFORE} zijn (laag Oude bouw). Moderne woningen: naarmate meer woningen van ${MODERN_BUILD_FROM} of later zijn (laag Moderne bouw), met daarnaast het CBS-aandeel woningen uit de laatste tien jaar (laag Nieuwbouw).`,
       `CBS publiceert per wijk en buurt alleen of woningen in de laatste tien jaar zijn gebouwd. De bouwjaarklassen (vóór 1945, 1945–1965, …, 2015 en later) bestaan wel per viercijferige postcode (CBS Gegevens per postcode, ${PC4_YEAR}). De woningen van een postcode worden over de buurten erin verdeeld naar het aantal adressen per buurt: geschat via postcode. Onder ${BOUW_MIN_DWELLINGS} geschatte woningen, of voor een buurt van 2025 zonder dezelfde code in 2023, is er geen waarde en valt de factor daar weg.`,
-      'Bouwjaar is een benadering van "karakter", geen oordeel over stijl: een gerenoveerd vooroorlogs blok telt als oud, nieuwbouw in jaren-dertigstijl als modern. Of je tussen jonge gezinnen wilt wonen volgt uit je levensfase (Gezin met kinderen: meer huishoudens met kinderen); drukte of rust uit de stap Sfeer.',
+      'Bouwjaar is een benadering van "karakter", geen oordeel over stijl: een gerenoveerd vooroorlogs blok telt als oud, nieuwbouw in jaren-dertigstijl als modern. Of je tussen jonge gezinnen wilt wonen volgt uit je levenstype (Gezin met kinderen: meer huishoudens met kinderen); drukte of rust uit de stap Sfeer.',
     ],
   },
   {

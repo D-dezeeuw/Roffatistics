@@ -177,7 +177,7 @@ export function scoreWithPreset(areas, preset = DEFAULT_PRESET, { parents = null
 /** Labels of every theme a preset can use (Standaard plus the wizard's themes). */
 export const THEME_LABELS = Object.freeze({
   veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding',
-  woningmarkt: 'Woningmarkt', leeftijd: 'Leeftijd', nieuwbouw: 'Bouwstijl', budget: 'Budget', sfeer: 'Sfeer',
+  woningmarkt: 'Woningmarkt', leeftijd: 'Levenstype', nieuwbouw: 'Bouwstijl', budget: 'Budget', sfeer: 'Sfeer',
   situatie: 'Vergelijkbare situatie', gemeenschap: 'Nabijheid gemeenschap',
 });
 

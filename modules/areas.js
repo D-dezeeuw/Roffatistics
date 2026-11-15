@@ -35,6 +35,7 @@ export const WIJK_COLUMNS = Object.freeze({
   bornAbroadEurope:    'EuropaExclusiefNederland_23',        // geboren buiten NL, herkomst Europa excl. NL, aantal
   bornAbroadOutside:   'BuitenEuropa_24',                    // geboren buiten NL, herkomst buiten Europa, aantal
   households:          'HuishoudensTotaal_29',               // aantal
+  singleHouseholds:    'Eenpersoonshuishoudens_30',          // aantal (v0.30, wizard Levenstype solo)
   householdsWithKids:  'HuishoudensMetKinderen_32',          // aantal
   density:             'Bevolkingsdichtheid_34',             // inwoners per km²
   wozValue:            'GemiddeldeWOZWaardeVanWoningen_39',  // ×€1,000
@@ -42,6 +43,7 @@ export const WIJK_COLUMNS = Object.freeze({
   nonResidentialStock: 'NietWoningvoorraad_37',              // aantal verblijfsobjecten zonder woonfunctie
   businesses:          'BedrijfsvestigingenTotaal_95',       // aantal bedrijfsvestigingen
   landArea:            'OppervlakteLand_116',                // ha land (stored as km²: omgeving.js, crime per km²)
+  waterArea:           'OppervlakteWater_117',               // ha water (waterPct, wizard Levenstype solo)
   lowEdu:              'BasisonderwijsVmboMbo1_67',          // aantal, hoogst behaald
   medEdu:              'HavoVwoMbo24_68',                    // aantal
   highEdu:             'HboWo_69',                           // aantal
@@ -173,6 +175,9 @@ export function extractAreaValues(row) {
     pop45to64:     share(r[C.age45to64], population),
     pop65plus:     share(r[C.age65plus], population),
     hhWithKidsPct: share(r[C.householdsWithKids], r[C.households]),
+    singleHhPct:   share(r[C.singleHouseholds], r[C.households]),
+    // Water share of the total area: the honest "ruimte/water" proxy (CBS has no land use per buurt since 2015).
+    waterPct:      (() => { const l = toNumber(r[C.landArea]), w = toNumber(r[C.waterArea]); return l != null && w != null ? share(w, l + w) : null; })(),
     newBuildPct:   toNumber(r[C.builtLast10]),
     nonWesternPct: share(r[C.originOutsideEurope], population),
     originDutchPct:  share(r[C.originDutch], population),
@@ -299,7 +304,7 @@ const YEAR_FIELD_LABELS = {
   highEdu: 'opleiding', avgIncome: 'inkomen', wozValue: 'WOZ', population: 'inwoners', density: 'dichtheid',
   pop65plus: '65+', nonWesternPct: 'herkomst', ownerOccupiedPct: 'koopwoningen', rentalPct: 'huurwoningen',
   welfarePer1000: 'bijstand', distGP: 'huisarts', distSupermarket: 'supermarkt',
-  pop15to24: '15–24', pop25to44: '25–44', pop45to64: '45–64', hhWithKidsPct: 'gezinnen', newBuildPct: 'nieuwbouw', oldBuildPct: 'oude bouw', modernBuildPct: 'moderne bouw',
+  pop15to24: '15–24', pop25to44: '25–44', pop45to64: '45–64', hhWithKidsPct: 'gezinnen', singleHhPct: 'eenpersoonshuishoudens', waterPct: 'water', newBuildPct: 'nieuwbouw', oldBuildPct: 'oude bouw', modernBuildPct: 'moderne bouw',
   distSchool: 'school', distKinderopvang: 'kinderopvang', distStation: 'station', distCafe: 'café', horeca1km: 'horeca',
 };
 

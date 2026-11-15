@@ -208,6 +208,20 @@ const INFO = {
     year: '2025',
     caveats: ['Kinderen van elke leeftijd die nog thuis wonen tellen mee, ook volwassen kinderen.', TASTE_NOTE, FALLBACK_NOTE],
   },
+  singleHhPct: {
+    description: 'Het aandeel huishoudens van één persoon: wie alleen woont, van student tot weduwnaar. Hoog = veel mensen die solo wonen, vaak in de stad en dichter bij het centrum. Beschrijvend: er zit geen oordeel in.',
+    formula: 'eenpersoonshuishoudens / huishoudens totaal × 100',
+    source: [SRC.kwb2025],
+    year: '2025',
+    caveats: ['Studenten op kamers en mensen in een verzorgingshuis tellen ook als eenpersoonshuishouden.', TASTE_NOTE, FALLBACK_NOTE],
+  },
+  waterPct: {
+    description: 'Het aandeel water in de totale oppervlakte van het gebied (plassen, singels, rivier, havens). Een ruwe maat voor ruimte en water om je heen. Beschrijvend: er zit geen oordeel in.',
+    formula: 'oppervlakte water / (oppervlakte land + oppervlakte water) × 100',
+    source: [SRC.kwb2025],
+    year: '2025',
+    caveats: ['Havens en de Maas tellen mee als water: een gebied aan de rivier komt hoog uit, ook als er zelf weinig groen is.', 'Parken en ander groen staan niet in deze cijfers; CBS publiceert bodemgebruik per buurt niet meer met de huidige indeling.', TASTE_NOTE, FALLBACK_NOTE],
+  },
   newBuildPct: {
     description: 'Het aandeel woningen dat in de laatste tien jaar is gebouwd. Hoog = veel nieuwbouw; laag = een gebied met (vooral) oudere woningen. Beschrijvend: er zit geen oordeel in.',
     formula: 'woningen met een bouwjaar in de afgelopen tien jaar in % van de woningvoorraad (CBS)',
@@ -452,7 +466,7 @@ const INFO = {
     ],
   },
   woonscore: {
-    description: 'Eén cijfer van 0 tot 100 voor hoe prettig je er gemiddeld woont, vergeleken met gelijke gebieden: gemeenten met gemeenten, wijken met wijken, buurten met buurten. 100 = het beste gebied van de lijst, 0 = het slechtste. Opgebouwd uit veiligheid (35, waarvan een zesde de criminaliteit in de omgeving: het gebied plus de aangrenzende gebieden), welvaart (20), voorzieningen (25), opleiding (10) en koopwoningen (10). Smaakkwesties zoals drukte, leeftijd, herkomst en de WOZ-waarde tellen niet mee. Met "Vind jouw ideale woonplek" pas je de gewichten aan je eigen wensen aan (levensfase, budget, vervoer, drukte, misdrijven); de kaart toont dan "Woonscore · jouw wensen". Reset in de legenda zet hem terug op Standaard.',
+    description: 'Eén cijfer van 0 tot 100 voor hoe prettig je er gemiddeld woont, vergeleken met gelijke gebieden: gemeenten met gemeenten, wijken met wijken, buurten met buurten. 100 = het beste gebied van de lijst, 0 = het slechtste. Opgebouwd uit veiligheid (35, waarvan een zesde de criminaliteit in de omgeving: het gebied plus de aangrenzende gebieden), welvaart (20), voorzieningen (25), opleiding (10) en koopwoningen (10). Smaakkwesties zoals drukte, leeftijd, herkomst en de WOZ-waarde tellen niet mee. Met "Vind jouw ideale woonplek" pas je de gewichten aan je eigen wensen aan (levenstype, budget, vervoer, drukte, misdrijven); de kaart toont dan "Woonscore · jouw wensen". Reset in de legenda zet hem terug op Standaard.',
     formula: 'per cijfer de percentielscore binnen de lijst (omgedraaid bij lager = beter); Woonscore = 100 × Σ gewicht × score / Σ gewicht over de cijfers met data. Een themagewicht wordt verdeeld over de cijfers van dat thema die er zijn.',
     source: [SRC.kwb2025, SRC.crime, SRC.regio, SRC.crimeNl],
     year: '2023–2025 (zie de onderliggende cijfers)',
@@ -577,6 +591,7 @@ export const DATASETS = Object.freeze({
   pop45to64:        ds('pop45to64',        '45–64 jaar (%)',       '45 tot 65 jaar (%)',              '%',         null,  'bevolking', { ...RTM, inOverall: false }),
   pop65plus:        ds('pop65plus',        '65+ (%)',              '65+ (%)',                         '%',         null,  'bevolking'),
   hhWithKidsPct:    ds('hhWithKidsPct',    'Gezinnen (%)',         'Huishoudens met kinderen (%)',    '%',         null,  'bevolking', { ...RTM, inOverall: false }),
+  singleHhPct:      ds('singleHhPct',      'Alleenwonenden (%)',   'Eenpersoonshuishoudens (%)',      '%',         null,  'bevolking', { ...RTM, inOverall: false }),
   originDutchPct:   ds('originDutchPct',   'Nederlands (%)',       'Herkomst Nederland (%)',          '%',         null,  'herkomst', { inOverall: false }),
   originEuropePct:  ds('originEuropePct',  'Europa excl. NL (%)',  'Herkomst Europa excl. NL (%)',    '%',         null,  'herkomst', { inOverall: false }),
   nonWesternPct:    ds('nonWesternPct',    'Buiten Europa (%)',    'Herkomst buiten Europa (%)',      '%',         null,  'herkomst', { inOverall: false }),
@@ -612,6 +627,7 @@ export const DATASETS = Object.freeze({
   distStation:      ds('distStation',      'Afstand treinstation', 'Afstand tot treinstation (km)',   'km',        false, 'voorzieningen', RTM),
   distCafe:         ds('distCafe',         'Afstand café',         'Afstand tot café (km)',           'km',        null,  'voorzieningen', { ...RTM, inOverall: false }),
   horeca1km:        ds('horeca1km',        'Horeca binnen 1 km',   'Cafés en restaurants binnen 1 km', 'aantal',   null,  'voorzieningen', { ...RTM, inOverall: false }),
+  waterPct:         ds('waterPct',         'Water (%)',            'Water in de oppervlakte (%)',     '%',         null,  'voorzieningen', { ...RTM, inOverall: false }),
   distCentrum:      ds('distCentrum',      'Afstand centrum',      'Hemelsbreed tot Rotterdam Centraal (km)', 'km', null, 'voorzieningen', { ...RTM, inOverall: false }),
 });
 

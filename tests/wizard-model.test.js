@@ -255,3 +255,91 @@ describe('wizard: result helpers', () => {
     assert.equal(describeAnswers({}), '');
   });
 });
+
+// v0.30: step "Levensfase" renamed "Levenstype", plus two solo options.
+import { LEVENSTYPEN, LEVENSFASEN, LEVENSTYPE_HINT, SOLO_SFEER_WEIGHT } from '../modules/wizard-model.js';
+import { GENERAL_SECTIONS } from '../modules/explain.js';
+import { DATASETS as DS, } from '../modules/datasets.js';
+import { THEME_LABELS } from '../modules/presets.js';
+import { extractAreaValues, WIJK_COLUMNS as WC } from '../modules/areas.js';
+
+describe('Levenstype (v0.30)', () => {
+  it('keeps the old options and adds two neutrally worded solo options', () => {
+    assert.equal(LEVENSFASEN, LEVENSTYPEN, 'old export name still works');
+    assert.equal(LEVENSTYPEN.soloMensen, 'Solo, graag onder de mensen');
+    assert.equal(LEVENSTYPEN.soloRust, 'Solo, graag op mezelf');
+    for (const k of ['student', 'stel', 'gezin', '50plus', 'senior']) assert.ok(LEVENSTYPEN[k], k);
+    const text = [...Object.values(LEVENSTYPEN), LEVENSTYPE_HINT].join(' ').toLowerCase();
+    for (const bad of ['eenzaam', 'kluizenaar', 'vrijgezel', 'levensfase', 'helaas']) assert.ok(!text.includes(bad), bad);
+    assert.match(LEVENSTYPE_HINT, /niet om relaties/);
+    assert.equal(THEME_LABELS.leeftijd, 'Levenstype');
+  });
+  it('old levensfase hashes still decode and re-encode unchanged', () => {
+    for (const [code, lf] of [['ls', 'student'], ['lp', 'stel'], ['lg', 'gezin'], ['lv', '50plus'], ['lr', 'senior']]) {
+      assert.equal(decodeAnswers(code).levensfase, lf, code);
+      assert.equal(encodeAnswers(decodeAnswers(code)), code);
+    }
+    assert.equal(decodeAnswers('lx').levensfase, null);
+  });
+  it('round-trips both solo options, alone and with other answers', () => {
+    assert.equal(encodeAnswers({ levensfase: 'soloMensen' }), 'lo');
+    assert.equal(encodeAnswers({ levensfase: 'soloRust' }), 'lm');
+    for (const lf of ['soloMensen', 'soloRust']) {
+      for (const a of [{ levensfase: lf }, { levensfase: lf, bouw: 'karakter', sfeer: 30, vervoer: ['fiets'] }]) {
+        assert.deepEqual(decodeAnswers(encodeAnswers(a)), normalizeAnswers(a), JSON.stringify(a));
+      }
+    }
+    assert.equal(describeAnswers({ levensfase: 'soloRust' }), 'solo, graag op mezelf');
+  });
+  it('solo presets are positive-only: every weight above zero, Levenstype metrics only "higher"', () => {
+    for (const lf of ['soloMensen', 'soloRust']) {
+      const p = answersToPreset({ levensfase: lf });
+      for (const t of p.themes) {
+        assert.ok(t.weight > 0, `${lf} ${t.key}`);
+        for (const m of t.metrics) assert.ok((m.w ?? 1) > 0, `${lf} ${t.key}.${m.key}`);
+      }
+      for (const m of themeOf(p, 'leeftijd').metrics) assert.equal(m.pref, 'higher', `${lf} ${m.key}`);
+      assert.equal(themeOf(p, 'sfeer').weight, SOLO_SFEER_WEIGHT);
+    }
+  });
+  it('solo onder de mensen: singles, 25–44, density, horeca, close to centre', () => {
+    const p = answersToPreset({ levensfase: 'soloMensen' });
+    assert.equal(metricOf(p, 'leeftijd', 'singleHhPct').w, 2);
+    assert.ok(metricOf(p, 'leeftijd', 'pop25to44'));
+    assert.equal(metricOf(p, 'sfeer', 'density').pref, 'higher');
+    assert.equal(metricOf(p, 'sfeer', 'horeca1km').pref, 'higher');
+    assert.equal(metricOf(p, 'sfeer', 'distCentrum').pref, 'lower');
+  });
+  it('solo op mezelf: water, low density, further from centre, no café term', () => {
+    const p = answersToPreset({ levensfase: 'soloRust' });
+    assert.equal(metricOf(p, 'leeftijd', 'waterPct').pref, 'higher');
+    assert.equal(metricOf(p, 'sfeer', 'density').pref, 'lower');
+    assert.equal(metricOf(p, 'sfeer', 'distCentrum').pref, 'higher');
+    assert.ok(!p.themes.some(t => t.metrics.some(m => m.key === 'horeca1km' || m.key === 'distCafe')));
+  });
+  it('an explicit Sfeer answer wins over the solo busy/quiet terms', () => {
+    const p = answersToPreset({ levensfase: 'soloRust', sfeer: 10 });
+    assert.equal(metricOf(p, 'sfeer', 'density').pref, 'target');
+    assert.ok(metricOf(p, 'leeftijd', 'waterPct'), 'water stays');
+  });
+  it('new metrics come from 86165NED and are layers with an Uitleg', () => {
+    assert.equal(WC.singleHouseholds, 'Eenpersoonshuishoudens_30');
+    assert.equal(WC.waterArea, 'OppervlakteWater_117');
+    const v = extractAreaValues({ [WC.households]: 200, [WC.singleHouseholds]: 90, [WC.landArea]: 75, [WC.waterArea]: 25 });
+    assert.equal(v.singleHhPct, 45);
+    assert.equal(v.waterPct, 25);
+    assert.equal(extractAreaValues({ [WC.landArea]: 75 }).waterPct, null);
+    for (const k of ['singleHhPct', 'waterPct']) { assert.equal(DS[k].scope, 'rotterdam'); assert.equal(DS[k].inOverall, false); assert.ok(DS[k].description); }
+  });
+  it('Uitleg explains the rename, the solo options and the relative green proxy', () => {
+    const s = GENERAL_SECTIONS.find(x => x.id === 'levenstype');
+    const text = s.paragraphs.join(' ');
+    assert.match(s.title, /levenstype/i);
+    assert.match(text, /Solo, graag onder de mensen/);
+    assert.match(text, /Solo, graag op mezelf/);
+    assert.match(text, /zeldzaam in Rotterdam/);
+    assert.match(text, /relatief/);
+    assert.ok(!GENERAL_SECTIONS.some(x => x.paragraphs.join(' ').includes('je levensfase')));
+    assert.ok(!DS.woonscore.description.includes('levensfase'));
+  });
+});
