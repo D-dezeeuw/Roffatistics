@@ -10,6 +10,7 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 
 - **Rotterdam mode (default)** — the map locks onto gemeente Rotterdam, masks everything outside it, and colours all 21 CBS wijken; from zoom 13 the 91 buurten take over. Areas without data share one neutral colour ("geen data" in the legend)
 - **Nederland mode** — pick "Nederland" in the topnav dropdown for the national view below
+- **Ranglijst** — the list view ranks every wijk or buurt (or province/gemeente in Nederland mode) on a 0–100 percentile score per dataset, sortable per column, with heat bars; click a row to select it, the pin icon opens it on the map
 - **Deep links** — `#scope=rotterdam|nederland&view=map|dashboard|list&area=<CBS code>`; the scope choice is remembered
 - **Province choropleth** — four selectable datasets color all 12 provinces
 - **Municipality drill-down** — zoom to level 10+ to see gemeente-level data

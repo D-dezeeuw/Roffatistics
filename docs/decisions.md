@@ -11,3 +11,13 @@
 - **Mask** = one Leaflet polygon: world ring plus every ring of GM0599 (evenodd fill makes the city a hole), in its own pane under the overlays at 0.85 opacity. `maxBounds` = city bounds + 15 %, `minZoom` = fit zoom − 1.
 - **State bus** (`modules/state.js`): `setState` emits `state-change` on `document` with `{state, prev, changed, source}`; listeners use `source` to avoid echoing their own changes (map clicks set `area` with source `map`, other sources make the map zoom to the area).
 - **Compare in Rotterdam mode** pins wijken/buurten instead of gemeenten, using the same panel slots.
+
+## 2026-11-15 — Ranglijst view
+
+- **Score = percentile rank 0–100 within the shown list** (Rotterdam wijken, buurten, provinces or gemeenten), ties share the mid-rank; one value or all-equal scores 50. `higherIsBetter: false` inverts it, `null` (population, 65+, herkomst) is shown with a heat bar but left out of the overall score. Overall = mean of the available scores; "2/3" = scores used / scored datasets that have data anywhere in the list. Logic in `modules/ranking.js` (pure, `tests/ranking.test.js`).
+- **Ranks use competition ranking** (1-2-2-4). Rows with no overall score (no data, or only neutral datasets) are unranked ("—") and sink to the bottom, sorted by name. Missing values sort last in both directions.
+- **Columns appear only for datasets with at least one value** in the list, so `crimeRate` shows up by itself once wijk crime data lands; hidden datasets are named in the note above the table.
+- **"Rangschik op"** defaults to Totaalscore. Picking a dataset sets `state.dataset` (source `list`); later dataset changes from the map are followed only while a dataset (not Totaalscore) is selected. Ranking on a neutral dataset orders by raw value, high first.
+- **Sticky columns:** rank, name and score are sticky on the left at fixed widths (CSS variables, narrower under 640 px); the dataset columns scroll horizontally inside `.list-table-wrap`, never the page.
+- **Nederland scope** ranks provinces (default) or gemeenten once their CBS rows are loaded; `app.js` passes them with `setNationalRows()`. Names come from `getAreaIndex()`. Without rows the view offers a switch to Rotterdam.
+- **Search contract:** `highlightArea(code)` (modules/list.js) awaits the current render, switches level when the code is a buurt/wijk (or gemeente/province) on the other level, scrolls the row to the centre (`behavior: 'auto'` under reduced motion) and flashes `.is-flash` for 2.2 s. The list also does this for `state.area` changes from other sources while visible.

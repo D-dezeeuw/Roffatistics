@@ -6,6 +6,7 @@ import { initState, getState, setState, onStateChange } from './modules/state.js
 import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea, pinActiveArea, clearPinnedArea, getActiveArea } from './modules/rotterdam.js';
 import { updateLegend }                   from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
+import { initList, setNationalRows }      from './modules/list.js';   // Ranglijst view
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -82,7 +83,7 @@ let gemeenteRows  = [];
 const provincesReady = fetchCBS(CBS_TABLE, CBS_FILTER, CBS_SELECT)
   .then(raw => {
     provinceRows = normalizeProvinces(raw);
-    setProvinceData(provinceRows);
+    setProvinceData(provinceRows); setNationalRows('provincie', provinceRows);
     if (getState().scope === 'nederland') return activateDataset(getState().dataset);
   })
   .catch(() => { /* CBS unavailable — map renders with flat fill, no legend */ });
@@ -93,7 +94,7 @@ fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
     await provincesReady;
     const crimeLookup = Object.fromEntries(normalizeCrime(crimeRaw).map(r => [r.regionCode, r]));
     provinceRows = provinceRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] }));
-    setProvinceData(provinceRows);
+    setProvinceData(provinceRows); setNationalRows('provincie', provinceRows);
   })
   .catch(() => { /* crime unavailable — panel shows dashes for crime fields */ });
 
@@ -121,14 +122,14 @@ function refreshMunicipalityView() {
 fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
   .then(rawGM => {
     gemeenteRows = normalizeProvinces(rawGM).filter(r => r.regionCode);
-    setMunicipalityData(gemeenteRows);
+    setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows);
     refreshMunicipalityView();
     // Merge municipality crime in the background.
     return fetchCBS('83648NED', GM_CRIME_FILTER, CRIME_SELECT, undefined, undefined, 2000)
       .then(crimeRawGM => {
         const crimeLookup = Object.fromEntries(normalizeCrime(crimeRawGM).map(r => [r.regionCode, r]));
         gemeenteRows = gemeenteRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] }));
-        setMunicipalityData(gemeenteRows);
+        setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows);
         refreshMunicipalityView();
       })
       .catch(() => { /* crime unavailable at gemeente level */ });
@@ -312,4 +313,5 @@ onStateChange(({ state, changed, source }) => {
 
 syncDatasetButtons(initialState.dataset);
 showView(initialState.view);
+initList();   // after showView so a #view=list start renders visible
 applyScope(initialState.scope, { initial: true });
