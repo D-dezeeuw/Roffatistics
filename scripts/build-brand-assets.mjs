@@ -31,9 +31,9 @@ const circlePoly = ({ cx, cy, rx, ry, rot }, n = 48) => {
   const a = rot * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
   return Array.from({ length: n }, (_, i) => { const t = (i / n) * 2 * Math.PI, x = rx * Math.cos(t), y = ry * Math.sin(t); return [cx + x * c - y * s, cy + x * s + y * c]; });
 };
-const FIGURE = [BODY, NECK, circlePoly(HEAD), HOLE];
+export const FIGURE = [BODY, NECK, circlePoly(HEAD), HOLE];
 
-function roundRectPoly(x, y, w, h, r, n = 12) {
+export function roundRectPoly(x, y, w, h, r, n = 12) {
   const pts = [];
   const corner = (cx, cy, a0) => { for (let i = 0; i <= n; i++) { const t = a0 + (i / n) * (Math.PI / 2); pts.push([cx + r * Math.cos(t), cy + r * Math.sin(t)]); } };
   corner(x + w - r, y + r, -Math.PI / 2); corner(x + w - r, y + h - r, 0);
@@ -100,11 +100,12 @@ function chunk(type, data) {
   const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(td));
   return Buffer.concat([len, td, crc]);
 }
-export function encodePng(size, rgba) {
+/** RGBA → PNG; `height` defaults to a square (the og-image passes 1200×630). */
+export function encodePng(size, rgba, height = size) {
   const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(size, 4); ihdr[8] = 8; ihdr[9] = 6;
-  const raw = Buffer.alloc(size * (size * 4 + 1));
-  for (let y = 0; y < size; y++) { raw[y * (size * 4 + 1)] = 0; Buffer.from(rgba.buffer, y * size * 4, size * 4).copy(raw, y * (size * 4 + 1) + 1); }
+  ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(height, 4); ihdr[8] = 8; ihdr[9] = 6;
+  const raw = Buffer.alloc(height * (size * 4 + 1));
+  for (let y = 0; y < height; y++) { raw[y * (size * 4 + 1)] = 0; Buffer.from(rgba.buffer, y * size * 4, size * 4).copy(raw, y * (size * 4 + 1) + 1); }
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 }
 /** ICO container with PNG-compressed entries (supported by every current browser). */
