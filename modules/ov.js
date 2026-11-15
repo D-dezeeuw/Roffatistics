@@ -4,9 +4,9 @@
 // Data © OpenStreetMap contributors (ODbL).
 
 export const OV_MODES = Object.freeze({
-  metro: Object.freeze({ id: 'metro', label: 'Metro', color: '#2f7bff', weight: 3.5, stopRadius: 3.5 }),
-  tram:  Object.freeze({ id: 'tram',  label: 'Tram',  color: '#e5322d', weight: 2.5, stopRadius: 2.5 }),
-  bus:   Object.freeze({ id: 'bus',   label: 'Bus',   color: '#b49a6a', weight: 1.2, stopRadius: 2,   hint: 'alleen regio Rotterdam' }),
+  metro: Object.freeze({ id: 'metro', label: 'Metro', color: '#2662cc', weight: 1.4, stopRadius: 3.5 }),
+  tram:  Object.freeze({ id: 'tram',  label: 'Tram',  color: '#b72824', weight: 1, stopRadius: 2.5 }),
+  bus:   Object.freeze({ id: 'bus',   label: 'Bus',   color: '#907b55', weight: 0.5, stopRadius: 2,   hint: 'alleen regio Rotterdam' }),
 });
 /** Draw order, bottom to top. */
 export const OV_DRAW_ORDER = Object.freeze(['bus', 'tram', 'metro']);

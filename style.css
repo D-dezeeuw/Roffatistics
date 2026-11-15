@@ -1939,9 +1939,9 @@ footer {
 }
 .ov-opt { display: inline-flex; align-items: center; gap: 0.3rem; }
 .ov-swatch { display: inline-block; width: 0.9rem; border-radius: 2px; background: currentColor; opacity: 0.35; }
-.ov-swatch-metro { height: 4px; background: #2f7bff; }
-.ov-swatch-tram  { height: 3px; background: #e5322d; }
-.ov-swatch-bus   { height: 2px; background: #b49a6a; }
+.ov-swatch-metro { height: 2px; background: #2662cc; }
+.ov-swatch-tram  { height: 1px; background: #b72824; }
+.ov-swatch-bus   { height: 1px; background: #907b55; }
 .ov-opt.active .ov-swatch { opacity: 1; }
 
 /* ─── Loading screen (shown/hidden by modules/loader.js) ─────

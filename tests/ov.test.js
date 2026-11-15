@@ -41,8 +41,8 @@ describe('ov: toggle state', () => {
     assert.deepEqual(toggleOv(DEFAULT_OV, 'ferry'), DEFAULT_OV);
   });
   it('colours: metro blue, tram red, bus muted and thinnest; bus drawn at the bottom', () => {
-    assert.equal(OV_MODES.metro.color, '#2f7bff');
-    assert.equal(OV_MODES.tram.color, '#e5322d');
+    assert.equal(OV_MODES.metro.color, '#2662cc');
+    assert.equal(OV_MODES.tram.color, '#b72824');
     assert.ok(OV_MODES.bus.weight < OV_MODES.tram.weight && OV_MODES.tram.weight < OV_MODES.metro.weight);
     assert.deepEqual(OV_DRAW_ORDER, ['bus', 'tram', 'metro']);
     assert.deepEqual(toLatLngs([[[4.1, 51.9], [4.2, 52]]]), [[[51.9, 4.1], [52, 4.2]]]);
