@@ -9,6 +9,7 @@ import { addPc4Shares } from './herkomst-pc4.js';
 import { addBouwShares } from './bouwjaar-pc4.js';
 import { withWoonscore } from './presets.js';
 import { adjacencyFromFeatures, addOmgeving } from './omgeving.js';
+import { loadOvAfstand, withOvValues } from './ov.js';
 
 export { DATASETS, DATASET_KEYS };
 
@@ -459,7 +460,7 @@ export function joinAreas(features, rows, fallbackRows = [], nabij = {}) {
       name:   f.properties?.statnaam ?? code,
       level:  areaLevel(code),
       parent: parentCode(code),
-      values: { ...values, ...near.values, distCentrum: distanceToCentrum(f) },
+      values: withOvValues({ ...values, ...near.values, distCentrum: distanceToCentrum(f) }, code, nabij.ov),
       years:  { ...years, ...near.years },
       bounds: geoBounds(f),
     };
@@ -684,15 +685,15 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
     const buurtCrime = best(buildBuurtCrimeUrl());
     const fallback   = best(buildWijkUrl(WIJK_FALLBACK_TABLE));
     const cityWoz    = best(buildCityWozUrl()).then(parseCityWoz);
-    const nabijP     = Promise.all([best(buildNabijUrl()), best(buildNabijUrl(NABIJ_FALLBACK_TABLE)), best(buildGroenUrl())]);
+    const nabijP     = Promise.all([best(buildNabijUrl()), best(buildNabijUrl(NABIJ_FALLBACK_TABLE)), best(buildGroenUrl()), loadOvAfstand({ fetcher })]);
     try {
       rows = (await getJSON(buildWijkUrl(), fetcher, storage)).value ?? [];
     } catch {
       dataOk = false;
     }
     const oldRows = await fallback;
-    const [nabijRows, nabijOld, groenRows] = await nabijP;
-    const nabij = { rows: nabijRows, fallbackRows: nabijOld, groenRows };
+    const [nabijRows, nabijOld, groenRows, ov] = await nabijP;
+    const nabij = { rows: nabijRows, fallbackRows: nabijOld, groenRows, ov };
     const wijkenCrime = mergeCrime(joinAreas(wijkGeo.features, rows, oldRows, nabij), await wijkCrime, { minPopulation: CRIME_MIN_POPULATION });
     const buurtenCrime = mergeCrime(joinAreas(buurtGeo.features, rows, oldRows, nabij), await buurtCrime, { minPopulation: CRIME_MIN_POPULATION_BUURT });
     // Shared-boundary neighbours from the loaded geometry (once per load; the

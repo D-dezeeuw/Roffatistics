@@ -11,6 +11,7 @@ import { withWoonscore, assignScore } from './presets.js';
 import { addPc4Shares } from './herkomst-pc4.js';
 import { addBouwShares } from './bouwjaar-pc4.js';
 import { addOmgeving, decodeNeighbours, encodeNeighbours } from './omgeving.js';
+import { ovValues } from './ov.js';
 
 export const NL_DATA_FORMAT = 1;
 export const NL_DATA_YEAR = WIJK_YEAR;
@@ -29,7 +30,7 @@ const CRIME_KEYS = Object.keys(CRIME_CATEGORIES);
 /** Value keys derived in the browser (never stored): the crime rates. */
 export const DERIVED_KEYS = Object.freeze(['crimeRate', ...CRIME_KEYS]);
 /** Keys never stored: derived, scored, or Rotterdam-only. */
-const SKIP_KEYS = new Set([...DERIVED_KEYS, 'woonscore', 'distCentrum', 'crimeDensity', 'crimeNearby']);
+const SKIP_KEYS = new Set([...DERIVED_KEYS, 'woonscore', 'distCentrum', 'crimeDensity', 'crimeNearby', 'distOvHalte', 'distOv']);
 
 export const minPopulationFor = level => (level === 'buurt' ? CRIME_MIN_POPULATION_BUURT : CRIME_MIN_POPULATION);
 
@@ -110,6 +111,7 @@ export function decodeLevel(data) {
     const level = areaLevel(code);
     const values = {};
     for (const k of keys) values[k] = cols[k][i] ?? null;
+    Object.assign(values, ovValues(values));   // distOvHalte, distOv (null without the OV columns)
     const years = {};
     for (const [k, f] of Object.entries(fallback)) {
       if (values[k] != null && (fellAt[k] == null || fellAt[k].has(i))) years[k] = f.year;

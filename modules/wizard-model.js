@@ -38,6 +38,7 @@ export const DICHTBIJ = Object.freeze({
   winkels: Object.freeze({ label: 'Winkels',           hint: 'grote supermarkt, warenhuis', code: 'w', metrics: Object.freeze([['distSupermarket', 1, 'Nabijheid supermarkt'], ['distWarenhuis', 1, 'Nabijheid warenhuis']]) }),
   cultuur: Object.freeze({ label: 'Cultuur en uitjes', hint: 'bioscoop, theater of podium, attractie', code: 'k', metrics: Object.freeze([['distBioscoop', 1, 'Nabijheid bioscoop'], ['distPodium', 1, 'Nabijheid theater/podium'], ['distAttractie', 1, 'Nabijheid attractie']]) }),
   park:    Object.freeze({ label: 'Park of groen om de hoek', hint: 'park, plantsoen, recreatiegebied', code: 'p', metrics: Object.freeze([['distGroen', 2, 'Nabijheid park/groen'], ['distRecreatie', 1, 'Nabijheid recreatiegebied']]) }),
+  ov:      Object.freeze({ label: 'Metro of tram',     hint: 'dichtstbijzijnde metro- of tramhalte', code: 'o', metrics: Object.freeze([['distOvHalte', 1, 'Nabijheid metro/tram']]) }),
   natuur:  Object.freeze({ label: 'Bos en natuur',     hint: 'bos, heide, duinen (zoals het Kralingse Bos)', code: 'n', metrics: Object.freeze([['distBos', 2, 'Nabijheid bos'], ['distOpenNatuur', 1, 'Nabijheid open natuur']]) }),
 });
 export const DICHTBIJ_LEVELS = Object.freeze(['Maakt niet uit', 'Beetje', 'Gemiddeld', 'Belangrijk', 'Heel belangrijk']);
@@ -368,7 +369,7 @@ export const APPLY = Object.freeze({
   vervoer(d, a) {
     const v = new Set(a.vervoer);
     if (v.has('fiets')) metric(d, 'veiligheid', 'crimeBike', 'lower', STRESS_W);
-    if (v.has('ov')) metric(d, 'voorzieningen', 'distStation', 'lower', STRESS_W);
+    if (v.has('ov')) metric(d, 'voorzieningen', 'distOv', 'lower', STRESS_W);   // nearest of train station, metro and tram stop
     if (v.has('lopen')) { metric(d, 'voorzieningen', 'distSupermarket', 'lower', 2); metric(d, 'voorzieningen', 'distGP', 'lower', 2); }
     if (v.has('auto')) {
       metric(d, 'veiligheid', 'crimeVehicle', 'lower', 2);

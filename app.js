@@ -3,6 +3,7 @@ import { initMap, getMap, setMapScope, refreshMapSize, setBasemap, BASEMAP_STORA
 import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, focusNederlandArea, drillIntoGemeente, gemeenteName } from './modules/overlays.js';
 import { applyDrillDataset }            from './modules/nl-drill.js';
 import { rescoreNlAreas }               from './modules/nl-areas.js';
+import { loadOvAfstand, withOvValues }   from './modules/ov.js';
 import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD, DATASETS, groupDatasets, datasetInScope, datasetFor, crimeValues, isCrimeDataset } from './modules/datasets.js';
 import { initComparePanel, toggleCompare, closeCompare, addToCompare } from './modules/compare-panel.js';
 import { initState, getState, setState, onStateChange } from './modules/state.js';
@@ -131,8 +132,9 @@ function refreshMunicipalityView() {
 }
 
 fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
-  .then(rawGM => {
-    gemeenteRows = rowsWithWoonscore(withRegionShares(normalizeProvinces(rawGM).filter(r => r.regionCode)));   // regions: once loaded
+  .then(async rawGM => {
+    const ov = await loadOvAfstand();   // prebuilt metro/tram distances per gemeente ({} when it fails)
+    gemeenteRows = rowsWithWoonscore(withRegionShares(normalizeProvinces(rawGM).filter(r => r.regionCode).map(r => withOvValues(r, r.regionCode, ov))));   // regions: once loaded
     setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows);
     refreshMunicipalityView();
     // Merge municipality crime in the background.

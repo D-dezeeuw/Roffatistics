@@ -8,7 +8,7 @@
 // createLegalDialog() so it runs against a fake DOM in the tests.
 
 /** Kept equal to package.json "version" (tests/legal.test.js checks it). */
-export const APP_VERSION = '0.39.0';
+export const APP_VERSION = '0.40.0';
 
 export const LEGAL_SECTIONS = Object.freeze(['privacy', 'disclaimer', 'colofon']);
 export const LEGAL_TITLES = Object.freeze({ privacy: 'Privacy', disclaimer: 'Disclaimer', colofon: 'Colofon' });

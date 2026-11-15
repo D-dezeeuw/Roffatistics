@@ -52,7 +52,7 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 | Postcode → buurt/wijk/gemeente crosswalk 2023 (address counts) | CBS — postcode en huisnummer met buurt, wijk en gemeente | pc6huisnr 2023 |
 | Rotterdam gemeente + wijk geometry | PDOK CBS gebiedsindelingen 2024 (`gemeente_gegeneraliseerd`, `wijk_gegeneraliseerd`), pre-cached in `data/rotterdam_*.geojson` | — |
 
-Wijk/buurt datasets: population, income (standardised household income), higher education, WOZ value, 65+, herkomst (Nederland / Europa / buiten Europa, born abroad). Wijk crime (misdrijven per 1.000 inwoners) comes from police table 47018NED; buurten and wijken under 1.000 inhabitants show "geen data" for crime. Regenerate the Rotterdam geometry with `node scripts/build-rotterdam-geo.mjs`. Regenerate the national wijk/buurt data (data/nl/, all NL wijken and buurten) with `node scripts/build-nl-kwb.mjs`.
+Wijk/buurt datasets: population, income (standardised household income), higher education, WOZ value, 65+, herkomst (Nederland / Europa / buiten Europa, born abroad). Wijk crime (misdrijven per 1.000 inwoners) comes from police table 47018NED; buurten and wijken under 1.000 inhabitants show "geen data" for crime. Regenerate the Rotterdam geometry with `node scripts/build-rotterdam-geo.mjs`. Regenerate the national wijk/buurt data (data/nl/, all NL wijken and buurten) with `node scripts/build-nl-kwb.mjs`, then `node scripts/build-ov-lines.mjs` (OV-lijnen in data/ov/ plus the metro/tram distance columns it adds to data/nl/; build-nl-kwb drops them).
 
 ## Run locally
 
@@ -70,6 +70,7 @@ Requires Node.js 22+. No `npm install` needed.
 - [CBS OData API](https://opendata.cbs.nl/) — Dutch public statistics
 - [cartomap/nl](https://github.com/cartomap/nl) — Dutch GeoJSON boundaries
 - [MapLibre GL JS](https://maplibre.org/) 4.7.1 + [maplibre-gl-leaflet](https://github.com/maplibre/maplibre-gl-leaflet) 0.0.22 — vector basemap under Leaflet
+- [OpenStreetMap](https://www.openstreetmap.org/copyright) via the Overpass API — metro, tram and bus lines and stops (data/ov/), © OpenStreetMap contributors, ODbL
 - [OpenFreeMap](https://openfreemap.org/) — keyless vector basemap (dark / positron styles), © OpenMapTiles, data © OpenStreetMap
 - [PDOK Luchtfoto](https://www.pdok.nl/) — keyless aerial photo basemap (Beeldmateriaal Nederland)
 

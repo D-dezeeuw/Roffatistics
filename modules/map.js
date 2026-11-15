@@ -1,4 +1,5 @@
 import { addThemeSwitcher } from './theme.js';
+import { addOvSwitcher } from './ov.js';
 
 // ── Basemap configuration (pure data, unit-tested) ───────────────────────────
 // Keyless providers only: OpenFreeMap vector styles (rendered by MapLibre GL
@@ -113,6 +114,7 @@ export function initMap() {
   setBasemap(pickInitialBasemap(storage));
   addBasemapSwitcher();
   addThemeSwitcher(L, map);
+  addOvSwitcher(L, map);
 
   // invalidateSize fires Leaflet 'resize', which the maplibre layer forwards to its GL canvas.
   window.addEventListener('resize', () => map.invalidateSize());

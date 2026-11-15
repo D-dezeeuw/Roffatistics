@@ -25,7 +25,7 @@ const SUM_KEYS = ['population', 'totalCrimes', ...CRIME_KEYS.map(k => `${k}Count
 const POP_KEYS = ['pop15to24', 'pop25to44', 'pop45to64', 'pop65plus', 'hhWithKidsPct', 'highEdu', 'medEdu', 'lowEdu',
   'nonWesternPct', 'originDutchPct', 'originEuropePct', 'bornAbroadPct', 'avgIncome', 'welfarePer1000', 'woonscore'];
 // Facilities and setting the Jouw dashboard reads (W19); population-weighted like POP_KEYS.
-const PERSONAL_KEYS = ['singleHhPct', 'density', 'waterPct', 'horeca1km', 'distStation', 'distSchool', 'distKinderopvang', 'distGP', 'distSupermarket',
+const PERSONAL_KEYS = ['singleHhPct', 'density', 'waterPct', 'horeca1km', 'distStation', 'distOv', 'distOvHalte', 'distMetro', 'distTram', 'distSchool', 'distKinderopvang', 'distGP', 'distSupermarket',
   'distCafe', 'distWarenhuis', 'distPodium', 'distBioscoop', 'distAttractie', 'distGroen', 'distRecreatie', 'distBos', 'distOpenNatuur'];
 const HOUSING_KEYS = ['wozValue', 'ownerOccupiedPct', 'rentalPct', 'oldBuildPct', 'modernBuildPct', 'newBuildPct'];
 

@@ -62,7 +62,7 @@ describe('personalDashboardSpec', () => {
     assert.equal(row('levenstype').panels[2], 'age-kids');
     assert.deepEqual(row('wonen').panels, ['pb-budget', 'pb-within', 'pw-bouw']);
     assert.equal(row('wonen').focus.ceiling, 400);
-    assert.deepEqual(row('bereikbaarheid').focus.metrics.map(m => m.key), ['distStation']);
+    assert.deepEqual(row('bereikbaarheid').focus.metrics.map(m => m.key), ['distOv']);
     const solo = spec({ levensfase: 'soloMensen' }).rows.find(r => r.key === 'levenstype');
     assert.deepEqual(solo.focus.metrics.map(m => m.key), ['horeca1km', 'density', 'distCentrum', 'singleHhPct']);
     const sit = spec({ situatie: { income: 'm2500' } });
