@@ -1987,7 +1987,9 @@ footer {
 /* Geen woonwijk (woongebied.js): modal block, Ranglijst label, map tooltip */
 .area-nonres .area-score-num { color: #94a3b8; }
 .area-nonres strong { color: #cbd5e1; }
-.list-nonres { flex: 0 0 auto; margin-left: 0.35rem; padding: 0.05rem 0.4rem; border-radius: 999px; font-size: 0.66rem; background: rgba(148, 163, 184, 0.18); color: #cbd5e1; white-space: nowrap; }
+.list-status-icon { flex: 0 0 auto; margin-right: 0.35rem; color: var(--text-muted); opacity: 0.9; }
+.list-table tbody tr.is-nonres > *, .list-table tbody tr.is-nodata > * { color: var(--text-muted); }
+.list-table tbody tr.is-nonres .list-name, .list-table tbody tr.is-nodata .list-name { opacity: 0.75; }
 .tt-note { font-size: 0.75rem; color: #94a3b8; }
 
 /* ─── Brand: splash logo, theme switch ───────────────────── */

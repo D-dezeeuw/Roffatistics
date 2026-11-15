@@ -9,7 +9,7 @@ import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
 import { openAreaModal, themeBarHtml } from './area-modal.js';
 import { scoreResult, themeBreakdown } from './presets.js';
-import { splitResidential, nonResidentialLabel } from './woongebied.js';
+import { splitResidential, nonResidentialLabel, classifyWoongebied } from './woongebied.js';
 import { scoreKind, scoreTitle } from './wizard-model.js';
 
 /** The Woonscore follows the active preset: personalised title and a `personal` flag (header tooltip, note). */
@@ -314,8 +314,11 @@ async function doRender() {
   const rankKey = wanted && has(wanted.key) ? wanted.key : 'overall';
   // Business/port areas (woongebied.js) are no peers: ranked and scored among
   // the woongebieden only, listed below them without rank or score.
-  const { peers, excluded } = splitResidential(areas);
-  const ranked = rankRows(scoreAreas(peers, datasets), rankKey, datasets);
+  // Only the score rankings (Totaalscore, Woonscore) leave them out; ranked on
+  // a plain metric they take part like any other area, with their icon.
+  const scoreRanking = isScoreRanking(rankKey);
+  const { peers, excluded } = scoreRanking ? splitResidential(areas) : { peers: areas, excluded: [] };
+  const ranked = rankRows(scoreAreas(peers, datasets), rankKey, datasets).map(r => ({ ...r, nonResidential: nonResidentialLabel(r) }));
   const unranked = scoreAreas(excluded, datasets).map(r => ({
     ...r, pct: {}, scores: {}, overall: null, rank: null, score: null, rankKey, nonResidential: nonResidentialLabel(r),
   }));
@@ -435,9 +438,11 @@ function tableHtml(rows, datasets, level, rankKey, sortDs = null) {
       const tip = s != null && d.higherIsBetter != null ? ` title="Score ${formatScore(s)}${side ? ` · ${outlierLabel(side)}` : ''}"` : side ? ` title="${outlierLabel(side)}"` : '';
       return `<td class="col-data${v == null ? ' is-missing' : ''}${side ? ' is-outlier' : ''}${rankKey === d.key ? ' is-rank-key' : ''}"${tip}><span class="list-val">${formatValue(v, d.unit)}${mark}</span>${bar}</td>`;
     }).join('');
-    return `<tr data-code="${esc(r.code)}" tabindex="0"${r.rank == null ? ' class="is-unranked"' : ''}>
+    const status = rowStatus(r);
+    const cls = [r.rank == null && 'is-unranked', status && `is-${status.kind}`].filter(Boolean).join(' ');
+    return `<tr data-code="${esc(r.code)}" tabindex="0"${cls ? ` class="${cls}"` : ''}${status ? ` title="${esc(status.title)}"` : ''}>
       <td class="col-rank">${r.rank ?? '—'}</td>
-      <th scope="row" class="col-name"><span class="list-name">${esc(r.name)}</span>${r.nonResidential ? `<small class="list-nonres" title="${esc(r.nonResidential)}: telt niet mee in de ranglijst">${esc(r.nonResidential)}</small>` : ''}
+      <th scope="row" class="col-name">${status ? statusIconHtml(status) : ''}<span class="list-name">${esc(r.name)}</span>
         <button type="button" class="list-map-btn" title="Toon op kaart" aria-label="Toon ${esc(r.name)} op kaart">
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>
         </button></th>
@@ -447,4 +452,38 @@ function tableHtml(rows, datasets, level, rankKey, sortDs = null) {
     </tr>`;
   }).join('');
   return `<table class="list-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+
+/** Totaalscore and the Woonscore layers rank woongebieden only; any other metric ranks every area. */
+export function isScoreRanking(rankKey) {
+  return rankKey === 'overall' || DATASETS[rankKey]?.group === 'score';
+}
+
+/**
+ * Row marker for the Ranglijst: { kind: 'nonres' | 'nodata', icon, title } or null.
+ * A business/port/empty area gets the industry icon (always, so it is
+ * recognisable in any ranking); an area without a value for the ranking gets
+ * the no-data icon. Both rows stay clickable, the name is kept.
+ */
+export function rowStatus(r) {
+  if (r?.nonResidential) {
+    const kind = classifyWoongebied(r.values, r.code).kind;
+    return { kind: 'nonres', icon: kind === 'onbewoond' ? 'empty' : 'industry',
+      title: `${r.nonResidential}${r.rank == null ? ': telt niet mee in de woonscore' : ''}` };
+  }
+  if (r && r.rank == null) return { kind: 'nodata', icon: 'nodata', title: 'Geen gegevens voor deze rangschikking' };
+  return null;
+}
+
+const STATUS_ICONS = {
+  // factory with saw-tooth roof and chimney
+  industry: '<path fill="currentColor" d="M3 21V10l5 3V10l5 3V10l5 3V4h3v17H3Zm3-4v2h2v-2H6Zm4 0v2h2v-2h-2Zm4 0v2h2v-2h-2Z"/>',
+  // empty plot: dashed square
+  empty: '<path fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2.5" d="M4 4h16v16H4z"/>',
+  // circle with a slash: no data
+  nodata: '<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" d="M6.5 17.5 17.5 6.5"/>',
+};
+
+function statusIconHtml(status) {
+  return `<svg class="list-status-icon is-${status.icon}" viewBox="0 0 24 24" width="13" height="13" role="img" aria-label="${esc(status.title)}"><title>${esc(status.title)}</title>${STATUS_ICONS[status.icon]}</svg>`;
 }
