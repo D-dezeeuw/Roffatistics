@@ -8,7 +8,7 @@ import { datasetFor, crimeAreas, crimeValues, isCrimeDataset } from './datasets.
 import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
 import { buildScale, getScaleMethod, outlierLabel, SCALE_EVENT } from './scale.js';
-import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, orderColumns, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES } from './ranking.js';
+import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, orderColumns, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES, rankKeyAfterDatasetChange } from './ranking.js';
 
 const LEVELS = {
   rotterdam: [{ key: 'wijken', label: 'Wijken' }, { key: 'buurten', label: 'Buurten' }],
@@ -100,18 +100,24 @@ export function initList(root = document.getElementById('view-list')) {
   });
 
   onStateChange(({ state, changed, source }) => {
+    // Keep "Rangschik op" in step with the map layer, also while the list is
+    // hidden, so opening it later shows the layer picked in the topnav.
+    let rankChanged = false;
+    if (changed.includes('dataset')) {
+      const next = rankKeyAfterDatasetChange(ui.rankKey, state.dataset, source);
+      if (next !== ui.rankKey) {
+        ui.rankKey = next;
+        ui.sort = { column: 'rank', dir: 'asc' };
+        rankChanged = true;
+      }
+    }
     if (changed.includes('view') && state.view === 'list') {
       render().then(() => state.area && highlightArea(state.area, { flash: changed.includes('area') }));
       return;
     }
     if (!isVisible()) return;
     if (changed.includes('scope') || changed.includes('crime')) { render(); return; }
-    if (changed.includes('dataset') && source !== 'list' && ui.rankKey !== 'overall') {
-      ui.rankKey = state.dataset;
-      ui.sort = { column: 'rank', dir: 'asc' };
-      render();
-      return;
-    }
+    if (rankChanged) { render(); return; }
     if (changed.includes('area')) {
       markSelected(state.area);
       if (state.area && source !== 'list') highlightArea(state.area);

@@ -1,5 +1,9 @@
 # Decisions
 
+## 2026-11-15 — Herkomst, Rangschik-op sync (v0.16.0)
+
+- **"Rangschik op" follows the map layer.** A layer pick in the topnav Layers dropdown (source `layers`) or a dashboard "Op kaart" button (`dashboard`) sets the Ranglijst ranking to that dataset, also when Totaalscore was selected, and also while the list is hidden, so opening the list later shows the picked layer. Picking a dataset in "Rangschik op" still sets `state.dataset`; picking Totaalscore leaves the map layer alone. Other sources (hash) keep the old rule: followed only while a single dataset is selected. Pure rule `rankKeyAfterDatasetChange` in `modules/ranking.js`, tested.
+
 ## 2026-11-15 — Robust colour scale (v0.15.0)
 
 - **Problem:** the linear min→max ramp let a few public-space areas (buurt crime per 1.000 up to 738, Zuidplein) squeeze everything else into the bottom fifth: 26 and 85 got nearly the same colour.

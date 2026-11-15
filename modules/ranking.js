@@ -213,3 +213,22 @@ export function formatValue(value, unit) {
 export function formatScore(score) {
   return isNum(score) ? String(Math.round(score)) : '—';
 }
+
+// ── "Rangschik op" ↔ map layer ────────────────────────────────────────────────
+
+// State sources that pick a map layer on purpose: the topnav Layers dropdown
+// and the dashboard "Op kaart" buttons. "Rangschik op" always follows them.
+export const LAYER_SOURCES = Object.freeze(['layers', 'dashboard']);
+
+/**
+ * The Ranglijst ranking key after state.dataset changed to `dataset` from
+ * `source`. A layer pick (LAYER_SOURCES) always ranks on that layer, also
+ * when Totaalscore was selected; the list's own change ('list') keeps the
+ * key; any other source (hash, app) is followed only while a single dataset
+ * (not Totaalscore) is selected.
+ */
+export function rankKeyAfterDatasetChange(current, dataset, source) {
+  if (!dataset || source === 'list') return current;
+  if (LAYER_SOURCES.includes(source)) return dataset;
+  return current === 'overall' ? current : dataset;
+}

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import { rankKeyAfterDatasetChange, LAYER_SOURCES,
   percentileScores, scoreAreas, rankValue, rankRows, columnValue, sortRows, defaultSortDir, formatValue, formatScore,
   scoreFor, orderColumns, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES,
 } from '../modules/ranking.js';
@@ -251,5 +251,25 @@ describe('rank mode (Vast | Volgt sortering)', () => {
 
   it('formats absolute crime counts as whole numbers', () => {
     assert.equal(formatValue(1234, 'misdrijven'), '1.234');
+  });
+});
+
+describe('rankKeyAfterDatasetChange ("Rangschik op" follows the map layer)', () => {
+  it('a Layers pick always ranks on that layer, also from Totaalscore', () => {
+    assert.equal(rankKeyAfterDatasetChange('overall', 'avgIncome', 'layers'), 'avgIncome');
+    assert.equal(rankKeyAfterDatasetChange('density', 'avgIncome', 'layers'), 'avgIncome');
+    assert.equal(rankKeyAfterDatasetChange('overall', 'wozValue', 'dashboard'), 'wozValue');
+    assert.ok(LAYER_SOURCES.includes('layers'));
+  });
+  it('the list itself keeps its key (Totaalscore never moves the map)', () => {
+    assert.equal(rankKeyAfterDatasetChange('overall', 'avgIncome', 'list'), 'overall');
+    assert.equal(rankKeyAfterDatasetChange('density', 'density', 'list'), 'density');
+  });
+  it('other sources are followed only while a single dataset is selected', () => {
+    assert.equal(rankKeyAfterDatasetChange('overall', 'avgIncome', 'hash'), 'overall');
+    assert.equal(rankKeyAfterDatasetChange('density', 'avgIncome', 'hash'), 'avgIncome');
+  });
+  it('ignores an empty dataset', () => {
+    assert.equal(rankKeyAfterDatasetChange('density', null, 'layers'), 'density');
   });
 });
