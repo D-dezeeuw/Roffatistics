@@ -50,6 +50,25 @@ export function addCrimeRates(values, minPopulation = CRIME_MIN_POPULATION) {
   return values;
 }
 
+// CBS leaves gestandaardiseerd huishoudinkomen empty for most buurten in the
+// 2025 and 2024 tables; the 2023 table (income year 2021) covers ~70 %.
+export const INCOME_FALLBACK_TABLE  = '85618NED';
+export const INCOME_FALLBACK_COLUMN = 'GemGestandaardiseerdInkomenVanHuish_84';
+export const INCOME_FALLBACK_YEAR   = 2023;
+
+/** Fills avgIncome from the 2023 table where the newer tables have none; marks the year. Mutates and returns `areas`. */
+export function addIncomeFallback(areas, rows = []) {
+  const byCode = new Map(rows.map(r => [String(r.WijkenEnBuurten ?? '').trim(), toNumber(r[INCOME_FALLBACK_COLUMN])]));
+  for (const a of areas) {
+    if (toNumber(a.values?.avgIncome) != null) continue;
+    const v = byCode.get(a.code);
+    if (v == null) continue;
+    a.values = { ...a.values, avgIncome: v };
+    a.years = { ...a.years, avgIncome: INCOME_FALLBACK_YEAR };
+  }
+  return areas;
+}
+
 /**
  * Areas ({ code, name, values, years }) → the compact file object: codes and
  * names as arrays, one array per value key (keys that are null everywhere are

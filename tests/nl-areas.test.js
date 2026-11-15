@@ -213,3 +213,23 @@ describe('area modal: Nederland peers', () => {
     assert.match(areaModalHtml(buildAreaDetail(list[1], { wijken: list, buurten: [] })), /data-area-action="compare"/);
   });
 });
+
+import { addIncomeFallback, INCOME_FALLBACK_COLUMN, INCOME_FALLBACK_YEAR } from '../modules/nl-areas.js';
+describe('addIncomeFallback', () => {
+  it('fills only missing avgIncome from the 2023 table and marks the year', () => {
+    const areas = [
+      { code: 'BU1', values: { avgIncome: 40 }, years: {} },
+      { code: 'BU2', values: { avgIncome: null }, years: {} },
+      { code: 'BU3', values: {}, years: {} },
+    ];
+    addIncomeFallback(areas, [
+      { WijkenEnBuurten: 'BU1  ', [INCOME_FALLBACK_COLUMN]: 99 },
+      { WijkenEnBuurten: 'BU2', [INCOME_FALLBACK_COLUMN]: 35.5 },
+    ]);
+    assert.equal(areas[0].values.avgIncome, 40);
+    assert.equal(areas[0].years.avgIncome, undefined);
+    assert.equal(areas[1].values.avgIncome, 35.5);
+    assert.equal(areas[1].years.avgIncome, INCOME_FALLBACK_YEAR);
+    assert.equal(areas[2].values.avgIncome, undefined);
+  });
+});

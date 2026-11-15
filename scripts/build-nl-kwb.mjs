@@ -4,6 +4,7 @@
 // Sources (CBS ODataFeed, paged with odata.nextLink; the ODataApi refuses > 10,000 rows):
 //   86165NED Kerncijfers wijken en buurten 2025, per-field fallback 85984NED (2024)
 //   86270NED Nabijheid voorzieningen 2025,       per-field fallback 86134NED (2024)
+//   85618NED (2023) — avgIncome only, where 2025 and 2024 have none
 //   47018NED (dataderden, politie) geregistreerde misdrijven 2025 + total 2024 (trend)
 //   86165NED/WijkenEnBuurten — names of the 2025 indeling
 // The rows are mapped with the same pure helpers as the Rotterdam loader
@@ -16,7 +17,7 @@ import {
   CRIME_TABLE, CRIME_PERIOD, CRIME_PREV_PERIOD, CRIME_TOTAL, CRIME_COLUMN, CRIME_CATEGORIES,
   joinAreas, mergeCrime, normalizeAreaCode,
 } from '../modules/areas.js';
-import { encodeLevel, minPopulationFor, NL_DATA_YEAR } from '../modules/nl-areas.js';
+import { encodeLevel, minPopulationFor, NL_DATA_YEAR, addIncomeFallback, INCOME_FALLBACK_TABLE, INCOME_FALLBACK_COLUMN } from '../modules/nl-areas.js';
 
 const FEED  = 'https://opendata.cbs.nl/ODataFeed/odata';
 const CRIME_FEED = 'https://dataderden.cbs.nl/ODataFeed/odata';
@@ -77,13 +78,14 @@ async function buildLevel(level) {
   const nabijRows = await best(nabijheid(NABIJ_TABLE, prefix));
   const nabijOld  = await best(nabijheid(NABIJ_FALLBACK_TABLE, prefix));
   const crimeRows = await best(crime(prefix));
+  const incomeRows = await best(feed(FEED, INCOME_FALLBACK_TABLE, 'TypedDataSet', { $filter: `startswith(WijkenEnBuurten,'${prefix}')`, $select: `WijkenEnBuurten,${INCOME_FALLBACK_COLUMN}` }));
   const features = names
     .map(n => ({ properties: { statcode: normalizeAreaCode(n.Key), statnaam: String(n.Title ?? '').trim() } }))
     .sort((a, b) => a.properties.statcode.localeCompare(b.properties.statcode));
-  const areas = mergeCrime(joinAreas(features, rows, oldRows, { rows: nabijRows, fallbackRows: nabijOld }), crimeRows, { minPopulation: minPopulationFor(level) });
+  const areas = mergeCrime(addIncomeFallback(joinAreas(features, rows, oldRows, { rows: nabijRows, fallbackRows: nabijOld }), incomeRows), crimeRows, { minPopulation: minPopulationFor(level) });
   const data = encodeLevel(areas, {
     level, year: NL_DATA_YEAR, built: new Date().toISOString().slice(0, 10),
-    sources: { kerncijfers: `${WIJK_TABLE} (fallback ${WIJK_FALLBACK_TABLE})`, nabijheid: `${NABIJ_TABLE} (fallback ${NABIJ_FALLBACK_TABLE})`, misdrijven: `${CRIME_TABLE} ${CRIME_PERIOD}` },
+    sources: { kerncijfers: `${WIJK_TABLE} (fallback ${WIJK_FALLBACK_TABLE})`, nabijheid: `${NABIJ_TABLE} (fallback ${NABIJ_FALLBACK_TABLE})`, inkomen: `fallback ${INCOME_FALLBACK_TABLE}`, misdrijven: `${CRIME_TABLE} ${CRIME_PERIOD}` },
   });
   const file = new URL(`${level === 'wijk' ? 'wijken' : 'buurten'}-${NL_DATA_YEAR}.json`, OUT);
   const text = JSON.stringify(data);
