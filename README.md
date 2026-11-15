@@ -39,7 +39,9 @@ Requires Node.js 22+. No `npm install` needed.
 - [Spektrum](https://www.npmjs.com/package/spektrum) 1.0.1 — reactive DOM bindings
 - [CBS OData API](https://opendata.cbs.nl/) — Dutch public statistics
 - [cartomap/nl](https://github.com/cartomap/nl) — Dutch GeoJSON boundaries
-- CartoDB Dark Matter — base map tiles
+- [MapLibre GL JS](https://maplibre.org/) 4.7.1 + [maplibre-gl-leaflet](https://github.com/maplibre/maplibre-gl-leaflet) 0.0.22 — vector basemap under Leaflet
+- [OpenFreeMap](https://openfreemap.org/) — keyless vector basemap (dark / positron styles), © OpenMapTiles, data © OpenStreetMap
+- [PDOK Luchtfoto](https://www.pdok.nl/) — keyless aerial photo basemap (Beeldmateriaal Nederland)
 
 ## License
 

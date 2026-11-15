@@ -585,3 +585,29 @@ footer {
   background: var(--bg-base) !important;
   color: var(--accent-purple) !important;
 }
+
+/* ─── Basemap switcher ───────────────────────────────────── */
+
+.basemap-switcher {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid rgba(124, 58, 237, 0.3) !important;
+  border-radius: 4px;
+  background: var(--bg-surface);
+}
+
+.basemap-opt {
+  padding: 0.3rem 0.6rem;
+  font: 500 0.7rem var(--font-ui);
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.basemap-opt + .basemap-opt { border-left: 1px solid rgba(124, 58, 237, 0.2); }
+.basemap-opt:hover { color: var(--text-primary); }
+.basemap-opt.active { color: var(--text-primary); background: var(--gradient-accent); }
+.basemap-opt:focus-visible { outline: 2px solid var(--accent-orange); outline-offset: -2px; }
