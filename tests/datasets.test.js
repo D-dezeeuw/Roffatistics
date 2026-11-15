@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCBSUrl, fetchCBS, normalizeProvinces, normalizeCrime } from '../modules/datasets.js';
+import { CBS_COLUMNS, CBS_SELECT, buildCBSUrl, fetchCBS, normalizeProvinces, normalizeCrime } from '../modules/datasets.js';
 
 describe('buildCBSUrl', () => {
   it('includes tableId and TypedDataSet', () => {
@@ -79,11 +79,11 @@ describe('normalizeProvinces', () => {
   const row = {
     RegioS:                      'PV20  ',
     TotaleBevolking_1:           596075,
-    BronInkomenAlsWerknemer_141: 37.5,
-    TotaleOppervlakte_248:       2955.18,
-    BasisonderwijsVmboMbo1_113:  28.4,
-    HavoVwoMbo24_114:            38.1,
-    HboWo_115:                   33.5,
+    BronInkomenAlsWerknemer_110: 37.5,
+    TotaleOppervlakte_217:       2955.18,
+    BasisonderwijsVmboMbo1_82:  28.4,
+    HavoVwoMbo24_83:             38.1,
+    HboWo_84:                    33.5,
   };
 
   it('trims region code', () => {
@@ -104,7 +104,7 @@ describe('normalizeProvinces', () => {
   });
 
   it('sets density to null when area is null', () => {
-    const [r] = normalizeProvinces([{ ...row, TotaleOppervlakte_248: null }]);
+    const [r] = normalizeProvinces([{ ...row, TotaleOppervlakte_217: null }]);
     assert.equal(r.density, null);
   });
 
@@ -118,7 +118,7 @@ describe('normalizeProvinces', () => {
   it('sets education fields to null when columns are missing', () => {
     const [r] = normalizeProvinces([{
       RegioS: 'PV20  ', TotaleBevolking_1: 0,
-      BronInkomenAlsWerknemer_141: 0, TotaleOppervlakte_248: 1,
+      BronInkomenAlsWerknemer_110: 0, TotaleOppervlakte_217: 1,
     }]);
     assert.equal(r.lowEdu,  null);
     assert.equal(r.medEdu,  null);
@@ -174,5 +174,52 @@ describe('normalizeCrime', () => {
     const onlyTotal = [{ ...baseRow('T001161', 45.2, 26973) }];
     const [r]       = normalizeCrime(onlyTotal);
     assert.equal(r.categories.find(c => c.label === 'Vermogen').count, null);
+  });
+});
+
+describe('CBS column map', () => {
+  it('select lists every mapped column once, starting with RegioS', () => {
+    const cols = CBS_SELECT.split(',');
+    assert.equal(cols[0], 'RegioS');
+    assert.equal(new Set(cols).size, cols.length);
+    assert.deepEqual(cols, Object.values(CBS_COLUMNS));
+  });
+
+  it('contains none of the pre-restructure keys', () => {
+    for (const old of ['BronInkomenAlsWerknemer_141', 'TotaleOppervlakte_248', 'HboWo_115',
+      'k_65Tot80Jaar_20', 'Migratiesaldo_76', 'TotaalNietWesterseMigratieachtergrond_37']) {
+      assert.ok(!CBS_SELECT.includes(old), old);
+    }
+  });
+});
+
+describe('normalizeProvinces derived percentages', () => {
+  const row = {
+    RegioS: 'GM0599', TotaleBevolking_1: 663900, TotaleOppervlakte_217: 324.14,
+    k_65Tot80Jaar_8: 77842, k_80JaarOfOuder_9: 25902, BuitenEuropa_16: 286345,
+    Migratiesaldo_46: 7995, TotaalBanen_85: 417.2, GemiddeldeWOZWaardeVanWoningen_63: 319,
+  };
+
+  it('computes 65+ % from the two age-band counts', () => {
+    const [r] = normalizeProvinces([row]);
+    assert.equal(r.pop65plus, +((77842 + 25902) / 663900 * 100).toFixed(1));
+  });
+
+  it('computes herkomst buiten Europa % from count / population', () => {
+    const [r] = normalizeProvinces([row]);
+    assert.equal(r.nonWesternPct, 43.1);
+  });
+
+  it('maps migration, jobs and WOZ', () => {
+    const [r] = normalizeProvinces([row]);
+    assert.equal(r.migrationBalance, 7995);
+    assert.equal(r.totalJobs, 417200);
+    assert.equal(r.wozValue, 319);
+  });
+
+  it('returns null percentages when population is 0 or counts are missing', () => {
+    const [r] = normalizeProvinces([{ RegioS: 'PV20  ', TotaleBevolking_1: 0 }]);
+    assert.equal(r.pop65plus, null);
+    assert.equal(r.nonWesternPct, null);
   });
 });

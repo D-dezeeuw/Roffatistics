@@ -26,33 +26,60 @@ export async function fetchCBS(
   return value;
 }
 
+// CBS table 70072ned (Regionale kerncijfers Nederland): the single source of
+// truth for column keys. CBS renumbers keys when the table is restructured,
+// so every select, normaliser and test reads from here. Re-check against
+// https://opendata.cbs.nl/ODataApi/odata/70072ned/DataProperties when queries 500.
+export const CBS_TABLE   = '70072ned';
+export const CBS_PERIOD  = '2023JJ00';
+export const CBS_COLUMNS = Object.freeze({
+  region:           'RegioS',
+  population:       'TotaleBevolking_1',                  // aantal
+  avgIncome:        'BronInkomenAlsWerknemer_110',        // gem. gestandaardiseerd inkomen, bron werknemer, ×€1,000
+  areaSqKm:         'TotaleOppervlakte_217',              // km²
+  lowEdu:           'BasisonderwijsVmboMbo1_82',          // %
+  medEdu:           'HavoVwoMbo24_83',                    // %
+  highEdu:          'HboWo_84',                           // %
+  wozValue:         'GemiddeldeWOZWaardeVanWoningen_63',  // ×€1,000
+  totalJobs:        'TotaalBanen_85',                     // ×1,000
+  age65to80:        'k_65Tot80Jaar_8',                    // aantal (was % before the 2024 restructure)
+  age80plus:        'k_80JaarOfOuder_9',                  // aantal
+  migrationBalance: 'Migratiesaldo_46',                   // aantal (immigratie − emigratie)
+  originOutsideEurope: 'BuitenEuropa_16',                 // herkomstland buiten Europa, aantal; replaces "niet-westerse migratieachtergrond"
+});
+
+export const CBS_SELECT = Object.values(CBS_COLUMNS).join(',');
+
+const pct = (part, total) =>
+  part != null && total ? +(part / total * 100).toFixed(1) : null;
+
 export function normalizeProvinces(rows) {
-  return rows.map(r => ({
-    regionCode:       r.RegioS.trim(),
-    population:       r.TotaleBevolking_1,
-    avgIncome:        r.BronInkomenAlsWerknemer_141 ?? null,  // ×€1,000
-    areaSqKm:         r.TotaleOppervlakte_248,
-    density:          r.TotaleOppervlakte_248
-                        ? Math.round(r.TotaleBevolking_1 / r.TotaleOppervlakte_248)
-                        : null,
-    lowEdu:           r.BasisonderwijsVmboMbo1_113 ?? null,  // % vmbo/mbo1 or below
-    medEdu:           r.HavoVwoMbo24_114           ?? null,  // % havo/vwo/mbo2-4
-    highEdu:          r.HboWo_115                  ?? null,  // % hbo/wo
-    // Housing
-    wozValue:         r.GemiddeldeWOZWaardeVanWoningen_98 ?? null,         // ×€1,000
-    // Employment — column is ×1,000 so multiply back to actual jobs
-    totalJobs:        r.TotaalBanen_116 != null ? Math.round(r.TotaalBanen_116 * 1000) : null,
-    // Demographics — _20 and _21 are already %, just add the two 65+ bands
-    pop65plus:        r.k_65Tot80Jaar_20 != null && r.k_80JaarOfOuder_21 != null
-                        ? +((r.k_65Tot80Jaar_20 + r.k_80JaarOfOuder_21).toFixed(1))
-                        : null,
-    // Migration
-    migrationBalance: r.Migratiesaldo_76 ?? null,
-    // Non-western %: _46 is null for 2023, compute from count / population
-    nonWesternPct:    r.TotaalNietWesterseMigratieachtergrond_37 != null && r.TotaleBevolking_1
-                        ? +(r.TotaalNietWesterseMigratieachtergrond_37 / r.TotaleBevolking_1 * 100).toFixed(1)
-                        : null,
-  }));
+  const C = CBS_COLUMNS;
+  return rows.map(r => {
+    const population = r[C.population];
+    const area       = r[C.areaSqKm];
+    const a65 = r[C.age65to80], a80 = r[C.age80plus];
+    return {
+      regionCode:       r[C.region].trim(),
+      population,
+      avgIncome:        r[C.avgIncome] ?? null,          // ×€1,000
+      areaSqKm:         area,
+      density:          area ? Math.round(population / area) : null,
+      lowEdu:           r[C.lowEdu]  ?? null,            // % vmbo/mbo1 or below
+      medEdu:           r[C.medEdu]  ?? null,            // % havo/vwo/mbo2-4
+      highEdu:          r[C.highEdu] ?? null,            // % hbo/wo
+      // Housing
+      wozValue:         r[C.wozValue] ?? null,           // ×€1,000
+      // Employment — column is ×1,000 so multiply back to actual jobs
+      totalJobs:        r[C.totalJobs] != null ? Math.round(r[C.totalJobs] * 1000) : null,
+      // Demographics — age bands are counts, convert the two 65+ bands to %
+      pop65plus:        a65 != null && a80 != null ? pct(a65 + a80, population) : null,
+      // Migration
+      migrationBalance: r[C.migrationBalance] ?? null,
+      // Herkomst buiten Europa (%) — key kept as nonWesternPct for the UI wiring
+      nonWesternPct:    pct(r[C.originOutsideEurope], population),
+    };
+  });
 }
 
 const CRIME_CATEGORY_LABELS = {

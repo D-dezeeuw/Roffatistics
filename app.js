@@ -1,7 +1,7 @@
 import { bindDOM, run, setValue } from 'spektrum';
 import { initMap, getMap }                from './modules/map.js';
 import { initOverlays, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente } from './modules/overlays.js';
-import { fetchCBS, normalizeProvinces, normalizeCrime } from './modules/datasets.js';
+import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD } from './modules/datasets.js';
 import { updateLegend }                   from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
 
@@ -68,16 +68,15 @@ const DATASETS = {
   highEdu:          { key: 'highEdu',           title: 'Hoog opgeleid (%)' },
   wozValue:         { key: 'wozValue',          title: 'Gem. WOZ waarde (×€1k)' },
   pop65plus:        { key: 'pop65plus',         title: '65+ (%)' },
-  nonWesternPct:    { key: 'nonWesternPct',     title: 'Niet-westers (%)' },
+  nonWesternPct:    { key: 'nonWesternPct',     title: 'Herkomst buiten Europa (%)' },
 };
 
-const CBS_SELECT   = 'RegioS,TotaleBevolking_1,BronInkomenAlsWerknemer_141,TotaleOppervlakte_248,BasisonderwijsVmboMbo1_113,HavoVwoMbo24_114,HboWo_115,GemiddeldeWOZWaardeVanWoningen_98,TotaalBanen_116,k_65Tot80Jaar_20,k_80JaarOfOuder_21,Migratiesaldo_76,TotaalNietWesterseMigratieachtergrond_37';
-const CBS_FILTER   = "startswith(RegioS,'PV') and Perioden eq '2023JJ00'";
+const CBS_FILTER   = `startswith(RegioS,'PV') and Perioden eq '${CBS_PERIOD}'`;
 const CRIME_SELECT = 'RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3';
-const CRIME_FILTER = "startswith(RegioS,'PV') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI1100' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000' or SoortMisdrijf eq 'CRI3100')";
+const CRIME_FILTER = `startswith(RegioS,'PV') and Perioden eq '${CBS_PERIOD}' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI1100' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000' or SoortMisdrijf eq 'CRI3100')`;
 
-const GM_FILTER       = "startswith(RegioS,'GM') and Perioden eq '2023JJ00'";
-const GM_CRIME_FILTER = "startswith(RegioS,'GM') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI1100' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000' or SoortMisdrijf eq 'CRI3100')";
+const GM_FILTER       = `startswith(RegioS,'GM') and Perioden eq '${CBS_PERIOD}'`;
+const GM_CRIME_FILTER = `startswith(RegioS,'GM') and Perioden eq '${CBS_PERIOD}' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI1100' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000' or SoortMisdrijf eq 'CRI3100')`;
 
 let provinceRows  = [];
 let gemeenteRows  = [];
@@ -88,7 +87,7 @@ let activeDataset = 'population';
 // can never block map coloring or panel data.
 
 try {
-  const raw = await fetchCBS('70072ned', CBS_FILTER, CBS_SELECT);
+  const raw = await fetchCBS(CBS_TABLE, CBS_FILTER, CBS_SELECT);
   provinceRows = normalizeProvinces(raw);
   setProvinceData(provinceRows);
   await activateDataset('population');
@@ -125,7 +124,7 @@ function refreshMunicipalityView() {
   import('./modules/panel.js').then(({ showPanel }) => showPanel({ name, code, data }));
 }
 
-fetchCBS('70072ned', GM_FILTER, CBS_SELECT)
+fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
   .then(rawGM => {
     gemeenteRows = normalizeProvinces(rawGM).filter(r => r.regionCode);
     setMunicipalityData(gemeenteRows);

@@ -7,12 +7,10 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchCBS, normalizeProvinces, normalizeCrime } from '../modules/datasets.js';
+import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_COLUMNS } from '../modules/datasets.js';
 import { formatPanelData } from '../modules/panel.js';
-
-// Exact filters and selects copied from app.js
+// Filters copied from app.js; the demographics select and column map come from modules/datasets.js
 const CBS_FILTER   = "startswith(RegioS,'PV') and Perioden eq '2023JJ00'";
-const CBS_SELECT   = 'RegioS,TotaleBevolking_1,BronInkomenAlsWerknemer_141,TotaleOppervlakte_248,BasisonderwijsVmboMbo1_113,HavoVwoMbo24_114,HboWo_115';
 const CRIME_FILTER = "startswith(RegioS,'PV') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000')";
 const CRIME_SELECT = 'RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3';
 const GM_FILTER    = "startswith(RegioS,'GM') and Perioden eq '2023JJ00'";
@@ -28,15 +26,7 @@ describe('CBS API — province demographics', { timeout: 15000 }, () => {
   it('response contains all expected column names', async () => {
     const rows = await fetchCBS('70072ned', CBS_FILTER, CBS_SELECT);
     const r    = rows[0];
-    const expected = [
-      'RegioS',
-      'TotaleBevolking_1',
-      'BronInkomenAlsWerknemer_141',
-      'TotaleOppervlakte_248',
-      'BasisonderwijsVmboMbo1_113',
-      'HavoVwoMbo24_114',
-      'HboWo_115',
-    ];
+    const expected = Object.values(CBS_COLUMNS);
     for (const col of expected) {
       assert.ok(col in r, `CBS response missing column: ${col} — normalizeProvinces will produce nulls`);
     }
@@ -72,12 +62,7 @@ describe('CBS API — province crime', { timeout: 15000 }, () => {
   it('response contains all expected crime column names', async () => {
     const rows = await fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT);
     const r    = rows[0];
-    const expected = [
-      'RegioS',
-      'SoortMisdrijf',
-      'TotaalGeregistreerdeMisdrijven_1',
-      'GeregistreerdeMisdrijvenPer1000Inw_3',
-    ];
+    const expected = ['RegioS', 'SoortMisdrijf', 'TotaalGeregistreerdeMisdrijven_1', 'GeregistreerdeMisdrijvenPer1000Inw_3'];
     for (const col of expected) {
       assert.ok(col in r, `CBS crime response missing column: ${col} — normalizeCrime will produce nulls`);
     }
