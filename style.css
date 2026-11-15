@@ -1704,3 +1704,15 @@ footer {
   .wiz-slider { grid-template-columns: 6rem 1fr 2rem; }
   .wiz-foot { padding-bottom: max(0.7rem, env(safe-area-inset-bottom)); }
 }
+
+/* Legend minimise button: collapsed shows only the title row. */
+.legend-head .legend-info { margin-left: auto; }
+.legend-collapse {
+  flex: none; width: 20px; height: 20px; padding: 0; line-height: 1;
+  border: 1px solid rgba(124, 58, 237, 0.4); border-radius: 50%;
+  background: transparent; color: var(--text-muted); font-size: 0.8rem; cursor: pointer;
+}
+.legend-collapse:hover, .legend-collapse:focus-visible { color: var(--text-primary); border-color: var(--accent-purple); }
+#legend.legend-collapsed { min-width: 0; }
+#legend.legend-collapsed .legend-head { margin-bottom: 0; }
+#legend.legend-collapsed > :not(.legend-head) { display: none !important; }

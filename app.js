@@ -5,7 +5,7 @@ import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CB
 import { PANEL_FIELDS }                   from './modules/panel.js';
 import { initState, getState, setState, onStateChange } from './modules/state.js';
 import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea, pinActiveArea, clearPinnedArea, getActiveArea } from './modules/rotterdam.js';
-import { updateLegend, initScaleToggle, SCALE_EVENT } from './modules/legend.js';
+import { updateLegend, initScaleToggle, initLegendCollapse, SCALE_EVENT } from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
 import { initList, setNationalRows }      from './modules/list.js';   // Ranglijst view
 import { initSearch }                     from './modules/search.js';
@@ -373,6 +373,7 @@ applyScope(initialState.scope, { initial: true });
 initSearch();
 initCrimeToggles();
 initScaleToggle();
+initLegendCollapse();
 // Schaal: Kwantiel | Lineair — recolour the map and legend from the shown set.
 document.addEventListener(SCALE_EVENT, () => activateDataset(getState().dataset));
 initExplain();

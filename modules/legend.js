@@ -81,4 +81,32 @@ export function initScaleToggle() {
   });
 }
 
+export const LEGEND_COLLAPSED_KEY = 'roffatistics.legendCollapsed';
+
+/** Reflect the collapsed state on the legend and its button (label, aria). */
+export function applyLegendCollapsed(el, collapsed) {
+  el.classList.toggle('legend-collapsed', collapsed);
+  const btn = el.querySelector('.legend-collapse');
+  if (!btn) return;
+  const label = collapsed ? 'Legenda uitklappen' : 'Legenda minimaliseren';
+  btn.textContent = collapsed ? '+' : '–';
+  btn.setAttribute('aria-expanded', String(!collapsed));
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
+}
+
+/** The legend's minimise button; the choice is remembered per browser. */
+export function initLegendCollapse(el = globalThis.document?.getElementById('legend'), storage = null) {
+  if (!el) return;
+  try { storage ??= globalThis.localStorage; } catch { storage = null; }
+  let collapsed = false;
+  try { collapsed = storage?.getItem(LEGEND_COLLAPSED_KEY) === '1'; } catch { /* storage blocked */ }
+  applyLegendCollapsed(el, collapsed);
+  el.querySelector('.legend-collapse')?.addEventListener('click', () => {
+    collapsed = !collapsed;
+    applyLegendCollapsed(el, collapsed);
+    try { storage?.setItem(LEGEND_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch { /* ignore */ }
+  });
+}
+
 export { SCALE_EVENT };
