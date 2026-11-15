@@ -204,12 +204,12 @@ describe('area modal: Nederland peers', () => {
     assert.match(url, /scope=nederland/);
   });
 
-  it('areaModalHtml names the national peers and drops Vergelijk', () => {
+  it('areaModalHtml names the national peers and keeps Vergelijk (every level, 15 Nov 2026)', () => {
     const list = decodeLevel(encodeLevel(wijken, { level: 'wijk' }));
     const html = areaModalHtml(buildAreaDetail(list[1], { wijken: list, buurten: [] }), { peers: 'nederland' });
     assert.match(html, new RegExp(PEER_TEXT.nederland.adj));
     assert.doesNotMatch(html, /Rotterdamse/);
-    assert.doesNotMatch(html, /data-area-action="compare"/);
+    assert.match(html, /data-area-action="compare"/);
     assert.match(areaModalHtml(buildAreaDetail(list[1], { wijken: list, buurten: [] })), /data-area-action="compare"/);
   });
 });

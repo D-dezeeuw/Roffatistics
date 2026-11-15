@@ -260,7 +260,7 @@ describe('area modal for national gemeenten and provincies (15 Nov 2026)', async
     assert.match(html, /Nederlandse gemeenten/);
     assert.match(html, /data-area-action="drill"/);
     assert.match(html, /data-area-action="map"/);
-    assert.doesNotMatch(html, /data-area-action="compare"/);
+    assert.match(html, /data-area-action="compare"/);   // Vergelijken takes every level (15 Nov 2026)
     assert.doesNotMatch(html, /Buurten in/);
     assert.doesNotMatch(html, /area-woonscore/);   // no score result: no Woonscore block
   });

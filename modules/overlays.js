@@ -7,6 +7,7 @@ import { showDrill, hideDrill, getDrillStatus, focusDrillArea } from './nl-drill
 import { gemeenteOf } from './nl-areas.js';
 import { nlTier, nlPlan, ZOOM_MUNICIPALITY, ZOOM_WIJK, ZOOM_BUURT } from './zoom-plan.js';
 import { drillReadyGemeente } from './nl-drill.js';
+import { routeToCompare } from './compare.js';
 
 export { getDrillStatus };
 
@@ -50,18 +51,6 @@ let activeGemeente     = null; // GM code of the last clicked gemeente
 let activeGemeenteName = null; // display name of the last clicked gemeente
 const geoCache = {};
 
-let pinnedGemeente     = null;
-let pinnedGemeenteName = null;
-
-export function getPinnedGemeente()   { return pinnedGemeente; }
-export function setPinnedGemeente(code, name) {
-  pinnedGemeente     = code;
-  pinnedGemeenteName = name;
-}
-export function clearPinnedGemeente() {
-  pinnedGemeente     = null;
-  pinnedGemeenteName = null;
-}
 
 // Nederland scope only: when disabled (Rotterdam scope) no tier layer is shown.
 let enabled = true;
@@ -183,11 +172,7 @@ function makeProvinceLayer(geojson) {
           e.target.setStyle(restoreStyle(code));
           getMap().closePopup();
         },
-        click() {
-          const data = provinceData.find(d => d.regionCode === code) ?? null;
-          markPanelRegion(code);
-          import('./panel.js').then(({ showPanel }) => showPanel({ name, code, data }));
-        },
+        click() { openOrCompare(code); },
       });
     },
   });
@@ -214,17 +199,9 @@ function makeGemeenteLayer(geojson) {
           getMap().closePopup();
         },
         click() {
-          if (pinnedGemeente) {
-            // Slot A is pinned — fill slot B with this gemeente.
-            const data = municipalityData.find(d => d.regionCode === code) ?? null;
-            import('./panel.js').then(({ showCompareSlot }) => showCompareSlot({ name, code, data }));
-          } else {
-            activeGemeente     = code;
-            activeGemeenteName = name;
-            const data = municipalityData.find(d => d.regionCode === code) ?? null;
-            markPanelRegion(code);
-            import('./panel.js').then(({ showPanel }) => showPanel({ name, code, data }));
-          }
+          activeGemeente     = code;
+          activeGemeenteName = name;
+          openOrCompare(code);
         },
       });
     },
@@ -267,10 +244,11 @@ function drillGemeente() {
   return (geo && gemeenteAt(geo, [c.lat, c.lng])) ?? getDrillStatus()?.gemeente ?? activeGemeente ?? null;
 }
 
-/** Marks the panel with the level of the region it shows (the "Bekijk wijken en buurten" button is for gemeenten). */
-function markPanelRegion(code) {
-  const el = globalThis.document?.getElementById('panel');
-  if (el) el.dataset.region = /^GM/.test(code ?? '') ? 'gemeente' : /^PV/.test(code ?? '') ? 'provincie' : 'gebied';
+/** A provincie/gemeente click: with Vergelijken open it fills a column (compare.js), else the area modal opens. */
+function openOrCompare(code) {
+  if (routeToCompare(code)) return;
+  const trigger = globalThis.document?.getElementById('map') ?? null;
+  import('./area-modal.js').then(({ openAreaModal }) => openAreaModal(code, trigger));
 }
 
 // Ensure the gemeente layer is loaded and on the map.
@@ -440,7 +418,7 @@ export async function drillIntoGemeente(code) {
 
 /**
  * Nederland scope: zooms to a provincie (PV..), gemeente (GM..) or a wijk/buurt (WK../BU..,
- * via the drill-down) and opens its panel.
+ * via the drill-down).
  * Gemeenten land at least on the gemeente tier so their outline is on the map.
  */
 export async function focusNederlandArea(code) {
@@ -464,8 +442,5 @@ export async function focusNederlandArea(code) {
     map.setView(bounds.getCenter(), zoom);
   }
   if (!isProvince) { activeGemeente = rawCode; activeGemeenteName = name; }
-  const data = (isProvince ? provinceData : municipalityData).find(d => d.regionCode === rawCode) ?? null;
-  markPanelRegion(rawCode);
-  import('./panel.js').then(({ showPanel }) => showPanel({ name, code: rawCode, data }));
   return { code: c, name };
 }

@@ -1,6 +1,6 @@
 // Live integration tests — these hit the real CBS OData API over the network.
 // Purpose: verify that CBS data is reachable, that the response column names
-// match what the code expects, and that a full data → normalize → formatPanelData
+// match what the code expects, and that a full data → normalize → formatValue
 // pipeline produces non-dash values (i.e. real data would appear in the sidebar).
 //
 // Run with: node --test tests/integration.test.js
@@ -8,7 +8,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_COLUMNS } from '../modules/datasets.js';
-import { formatPanelData } from '../modules/panel.js';
+import { formatValue } from '../modules/dashboard-data.js';
 import { NABIJ_COLUMNS, NABIJ_SELECT, NABIJ_TABLE, NABIJ_FALLBACK_TABLE, mergeNabijValues } from '../modules/areas.js';
 import { WIJK_COLUMNS, WIJK_SELECT, WIJK_TABLE, WIJK_FALLBACK_TABLE, extractAreaValues, mergeYearValues, normalizeAreaCode, buildBuurtCrimeUrl, aggregateCrime, buildCityWozUrl, parseCityWoz } from '../modules/areas.js';
 // Filters copied from app.js; the demographics select and column map come from modules/datasets.js
@@ -44,12 +44,11 @@ describe('CBS API — province demographics', { timeout: 15000 }, () => {
     );
   });
 
-  it('formatPanelData produces non-dash population and density for a province', async () => {
+  it('formatValue shows non-dash population and density for a province', async () => {
     const raw  = await fetchCBS('70072ned', CBS_FILTER, CBS_SELECT);
     const rows = normalizeProvinces(raw);
-    const fmt  = formatPanelData(rows[0]);
-    assert.notEqual(fmt.population, '—', `population is "—" — CBS data not reaching panel formatter`);
-    assert.notEqual(fmt.density,    '—', `density is "—"`);
+    assert.notEqual(formatValue(rows[0].population, 'population'), 'geen data', 'population missing — CBS data not reaching the formatter');
+    assert.notEqual(formatValue(rows[0].density, 'density'), 'geen data', 'density missing');
   });
 });
 
@@ -79,10 +78,9 @@ describe('CBS API — province crime', { timeout: 15000 }, () => {
     const rows = normalizeProvinces(raw).map(r => ({ ...r, ...crimeLookup[r.regionCode] }));
     const withCrime = rows.find(r => r.crimeRate != null);
     assert.ok(withCrime, 'no province with crimeRate after merge — regionCode mismatch between datasets?');
-    const fmt = formatPanelData(withCrime);
-    assert.notEqual(fmt.crimeRate,   '—', 'crimeRate is "—" after crime merge');
-    assert.notEqual(fmt.totalCrimes, '—', 'totalCrimes is "—" after crime merge');
-    assert.notEqual(fmt.catVermogen, '—', 'catVermogen is "—" after crime merge');
+    assert.notEqual(formatValue(withCrime.crimeRate, 'crimeRate'), 'geen data', 'crimeRate missing after crime merge');
+    assert.ok(withCrime.totalCrimes != null, 'totalCrimes missing after crime merge');
+    assert.ok(withCrime.categories?.find(c => c.label === 'Vermogen')?.count != null, 'Vermogen missing after crime merge');
   });
 });
 
@@ -107,13 +105,12 @@ describe('CBS API — municipality demographics (sample of 5)', { timeout: 20000
     );
   });
 
-  it('formatPanelData produces non-dash population for a municipality', async () => {
+  it('formatValue shows non-dash population for a municipality', async () => {
     const raw     = await fetchCBS('70072ned', GM_FILTER, CBS_SELECT, undefined, undefined, 5);
     const rows    = normalizeProvinces(raw);
     const withPop = rows.find(r => r.population != null);
     assert.ok(withPop, 'no municipality with population in sample');
-    const fmt = formatPanelData(withPop);
-    assert.notEqual(fmt.population, '—', 'municipality population is "—" — data is not reaching the sidebar');
+    assert.notEqual(formatValue(withPop.population, 'population'), 'geen data', 'municipality population missing');
   });
 });
 

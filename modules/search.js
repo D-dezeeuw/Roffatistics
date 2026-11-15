@@ -313,11 +313,10 @@ export async function applySelection(item) {
 }
 
 function fitWholeCity() {
-  Promise.all([import('./rotterdam.js'), import('./map.js'), import('./panel.js')])
-    .then(([rd, map, panel]) => {
+  Promise.all([import('./rotterdam.js'), import('./map.js')])
+    .then(([rd, map]) => {
       const bounds = rd.getRotterdamAreas()?.bounds;
       if (bounds) map.getMap().fitBounds(bounds);
-      panel.hidePanel?.();
     })
     .catch(() => {});
 }

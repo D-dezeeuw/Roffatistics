@@ -7,6 +7,8 @@
 // dropped from the address bar by state.js (dtab=jouw is address-bar state, W19):
 //   map=<lat>,<lng>,<zoom>   map centre and zoom (the zoom sets the map level)
 //   modal=1                  the area detail modal was open for `area`
+// cmp=<code>.<code>.<code> (Vergelijken columns, compare.js) is address-bar state
+// with its own checkbox (15 Nov 2026).
 //   lvl=<level>              Ranglijst level (wijken, buurten, provincies, gemeenten)
 //   rank=<key>               Ranglijst "Rangschik op" (overall or a dataset key)
 //   sort=<column>.<asc|desc> Ranglijst sort column and direction
@@ -37,6 +39,7 @@ export const SHARE_GROUPS = Object.freeze([
     { key: 'dataset', label: 'Kaartlaag' },
     { key: 'map',     label: 'Kaartpositie en zoom (bepaalt het niveau op de kaart)' },
     { key: 'area',    label: 'Geselecteerd gebied en open detailvenster' },
+    { key: 'cmp',     label: 'Vergelijking (de gebieden in Vergelijken)' },
     { key: 'list',    label: 'Ranglijst: niveau, rangschikking, sortering en weergave' },
     { key: 'basemap', label: 'Achtergrondkaart' },
     { key: 'theme',   label: 'Kleurthema' },
@@ -63,7 +66,7 @@ export function availableParts(snap = {}) {
   const st = snap.state ?? {};
   const sens = st.score ? sensitivePresent(st.score) : { origin: false, education: false, income: false };
   return {
-    view: !!st.view, scope: !!st.scope, dataset: !!st.dataset, map: !!snap.map, area: !!st.area,
+    view: !!st.view, scope: !!st.scope, dataset: !!st.dataset, map: !!snap.map, area: !!st.area, cmp: !!st.cmp,
     list: !!snap.list, basemap: !!snap.basemap, theme: !!snap.theme, dtab: st.dtab === 'jouw', answers: !!st.score, ...sens,
   };
 }
@@ -98,6 +101,7 @@ export function buildShareHash(snap = {}, options = {}) {
     p.set('area', core.get('area'));
     if (snap.modal) p.set('modal', '1');
   }
+  if (o.cmp && core.has('cmp')) p.set('cmp', core.get('cmp'));
   if (core.has('score')) p.set('score', core.get('score'));
   const m = snap.map;
   if (o.map && m && [m.lat, m.lng, m.zoom].every(Number.isFinite)) p.set('map', `${round(m.lat, 5)},${round(m.lng, 5)},${round(m.zoom, 2)}`);
@@ -167,6 +171,7 @@ export function partSummary(snap = {}, key) {
     case 'map':     return snap.map ? `zoom ${round(snap.map.zoom, 1).toLocaleString('nl-NL')}` : '';
     case 'area':    return st.area ? `${st.area}${snap.modal ? ' · detailvenster open' : ''}` : 'geen gebied geselecteerd';
     case 'list':    return snap.list ? [snap.list.level, st.listView === 'adv' ? 'uitgebreid' : 'eenvoudig', snap.list.sort ? `sortering ${snap.list.sort.column} ${snap.list.sort.dir === 'desc' ? '↓' : '↑'}` : ''].filter(Boolean).join(', ') : '';
+    case 'cmp':     return st.cmp ? st.cmp.split('.').filter(Boolean).join(', ') : 'geen gebieden in Vergelijken';
     case 'basemap': return BASEMAPS[snap.basemap]?.label ?? '';
     case 'theme':   return THEMES[snap.theme]?.label ?? '';
     case 'dtab':    return st.dtab === 'jouw' ? 'Jouw dashboard' : 'Algemeen';

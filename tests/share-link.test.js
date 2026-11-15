@@ -15,7 +15,7 @@ const answers = {
 };
 const score = encodeAnswers(answers);
 const snap = {
-  state: { scope: 'rotterdam', view: 'list', dataset: 'crimeRate', crime: 'abs', area: 'WK059901', score, dtab: 'jouw' },
+  state: { scope: 'rotterdam', view: 'list', dataset: 'crimeRate', crime: 'abs', area: 'WK059901', score, dtab: 'jouw', cmp: 'GM0599..WK059901' },
   map: { lat: 51.922501234, lng: 4.479171234, zoom: 12.5 },
   modal: true,
   list: { level: 'buurten', rankKey: 'woonscore', sort: { column: 'rank', dir: 'desc' } },
@@ -91,7 +91,7 @@ describe('share-link: round trip', () => {
     const url = buildShareUrl(snap, { ...all }, 'https://x.test/r#scope=nederland');
     assert.match(url, /^https:\/\/x\.test\/r#scope=rotterdam&view=list/);
     const back = parseShareHash(url.slice(url.indexOf('#')));
-    assert.deepEqual(back.state, { scope: 'rotterdam', view: 'list', dataset: 'crimeRate', crime: 'abs', area: 'WK059901', score, dtab: 'jouw' });
+    assert.deepEqual(back.state, { scope: 'rotterdam', view: 'list', dataset: 'crimeRate', crime: 'abs', area: 'WK059901', score, dtab: 'jouw', cmp: 'GM0599..WK059901' });
     assert.deepEqual(back.map, { lat: 51.9225, lng: 4.47917, zoom: 12.5 });
     assert.equal(back.modal, true);
     assert.deepEqual(back.list, snap.list);
