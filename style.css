@@ -47,7 +47,14 @@ body {
   z-index: 1002;
 }
 
+/* see below */
+.nav-title:focus-visible { outline: 2px solid var(--accent-purple); outline-offset: 3px; border-radius: 2px; }
 .nav-title {
+  /* a <button>: logo = home (reopens the title screen) */
+  padding: 0;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -213,6 +220,28 @@ body {
 .layers-dropdown.open {
   display: block;
 }
+
+.layers-dropdown {
+  max-height: min(70vh, 34rem);
+  overflow-y: auto;
+  min-width: 210px;
+}
+
+.layer-group + .layer-group { border-top: 1px solid rgba(124, 58, 237, 0.18); margin-top: 0.2rem; padding-top: 0.2rem; }
+.layer-group-title {
+  display: block;
+  padding: 0.35rem 1rem 0.15rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.layer-group-list { list-style: none; margin: 0; padding: 0; }
+
+/* Rotterdam-only layers and panel rows vanish in the Nederland view, and the
+   national crime categories in the Rotterdam view. */
+body.scope-nederland [data-scope="rotterdam"],
+body.scope-rotterdam [data-scope="nederland"] { display: none !important; }
 
 .layer-opt {
   display: flex;
@@ -1164,6 +1193,8 @@ footer {
 .dash-kpi { padding: 0.7rem 0.85rem; display: flex; flex-direction: column; gap: 0.3rem; }
 .dash-kpi-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .dash-kpi-value { font-family: var(--font-data); font-size: 1.05rem; color: var(--text-primary); }
+.dash-kpi-note { font-size: 0.65rem; color: var(--text-muted); }
+.dash-kpi.is-newest { border-color: rgba(249, 115, 22, 0.55); }
 
 .dash-grid {
   display: grid;

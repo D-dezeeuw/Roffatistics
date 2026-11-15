@@ -1,7 +1,8 @@
 import { bindDOM, run, setValue } from 'spektrum';
 import { initMap, getMap, setMapScope, refreshMapSize } from './modules/map.js';
 import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente, focusNederlandArea } from './modules/overlays.js';
-import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD, DATASETS } from './modules/datasets.js';
+import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD, DATASETS, groupDatasets, datasetInScope } from './modules/datasets.js';
+import { PANEL_FIELDS }                   from './modules/panel.js';
 import { initState, getState, setState, onStateChange } from './modules/state.js';
 import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea, pinActiveArea, clearPinnedArea, getActiveArea } from './modules/rotterdam.js';
 import { updateLegend }                   from './modules/legend.js';
@@ -13,47 +14,9 @@ import { initDashboard }                  from './modules/dashboard.js';
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
 setValue('panel.pinned',           false);
-setValue('panel.name',             '');
-setValue('panel.code',             '');
-setValue('panel.population',       '');
-setValue('panel.density',          '');
-setValue('panel.avgIncome',        '');
-setValue('panel.crimeRate',        '');
-setValue('panel.totalCrimes',      '');
-setValue('panel.catVermogen',      '');
-setValue('panel.catDiefstalInbraak', '');
-setValue('panel.catVernieling',    '');
-setValue('panel.catGeweld',        '');
-setValue('panel.catMishandeling',  '');
-setValue('panel.lowEdu',           '');
-setValue('panel.medEdu',           '');
-setValue('panel.highEdu',          '');
-setValue('panel.wozValue',         '');
-setValue('panel.totalJobs',        '');
-setValue('panel.pop65plus',        '');
-setValue('panel.migrationBalance', '');
-setValue('panel.nonWesternPct',    '');
-// ── Slot B (compare) ─────────────────────────────────────────────────────────
-setValue('panel2.name',             '');
-setValue('panel2.code',             '');
-setValue('panel2.population',       '');
-setValue('panel2.density',          '');
-setValue('panel2.avgIncome',        '');
-setValue('panel2.crimeRate',        '');
-setValue('panel2.totalCrimes',      '');
-setValue('panel2.catVermogen',      '');
-setValue('panel2.catDiefstalInbraak', '');
-setValue('panel2.catVernieling',    '');
-setValue('panel2.catGeweld',        '');
-setValue('panel2.catMishandeling',  '');
-setValue('panel2.lowEdu',           '');
-setValue('panel2.medEdu',           '');
-setValue('panel2.highEdu',          '');
-setValue('panel2.wozValue',         '');
-setValue('panel2.totalJobs',        '');
-setValue('panel2.pop65plus',        '');
-setValue('panel2.migrationBalance', '');
-setValue('panel2.nonWesternPct',    '');
+// Slot A + B fields (panel.js PANEL_FIELDS)
+for (const key of PANEL_FIELDS) { setValue(`panel.${key}`, ''); setValue(`panel2.${key}`, ''); }
+for (const key of ['name', 'code']) { setValue(`panel.${key}`, ''); setValue(`panel2.${key}`, ''); }
 // ── Legend ────────────────────────────────────────────────────────────────────
 setValue('legend.title',           '');
 setValue('legend.min',             '');
@@ -196,6 +159,17 @@ document.addEventListener('panel-toggle', ({ detail: { open } }) => {
 const layersBtn      = document.querySelector('.layers-btn');
 const layersDropdown = document.querySelector('.layers-dropdown');
 
+// Built from DATASETS, one section per DATASET_GROUPS entry. Rotterdam-only
+// layers carry data-scope="rotterdam" and are hidden in the Nederland view (CSS).
+const escHtml = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+layersDropdown.innerHTML = groupDatasets().map(g => `
+  <li class="layer-group" role="group" aria-labelledby="layer-group-${g.key}"${g.scope === 'rotterdam' ? ' data-scope="rotterdam"' : ''}>
+    <span class="layer-group-title" id="layer-group-${g.key}">${escHtml(g.label)}</span>
+    <ul class="layer-group-list" role="none">${g.datasets.map(d => `
+      <li role="none"><button class="layer-opt" type="button" data-dataset="${d.key}" role="option"${d.scope === 'rotterdam' ? ' data-scope="rotterdam"' : ''}>${escHtml(d.label)}</button></li>`).join('')}
+    </ul>
+  </li>`).join('');
+
 function closeDropdown() {
   layersDropdown.classList.remove('open');
   layersBtn.setAttribute('aria-expanded', 'false');
@@ -239,7 +213,8 @@ async function activateDataset(key) {
   const useGemeente = tier === 'municipality' || tier === 'buurt';
   const rows       = useGemeente ? gemeenteRows : provinceRows;
   if (!rows.length) return;
-  const title = useGemeente ? `${ds.title} · gemeente` : ds.title;
+  const title = !datasetInScope(key, 'nederland') ? `${ds.title} · alleen in Rotterdam-weergave`
+    : useGemeente ? `${ds.title} · gemeente` : ds.title;
   const { min, max } = applyDataset(rows, ds.key);
   await updateLegend({ title, min, max, dataset: key });
 }

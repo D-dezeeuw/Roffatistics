@@ -106,8 +106,8 @@ function choroplethOpacity() {
 
 export function applyDataset(data, valueKey) {
   const values = data.map(d => d[valueKey]).filter(v => v != null);
-  const min    = Math.min(...values);
-  const max    = Math.max(...values);
+  const min    = values.length ? Math.min(...values) : null;   // Rotterdam-only dataset in the Nederland view
+  const max    = values.length ? Math.max(...values) : null;
   const lookup = Object.fromEntries(data.map(d => [d.regionCode, d[valueKey]]));
 
   activeColorState = { lookup, min, max };

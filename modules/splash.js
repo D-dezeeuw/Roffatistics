@@ -76,6 +76,7 @@ export function initSplash() {
 
   startBtn.addEventListener('click', closeSplash);
   document.querySelector('.about-btn')?.addEventListener('click', openSplash);
+  document.querySelector('.nav-title')?.addEventListener('click', openSplash);   // logo = home: the title screen
 
   if (shouldShowSplash(getStorage())) openSplash();
 }

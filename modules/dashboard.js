@@ -8,7 +8,7 @@ import { NO_DATA_COLOR } from './rotterdam.js';
 import {
   sortByValue, cityValue, cityKpis, formatValue, formatShort, formatTick,
   niceTicks, linearScale, barDomain, scatterPoints, formatNumber,
-  educationMix, areaEducationMix, shareSplit, populationItems,
+  educationMix, areaEducationMix, shareSplit, populationItems, cityWozKpi,
 } from './dashboard-data.js';
 import { donutSlices, arcPath } from './donut.js';
 
@@ -118,8 +118,12 @@ async function render() {
   const active = getState().dataset;
   const order = [active, ...DATASET_KEYS.filter(k => k !== active)].filter(k => DATASETS[k]);
 
-  const kpis = cityKpis(wijken).map(k => `
-      <li class="dash-kpi"><span class="dash-kpi-label">${esc(k.label)}</span><span class="dash-kpi-value">${esc(k.text)}</span></li>`).join('');
+  // The 2026 city WOZ (85036NED) sits right after the 2025 WOZ, with its source and peildatum.
+  const kpiList = cityKpis(wijken, areas.city);
+  const woz = cityWozKpi(areas.city?.woz);
+  if (woz) kpiList.splice(kpiList.findIndex(k => k.key === 'wozValue') + 1, 0, { ...woz, newest: true });
+  const kpis = kpiList.map(k => `
+      <li class="dash-kpi${k.newest ? ' is-newest' : ''}"${k.note ? ` title="${esc(k.note)}"` : ''}><span class="dash-kpi-label">${esc(k.label)}</span><span class="dash-kpi-value">${esc(k.text)}</span>${k.newest ? `<span class="dash-kpi-note">${esc(k.note)}</span>` : ''}</li>`).join('');
 
   const barCard = key => {
     const ds = DATASETS[key];
@@ -155,7 +159,7 @@ async function render() {
   root.innerHTML = `
     <header class="dash-head">
       <h2>Rotterdam in cijfers</h2>
-      <p>${wijken.length} wijken vergeleken · CBS kerncijfers 2024, misdrijven politie 2025${areas.dataOk ? '' : ' · <strong>CBS-cijfers niet beschikbaar</strong>'}</p>
+      <p>${wijken.length} wijken vergeleken · CBS kerncijfers ${esc(areas.dataYears ?? '2025')} · misdrijven politie 2025${areas.city?.woz ? ` · WOZ ${areas.city.woz.year}: CBS ${esc(areas.city.woz.table)}, peildatum ${esc(areas.city.woz.peildatum)}` : ''}${areas.dataOk ? '' : ' · <strong>CBS-cijfers niet beschikbaar</strong>'}</p>
     </header>
     <ul class="dash-kpis" aria-label="Rotterdam totaal en gemiddelden">${kpis}</ul>
     <section class="dash-donuts" data-donuts aria-label="Samenstelling van Rotterdam"></section>
