@@ -893,3 +893,123 @@ footer {
   .splash, .splash-start { transition: none; }
   .splash-card { animation: none; }
 }
+
+/* ─── Dashboard view (modules/dashboard.js) ──────────────── */
+
+.view-dashboard { overflow-y: auto; }
+
+.dash {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dash-message { margin: 3rem auto; }
+.dash-loading { color: var(--text-muted); font-size: 0.85rem; padding: 2rem; text-align: center; }
+
+.dash-head h2 {
+  font-size: 1.1rem;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.dash-head p { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+.dash-kpis {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+.dash-kpi, .dash-card {
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
+}
+.dash-kpi { padding: 0.7rem 0.85rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.dash-kpi-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.dash-kpi-value { font-family: var(--font-data); font-size: 1.05rem; color: var(--text-primary); }
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+.dash-card { padding: 0.85rem 0.9rem 0.6rem; min-width: 0; }
+.dash-card.is-active { border-color: var(--accent-orange); box-shadow: 0 0 0 1px var(--accent-orange); }
+.dash-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.dash-card-head h3 { font-size: 0.85rem; font-weight: 600; }
+.dash-card-sub { font-size: 0.72rem; color: var(--text-muted); margin: 0.25rem 0 0.4rem; }
+
+.dash-btn {
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  background: var(--gradient-accent);
+  border: 0;
+  border-radius: var(--radius);
+  padding: 0.45rem 0.9rem;
+  margin-top: 1rem;
+  cursor: pointer;
+}
+.dash-btn-small { font-size: 0.7rem; padding: 0.2rem 0.55rem; margin: 0; background: transparent; border: 1px solid rgba(124, 58, 237, 0.45); color: var(--text-muted); }
+.dash-btn-small:hover { color: var(--text-primary); border-color: var(--accent-orange); }
+.dash-btn:focus-visible { outline: 2px solid var(--accent-orange); outline-offset: 2px; }
+
+.dash-axes { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.4rem; font-size: 0.75rem; color: var(--text-muted); }
+.dash-axes select {
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  border: 1px solid rgba(124, 58, 237, 0.45);
+  border-radius: 4px;
+  padding: 0.15rem 0.3rem;
+  margin-left: 0.25rem;
+  max-width: 13rem;
+}
+
+.dash-chart { width: 100%; }
+.dash-svg { display: block; overflow: visible; font-family: var(--font-data); font-size: 11px; }
+.dash-svg text { fill: var(--text-muted); }
+.dash-svg .dash-bar-label { fill: var(--text-primary); font-family: var(--font-ui); }
+.dash-svg .dash-bar-value { fill: var(--text-primary); font-size: 10px; }
+.dash-svg .dash-bar-nodata { font-style: italic; font-size: 10px; }
+.dash-svg .dash-avg-label { fill: var(--accent-orange); font-size: 10px; }
+.dash-svg .dash-axis-label { font-family: var(--font-ui); font-size: 10px; }
+.dash-grid-line { stroke: rgba(241, 240, 245, 0.07); }
+.dash-avg { stroke: var(--accent-orange); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
+.dash-hit { fill: transparent; }
+.dash-bar, .dash-dot { cursor: pointer; outline: none; }
+.dash-bar:hover .dash-hit, .dash-bar:focus-visible .dash-hit { fill: rgba(124, 58, 237, 0.18); }
+.dash-bar.is-selected .dash-hit { fill: rgba(234, 88, 12, 0.16); }
+.dash-dot circle { stroke: var(--bg-base); stroke-width: 1; fill-opacity: 0.9; }
+.dash-dot:hover circle, .dash-dot:focus-visible circle, .dash-dot.is-selected circle { stroke: var(--text-primary); stroke-width: 2; }
+
+.dash-tip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2000;
+  pointer-events: none;
+  white-space: pre-line;
+  max-width: 260px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  padding: 0.4rem 0.6rem;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--accent-purple);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.dash-tip[hidden] { display: none; }
+
+@media (max-width: 480px) {
+  .dash { padding: 0.75rem; }
+  .dash-kpis { grid-template-columns: repeat(2, 1fr); }
+}

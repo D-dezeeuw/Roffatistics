@@ -100,7 +100,7 @@ export function extractAreaValues(row) {
     ...values,
     population,
     avgIncome:     toNumber(r[C.avgIncome]),
-    crimeRate:     null,                        // not in the wijk/buurt table
+    crimeRate:     null,                        // not in 85984NED; wijken get it from mergeWijkCrime
     highEdu:       share(high, eduTotal),
     wozValue:      toNumber(r[C.wozValue]),
     pop65plus:     share(r[C.age65plus], population),
@@ -222,6 +222,49 @@ export function buildGemeenteNamesUrl() {
   return `${CBS_BASE}/${WIJK_TABLE}/WijkenEnBuurten?${params}`;
 }
 
+// ── Wijk crime: police "Geregistreerde misdrijven; soort misdrijf, wijk, buurt" ──
+// CBS dataderden table 47018NED (catalog Politie). Separate fetch: 85984NED has
+// no crime columns. Total of all misdrijven per wijk for CRIME_PERIOD, divided by
+// the 85984NED inhabitants ×1000. Wijken only; buurten keep crimeRate null.
+
+export const CRIME_BASE   = 'https://dataderden.cbs.nl/ODataApi/odata';
+export const CRIME_TABLE  = '47018NED';
+export const CRIME_PERIOD = '2025JJ00';          // last full year (table covers 2012–2025)
+export const CRIME_TOTAL  = '0.0.0 ';            // SoortMisdrijf "Totaal misdrijven" (CBS pads the key)
+export const CRIME_COLUMN = 'GeregistreerdeMisdrijven_1';
+// Below this many inhabitants a per-1,000 rate is meaningless (port/industrial
+// wijken with a few hundred residents and thousands of incidents): rate = null.
+export const CRIME_MIN_POPULATION = 1000;
+
+export function buildWijkCrimeUrl() {
+  const params = new URLSearchParams({
+    $filter: `startswith(WijkenEnBuurten,'${ROTTERDAM.wijkPrefix}') and Perioden eq '${CRIME_PERIOD}' and SoortMisdrijf eq '${CRIME_TOTAL}'`,
+    $select: `WijkenEnBuurten,${CRIME_COLUMN}`,
+  });
+  return `${CRIME_BASE}/${CRIME_TABLE}/TypedDataSet?${params}`;
+}
+
+/** Misdrijven per 1,000 inhabitants (1 decimal), or null when either is unknown or the population is too small. */
+export function crimeRatePer1000(total, population) {
+  const t = toNumber(total), p = toNumber(population);
+  if (t == null || p == null || p < CRIME_MIN_POPULATION) return null;
+  return +(t / p * 1000).toFixed(1);
+}
+
+/** Returns new areas with values.totalCrimes and values.crimeRate filled from 47018NED rows. */
+export function mergeWijkCrime(areas, rows) {
+  const totals = new Map();
+  for (const r of rows ?? []) {
+    const code = normalizeAreaCode(r?.WijkenEnBuurten);
+    if (code) totals.set(code, toNumber(r[CRIME_COLUMN]));
+  }
+  return areas.map(a => {
+    if (!totals.has(a.code)) return a;
+    const totalCrimes = totals.get(a.code);
+    return { ...a, values: { ...a.values, totalCrimes, crimeRate: crimeRatePer1000(totalCrimes, a.values.population) } };
+  });
+}
+
 const defaultStorage = () => { try { return globalThis.sessionStorage; } catch { return null; } };
 
 let areasPromise = null;
@@ -232,6 +275,7 @@ let indexPromise = null;
  * Resolves to { wijken: Area[], buurten: Area[], geo: { gemeente, wijken, buurten }, bounds, dataOk }
  * where Area = { code, name, level, parent, values: { [datasetKey]: number|null }, bounds }.
  * Geometry failures reject; a CBS failure still resolves (all values null, dataOk false).
+ * Wijk crimeRate comes from police table 47018NED (best-effort; null when it fails).
  */
 export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis), storage = defaultStorage() } = {}) {
   if (areasPromise) return areasPromise;
@@ -242,13 +286,14 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
       getJSON(GEO_URLS.buurten,  fetcher, null),
     ]);
     let rows = [], dataOk = true;
+    const crimeRows = getJSON(buildWijkCrimeUrl(), fetcher, storage).then(d => d.value ?? []).catch(() => []);
     try {
       rows = (await getJSON(buildWijkUrl(), fetcher, storage)).value ?? [];
     } catch {
       dataOk = false;
     }
     return {
-      wijken:  joinAreas(wijkGeo.features, rows),
+      wijken:  mergeWijkCrime(joinAreas(wijkGeo.features, rows), await crimeRows),
       buurten: joinAreas(buurtGeo.features, rows),
       geo:     { gemeente, wijken: wijkGeo, buurten: buurtGeo },
       bounds:  geoBounds(gemeente),

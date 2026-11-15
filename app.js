@@ -6,6 +6,7 @@ import { initState, getState, setState, onStateChange } from './modules/state.js
 import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea, pinActiveArea, clearPinnedArea, getActiveArea } from './modules/rotterdam.js';
 import { updateLegend }                   from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
+import { initDashboard }                  from './modules/dashboard.js';
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -306,10 +307,13 @@ onStateChange(({ state, changed, source }) => {
     activateDataset(state.dataset);
   }
   if (changed.includes('area') && state.area && source !== 'map' && state.scope === 'rotterdam') {
-    focusArea(state.area);
+    // Arriving from another view the map was hidden (size 0): focus after showView's resize frame.
+    if (changed.includes('view')) requestAnimationFrame(() => focusArea(state.area));
+    else focusArea(state.area);
   }
 });
 
 syncDatasetButtons(initialState.dataset);
 showView(initialState.view);
+initDashboard();
 applyScope(initialState.scope, { initial: true });
