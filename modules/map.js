@@ -1,5 +1,4 @@
-import { addThemeSwitcher } from './theme.js';
-import { addOvSwitcher } from './ov.js';
+import { addOvLayers, pickInitialOv } from './ov.js';
 
 // ── Basemap configuration (pure data, unit-tested) ───────────────────────────
 // Keyless providers only: OpenFreeMap vector styles (rendered by MapLibre GL
@@ -27,10 +26,10 @@ export const BASEMAPS = Object.freeze({
   }),
   aerial: Object.freeze({
     id:            'aerial',
-    label:         'Luchtfoto',
+    label:         'Satelliet',   // id stays 'aerial': stored choices and share links keep working
     type:          'raster',
     url:           'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg',
-    attribution:   '&copy; <a href="https://www.pdok.nl/" target="_blank" rel="noopener">PDOK</a> / Beeldmateriaal Nederland',
+    attribution:   'Luchtfoto &copy; <a href="https://www.pdok.nl/" target="_blank" rel="noopener">PDOK</a> / Beeldmateriaal Nederland',
     maxNativeZoom: 19,
   }),
 });
@@ -96,7 +95,7 @@ const NL_BOUNDS_ARR = [[50.5, 3.2], [53.7, 7.3]];
 let map;
 let basemapLayer = null;
 let activeBasemap = null;
-let switcherEl = null;
+let ovLayers = null;
 
 export function initMap() {
   const NL_BOUNDS = L.latLngBounds(NL_BOUNDS_ARR);
@@ -113,9 +112,7 @@ export function initMap() {
   let storage = null;
   try { storage = window.localStorage; } catch { /* storage blocked */ }
   setBasemap(pickInitialBasemap(storage));
-  addBasemapSwitcher();
-  addThemeSwitcher(L, map);
-  addOvSwitcher(L, map);
+  ovLayers = addOvLayers(L, map);   // basemap, theme and OV are chosen in Instellingen (settings.js)
 
   // invalidateSize fires Leaflet 'resize', which the maplibre layer forwards to its GL canvas.
   window.addEventListener('resize', () => map.invalidateSize());
@@ -144,45 +141,19 @@ export function setBasemap(id) {
   activeBasemap = config.id;
 
   try { window.localStorage.setItem(BASEMAP_STORAGE_KEY, config.id); } catch { /* ignore */ }
-  updateSwitcher();
 }
 
 export function getActiveBasemap() { return activeBasemap; }
 /** The MapLibre map behind a vector basemap (null for the aerial photo); used by the snapshot. */
 export function getBasemapGL() { return basemapLayer?.getMaplibreMap?.() ?? null; }
 
-function addBasemapSwitcher() {
-  const Switcher = L.Control.extend({
-    options: { position: 'topright' },
-    onAdd() {
-      const el = L.DomUtil.create('div', 'basemap-switcher leaflet-bar');
-      el.setAttribute('role', 'radiogroup');
-      el.setAttribute('aria-label', 'Achtergrondkaart');
-      for (const cfg of Object.values(BASEMAPS)) {
-        const btn = L.DomUtil.create('button', 'basemap-opt', el);
-        btn.type = 'button';
-        btn.dataset.basemap = cfg.id;
-        btn.textContent = cfg.label;
-        btn.setAttribute('role', 'radio');
-        btn.addEventListener('click', () => setBasemap(cfg.id));
-      }
-      L.DomEvent.disableClickPropagation(el);
-      L.DomEvent.disableScrollPropagation(el);
-      return el;
-    },
-  });
-  switcherEl = new Switcher().addTo(map).getContainer();
-  updateSwitcher();
+/** OV toggle state ({ metro, tram, bus }) of the drawn lines; before initMap the stored state. */
+export function getOvModes() {
+  if (ovLayers) return ovLayers.get();
+  try { return pickInitialOv(window.localStorage); } catch { return pickInitialOv(null); }
 }
-
-function updateSwitcher() {
-  if (!switcherEl) return;
-  for (const btn of switcherEl.querySelectorAll('.basemap-opt')) {
-    const on = btn.dataset.basemap === activeBasemap;
-    btn.classList.toggle('active', on);
-    btn.setAttribute('aria-checked', on ? 'true' : 'false');
-  }
-}
+/** Switches OV lines on/off; the chosen basemap, area layer and P2000 layer stay as they are. */
+export function setOvModes(state) { return ovLayers?.set(state); }
 
 export function getMap() { return map; }
 

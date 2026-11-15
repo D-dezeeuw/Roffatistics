@@ -6,8 +6,8 @@ import {
 } from '../modules/map.js';
 
 describe('BASEMAPS', () => {
-  it('offers Donker, Licht and Luchtfoto', () => {
-    assert.deepEqual(Object.values(BASEMAPS).map(b => b.label), ['Donker', 'Licht', 'Luchtfoto']);
+  it('offers Donker, Licht and Satelliet', () => {
+    assert.deepEqual(Object.values(BASEMAPS).map(b => b.label), ['Donker', 'Licht', 'Satelliet']);
   });
 
   it('uses only keyless providers (no CARTO, no API keys)', () => {

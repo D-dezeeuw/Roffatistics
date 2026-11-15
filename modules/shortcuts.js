@@ -198,7 +198,7 @@ export function runShortcut(id, doc = globalThis.document) {
     case 'share':          return click(doc, '.share-btn');
     case 'explain':        return click(doc, '.explain-btn');
     case 'compare':        return click(doc, '.panel-toggle-btn');
-    case 'theme':          return click(doc, '.basemap-opt[data-theme]:not(.active)');
+    case 'theme':          return click(doc, 'input[name="settings-theme"]:not(:checked)');   // Instellingen radio (settings.js)
     case 'zoom-in':        return click(doc, '.leaflet-control-zoom-in');
     case 'zoom-out':       return click(doc, '.leaflet-control-zoom-out');
     case 'layer-prev':     return stepLayer(doc, -1);

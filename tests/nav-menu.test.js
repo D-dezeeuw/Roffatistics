@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createNavMenu, initNavMenu } from '../modules/nav-menu.js';
+import { readFileSync } from 'node:fs';
+import { createNavMenu, initNavMenu, NAV_INLINE_QUERY, NAV_MOBILE_MAX } from '../modules/nav-menu.js';
 
 // Minimal fake DOM: elements with attributes, listeners (capture flag kept),
 // focus tracked on the document, contains() through a parent chain.
@@ -134,6 +135,54 @@ describe('nav menu (hamburger)', () => {
     assert.equal(t.doc.activeElement, t.wizard);
     key(t.doc, t.wizard, 'End');
     assert.equal(t.doc.activeElement, t.share);
+  });
+
+  it('desktop/tablet (inline query matches): list always shown, no redirect, no close-on-click', () => {
+    const doc = fakeDoc();
+    const btn = el(doc, { cls: 'nav-menu-btn', attrs: { 'aria-controls': 'nav-menu-list' } });
+    const list = el(doc, { cls: 'nav-menu-list' });
+    const wizard = el(doc, { cls: 'wizard-btn nav-menu-item', parent: list });
+    const mql = { matches: true, fns: [], addEventListener(t, fn) { this.fns.push(fn); } };
+    const menu = createNavMenu(btn, list, doc, { inlineQuery: mql });
+    assert.equal(list.hidden, false, 'items visible in the bar');
+    assert.equal(menu.isInline(), true);
+    menu.open();
+    assert.equal(menu.isOpen(), false, 'there is no menu to open');
+    assert.equal(btn.getAttribute('aria-expanded'), 'false');
+    wizard.focus();
+    assert.equal(doc.activeElement, wizard, 'focus is not sent to the hidden ☰');
+    click(doc, wizard);
+    assert.equal(doc.activeElement, wizard, 'a click does not move focus to ☰');
+    assert.equal(list.hidden, false);
+    mql.matches = false; mql.fns.forEach(fn => fn());   // resized to a phone
+    assert.equal(list.hidden, true, 'phone: the list folds back into ☰');
+    wizard.focus();
+    assert.equal(doc.activeElement, btn);
+  });
+
+  it('index.html: every menu item has an accessible name and a tooltip, incl. Instellingen', () => {
+    const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+    const list = html.slice(html.indexOf('id="nav-menu-list"'), html.indexOf('</nav>'));
+    const items = [...list.matchAll(/<button[^>]*class="[^"]*nav-menu-item[^"]*"[^>]*>/g)].map(m => m[0]);
+    assert.ok(items.length >= 9);
+    for (const b of items.filter(b => !b.includes('nav-menu-search'))) {
+      assert.match(b, /aria-label="[^"]+"/, b);
+      assert.match(b, /title="[^"]+"/, b);
+    }
+    const cog = items.find(b => b.includes('settings-btn'));
+    assert.ok(cog, 'Instellingen item present');
+    assert.match(cog, /aria-label="Instellingen"/);
+    assert.match(cog, /title="Instellingen"/);
+    assert.match(cog, /aria-controls="settings-modal"/);
+  });
+
+  it('style.css: ☰ only on phones (≤ NAV_MOBILE_MAX), items inline above it', () => {
+    const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+    const block = css.slice(css.indexOf(`@media ${NAV_INLINE_QUERY}`));
+    assert.ok(block.length > 0 && css.includes(`@media ${NAV_INLINE_QUERY}`));
+    assert.match(block, /\.nav-menu-btn \{ display: none; \}/);
+    assert.match(block, /\.nav-menu-list\[hidden\][^{]*\{[^}]*display: flex/);
+    assert.equal(NAV_MOBILE_MAX, 640);
   });
 
   it('initNavMenu returns null without the markup', () => {

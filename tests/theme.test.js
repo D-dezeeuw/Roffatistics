@@ -6,8 +6,8 @@ import {
 } from '../modules/theme.js';
 
 describe('THEMES', () => {
-  it('offers Rotterdam (default) and Klassiek', () => {
-    assert.deepEqual(Object.values(THEMES).map(t => t.label), ['Rotterdam', 'Klassiek']);
+  it('offers Rotterdam (default) and Paars-oranje', () => {
+    assert.deepEqual(Object.values(THEMES).map(t => t.label), ['Rotterdam', 'Paars-oranje']);
     assert.equal(DEFAULT_THEME, 'rotterdam');
   });
   it('resolves unknown ids to the default', () => {

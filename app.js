@@ -1,5 +1,5 @@
 import { bindDOM, run, setValue } from 'spektrum';
-import { initMap, getMap, setMapScope, refreshMapSize, setBasemap, BASEMAP_STORAGE_KEY } from './modules/map.js';
+import { initMap, getMap, setMapScope, refreshMapSize, setBasemap, getActiveBasemap, getOvModes, setOvModes, BASEMAP_STORAGE_KEY } from './modules/map.js';
 import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, focusNederlandArea, drillIntoGemeente, gemeenteName } from './modules/overlays.js';
 import { applyDrillDataset }            from './modules/nl-drill.js';
 import { rescoreNlAreas }               from './modules/nl-areas.js';
@@ -25,7 +25,8 @@ import { presetFromScore, scoreTitle }    from './modules/wizard-model.js';
 import { initWizard }                     from './modules/wizard.js';
 import { initShare }                      from './modules/share-dialog.js';
 import { parseShareHash, hasShareExtras } from './modules/share-link.js';
-import { applyTheme }                     from './modules/theme.js';
+import { applyTheme, pickInitialTheme }   from './modules/theme.js';
+import { initSettings }                   from './modules/settings.js';
 import { initShortcuts }                  from './modules/shortcuts.js';
 import { peekRotterdamAreas }             from './modules/areas.js';
 import { peekNlAreas }                    from './modules/nl-areas.js';
@@ -77,6 +78,14 @@ const initialState = initState();
 showLoader('Kaart laden…');   // until the first map data is drawn (end of this file)
 setPersonalPreset(presetFromScore(initialState.score));   // before any area is scored (the Woonscore's active preset)
 initMap();
+applyTheme(pickInitialTheme(shareStorage), document);   // theme-color meta (data-theme is set before first paint)
+initSettings({   // header cog "Instellingen": Thema, Kaart, OV-lijnen; the owners store their own keys
+  setTheme: id => applyTheme(id, document, shareStorage),
+  setBasemap,
+  setOv: setOvModes,
+  getBasemap: getActiveBasemap,
+  getOv: getOvModes,
+});
 setLoaderProgress(0.2);
 initSpacePan(document.getElementById('map'));   // hold Space: drag the map, never click a feature
 await initOverlays({ enabled: initialState.scope === 'nederland' });

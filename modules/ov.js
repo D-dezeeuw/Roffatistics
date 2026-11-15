@@ -1,6 +1,7 @@
 // ── OV lines: metro, tram and (optional) bus from OpenStreetMap ─────────────
 // Prebuilt by scripts/build-ov-lines.mjs into data/ov/. Pure parts (state,
-// distances, values) are unit-tested; addOvSwitcher draws the Leaflet layers.
+// distances, values) are unit-tested; addOvLayers draws the Leaflet layers.
+// The Metro / Tram / Bus checkboxes live in Instellingen (modules/settings.js).
 // Data © OpenStreetMap contributors (ODbL).
 
 export const OV_MODES = Object.freeze({
@@ -17,7 +18,7 @@ export const OV_URLS = Object.freeze({
   afstand: './data/ov/afstand.json',
 });
 export const OV_STORAGE_KEY = 'roffatistics.ov';
-export const DEFAULT_OV = Object.freeze({ metro: true, tram: true, bus: false });
+export const DEFAULT_OV = Object.freeze({ metro: false, tram: false, bus: false });   // all off until switched on in Instellingen
 export const OV_STOP_MIN_ZOOM = 14;
 export const OSM_ATTRIBUTION = 'OV-lijnen &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-bijdragers (ODbL)';
 
@@ -31,7 +32,7 @@ export function parseOvState(raw) {
 
 export const serializeOvState = state => Object.keys(OV_MODES).filter(k => state?.[k]).join(',');
 
-/** Stored toggle state; any storage failure gives the default (metro + tram on, bus off). */
+/** Stored toggle state; any storage failure gives the default (all off). */
 export function pickInitialOv(storage) {
   try { return parseOvState(storage?.getItem(OV_STORAGE_KEY) ?? null); } catch { return { ...DEFAULT_OV }; }
 }
@@ -111,8 +112,11 @@ export function _resetOvCache() { afstandPromise = null; }
 /** [[lng, lat], …] lines → Leaflet [[lat, lng], …]. */
 export const toLatLngs = lines => (lines ?? []).map(l => l.map(([x, y]) => [y, x]));
 
-/** Adds the "OV-lijnen" switch (Metro / Tram / Bus) under the theme switcher. */
-export function addOvSwitcher(L, map) {
+/**
+ * Draws the OV lines for the stored toggle state (no map control). Returns
+ * { get(), set(state) }: set() normalises, stores and redraws.
+ */
+export function addOvLayers(L, map) {
   let storage = null;
   try { storage = window.localStorage; } catch { /* storage blocked */ }
   let state = pickInitialOv(storage);
@@ -171,42 +175,14 @@ export function addOvSwitcher(L, map) {
     redraw();
   }
 
-  const Switcher = L.Control.extend({
-    options: { position: 'topright' },
-    onAdd() {
-      const el = L.DomUtil.create('div', 'basemap-switcher ov-switcher leaflet-bar');
-      el.setAttribute('role', 'group');
-      el.setAttribute('aria-label', 'OV-lijnen');
-      const label = L.DomUtil.create('span', 'theme-label', el);
-      label.textContent = 'OV';
-      label.title = 'OV-lijnen (OpenStreetMap)';
-      label.setAttribute('aria-hidden', 'true');
-      for (const m of Object.values(OV_MODES)) {
-        const btn = L.DomUtil.create('button', 'basemap-opt ov-opt', el);
-        btn.type = 'button';
-        btn.dataset.ov = m.id;
-        btn.setAttribute('role', 'checkbox');
-        btn.title = m.hint ? `${m.label} (${m.hint})` : m.label;
-        const sw = L.DomUtil.create('span', `ov-swatch ov-swatch-${m.id}`, btn);
-        sw.setAttribute('aria-hidden', 'true');
-        btn.append(m.label);
-        btn.addEventListener('click', () => { state = toggleOv(state, m.id); storeOv(state, storage); update(); refresh(); });
-      }
-      L.DomEvent.disableClickPropagation(el);
-      L.DomEvent.disableScrollPropagation(el);
-      return el;
-    },
-  });
-  const el = new Switcher().addTo(map).getContainer();
-  function update() {
-    for (const btn of el.querySelectorAll('.ov-opt')) {
-      const on = !!state[btn.dataset.ov];
-      btn.classList.toggle('active', on);
-      btn.setAttribute('aria-checked', on ? 'true' : 'false');
-    }
-  }
-  update();
   map.on('zoomend', redraw);
   refresh();
-  return el;
+  return {
+    get: () => ({ ...state }),
+    set(next) {
+      state = Object.fromEntries(Object.keys(OV_MODES).map(k => [k, !!next?.[k]]));
+      storeOv(state, storage);
+      return refresh();
+    },
+  };
 }

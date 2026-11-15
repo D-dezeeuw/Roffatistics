@@ -16,8 +16,8 @@ const memStorage = (init = {}) => { const m = new Map(Object.entries(init)); ret
 const file = rel => new URL(`../${rel.replace(/^\.\//, '')}`, import.meta.url);
 
 describe('ov: toggle state', () => {
-  it('defaults to metro + tram on, bus off', () => {
-    assert.deepEqual(DEFAULT_OV, { metro: true, tram: true, bus: false });
+  it('defaults to all off (metro, tram and bus)', () => {
+    assert.deepEqual(DEFAULT_OV, { metro: false, tram: false, bus: false });
     assert.deepEqual(pickInitialOv(memStorage()), DEFAULT_OV);
     assert.deepEqual(pickInitialOv(null), DEFAULT_OV);
   });
@@ -36,8 +36,8 @@ describe('ov: toggle state', () => {
     assert.doesNotThrow(() => storeOv(DEFAULT_OV, boom));
   });
   it('toggles one mode, ignores unknown ones', () => {
-    assert.deepEqual(toggleOv(DEFAULT_OV, 'bus'), { metro: true, tram: true, bus: true });
-    assert.deepEqual(toggleOv(DEFAULT_OV, 'metro'), { metro: false, tram: true, bus: false });
+    assert.deepEqual(toggleOv(DEFAULT_OV, 'bus'), { metro: false, tram: false, bus: true });
+    assert.deepEqual(toggleOv(DEFAULT_OV, 'metro'), { metro: true, tram: false, bus: false });
     assert.deepEqual(toggleOv(DEFAULT_OV, 'ferry'), DEFAULT_OV);
   });
   it('colours: metro blue, tram red, bus muted and thinnest; bus drawn at the bottom', () => {
