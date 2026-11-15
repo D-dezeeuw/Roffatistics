@@ -1,5 +1,5 @@
 import { bindDOM, run, setValue } from 'spektrum';
-import { initMap, getMap, setMapScope, refreshMapSize } from './modules/map.js';
+import { initMap, getMap, setMapScope, refreshMapSize, setBasemap, BASEMAP_STORAGE_KEY } from './modules/map.js';
 import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente, focusNederlandArea, drillIntoGemeente, gemeenteName } from './modules/overlays.js';
 import { applyDrillDataset }            from './modules/nl-drill.js';
 import { rescoreNlAreas }               from './modules/nl-areas.js';
@@ -9,7 +9,7 @@ import { initState, getState, setState, onStateChange } from './modules/state.js
 import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea, pinActiveArea, clearPinnedArea, getActiveArea } from './modules/rotterdam.js';
 import { updateLegend, initScaleToggle, initLegendCollapse, SCALE_EVENT } from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
-import { initList, setNationalRows }      from './modules/list.js';   // Ranglijst view
+import { initList, setNationalRows, setListOptions } from './modules/list.js';   // Ranglijst view
 import { initSearch }                     from './modules/search.js';
 import { initDashboard }                  from './modules/dashboard.js';
 import { initExplain }                    from './modules/explain.js';
@@ -20,6 +20,9 @@ import { rowsWithWoonscore, setPersonalPreset, assignScore } from './modules/pre
 import { loadGemeenteGroup, missingDetailGroups } from './modules/herkomst-gemeente.js';
 import { presetFromScore, scoreTitle }    from './modules/wizard-model.js';
 import { initWizard }                     from './modules/wizard.js';
+import { initShare }                      from './modules/share-dialog.js';
+import { parseShareHash, hasShareExtras } from './modules/share-link.js';
+import { applyTheme }                     from './modules/theme.js';
 import { peekRotterdamAreas }             from './modules/areas.js';
 import { peekNlAreas }                    from './modules/nl-areas.js';
 import { loadBouwjaar, onBouwLoaded, addBouwShares, isBouwKey, isBouwLoaded, presetUsesBouw } from './modules/bouwjaar-pc4.js';
@@ -40,6 +43,36 @@ bindDOM();
 run();
 
 initSplash();
+// ── Shared link ("Delen", share-link.js) ─────────────────────────────────────
+// The one-shot view keys (map, modal, lvl/rank/sort, basemap, theme) are read
+// here, before initState() rewrites the address bar without them.
+let scopeRun = Promise.resolve();   // the last scope switch; map position and modal wait for it
+const sharedView = parseShareHash(globalThis.location?.hash ?? '');
+let shareStorage = null;
+try { shareStorage = globalThis.localStorage; } catch { /* storage blocked */ }
+function applySharedLook(ex, { live = false } = {}) {
+  if (ex.theme) applyTheme(ex.theme, document, shareStorage);   // stored: the theme switch picks it up
+  if (ex.basemap) {
+    if (live) setBasemap(ex.basemap);
+    else try { shareStorage?.setItem(BASEMAP_STORAGE_KEY, ex.basemap); } catch { /* storage blocked */ }   // initMap reads it
+  }
+}
+async function applySharedView(ex) {
+  if (ex.list) setListOptions(ex.list);
+  await scopeRun.catch(() => {});
+  if (ex.map) getMap()?.setView([ex.map.lat, ex.map.lng], ex.map.zoom, { animate: false });
+  const area = getState().area;
+  if (ex.modal && area) openAreaModal(area);
+}
+applySharedLook(sharedView);
+// A shared link pasted into this tab: state.js applies the address-bar parts
+// (its listener runs after this one), then the view keys follow.
+globalThis.addEventListener?.('hashchange', () => {
+  const ex = parseShareHash(location.hash);
+  if (!hasShareExtras(ex)) return;
+  applySharedLook(ex, { live: true });
+  setTimeout(() => applySharedView(ex), 0);
+});
 const initialState = initState();
 showLoader('Kaart laden…');   // until the first map data is drawn (end of this file)
 setPersonalPreset(presetFromScore(initialState.score));   // before any area is scored (the Woonscore's active preset)
@@ -435,7 +468,7 @@ onStateChange(({ state, changed, source }) => {
   if (changed.includes('view')) showView(state.view);
   if (changed.includes('scope')) {
     // Fade the map and show the loader before the switch; it hides once the new scope is drawn.
-    withLoader(state.scope === 'nederland' ? 'Nederland laden…' : 'Rotterdam laden…', () => applyScope(state.scope))
+    scopeRun = withLoader(state.scope === 'nederland' ? 'Nederland laden…' : 'Rotterdam laden…', () => applyScope(state.scope))
       .catch(err => console.warn('scope switch:', err));
     return;
   }
@@ -461,7 +494,8 @@ initList();   // after showView so a #view=list start renders visible
 initDashboard();
 // Boot loader: hides when the first scope is drawn (Nederland: once the provinces are coloured), at most BOOT_LOADER_MAX_MS.
 const BOOT_LOADER_MAX_MS = 20000;
-const firstDraw = applyScope(initialState.scope, { initial: true })
+scopeRun = applyScope(initialState.scope, { initial: true });
+const firstDraw = scopeRun
   .then(() => (initialState.scope === 'nederland' ? provincesReady : null));
 Promise.race([firstDraw, new Promise(r => setTimeout(r, BOOT_LOADER_MAX_MS))])
   .catch(err => console.warn('first draw:', err))
@@ -474,5 +508,7 @@ initLegendCollapse();
 document.addEventListener(SCALE_EVENT, () => activateDataset(getState().dataset));
 initExplain();
 initAreaModal();
+initShare();
+if (hasShareExtras(sharedView)) applySharedView(sharedView);
 initWizard({ rows: () => (gemeenteRows.length && (atGemeenteTier() || !provinceRows.length)
   ? { level: 'gemeente', rows: gemeenteRows } : { level: 'provincie', rows: provinceRows }) });

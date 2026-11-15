@@ -8,7 +8,8 @@
 // the result, because app.js subscribed first. The legend's Reset clears `score`.
 
 
-import { getState, setState, onStateChange, resetScore, getShareOptions, setShareOptions, shareUrl } from './state.js';
+import { getState, setState, onStateChange, resetScore } from './state.js';
+import { openShareDialog } from './share-dialog.js';
 import { loadRotterdamAreas, peekRotterdamAreas, getAreaIndex } from './areas.js';
 import { getRotterdamLevel } from './rotterdam.js';
 import { scoreResult, getPersonalPreset, THEME_LABELS } from './presets.js';
@@ -19,7 +20,7 @@ import {
   STEPS, LEVENSTYPEN, LEVENSTYPE_HINT, BOUW_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
-  SHARE_PARTS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS, gemeenschapOptgroups,
+  GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS, gemeenschapOptgroups,
   SITUATIE_EDU, SITUATIE_INCOME, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance,
 } from './wizard-model.js';
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
@@ -193,40 +194,18 @@ function themeSliders() {
     .map(t => impSlider(`data-theme="${esc(t.key)}"`, imp[t.key] ?? IMPORTANCE_DEFAULT, THEME_LABELS[t.key] ?? t.label)).join('') + gem;
 }
 
-/** Sensitive parts the current answers hold (only those get a checkbox). */
-function sharePartsPresent() {
-  const s = answers.situatie;
-  return { origin: !!answers.gemeenschap, education: !!s?.edu, income: s?.income != null || !!s?.bijstand };
-}
-
-/** "Deellink maken": the link to share, with one opt-in checkbox per sensitive part. */
+/**
+ * "Deellink maken": opens the shared "Deel deze weergave" dialog (share-dialog.js,
+ * v0.31.0), focused on Jouw wensen; the sensitive parts are opt-in checkboxes there.
+ */
 function shareHtml() {
-  const present = sharePartsPresent(), opts = getShareOptions();
-  const boxes = Object.entries(SHARE_PARTS).filter(([k]) => present[k])
-    .map(([k, label]) => `<label class="wiz-check"><input type="checkbox" data-share="${k}"${opts[k] ? ' checked' : ''}> Neem ${esc(label.toLowerCase())} op in de link</label>`).join('');
   return `<section class="wiz-share" aria-labelledby="wiz-share-title">
       <h3 id="wiz-share-title">Deellink maken</h3>
-      <p class="wiz-hint">${boxes ? 'Gevoelige onderdelen staan alleen in de link als je ze hieronder aanvinkt; de adresbalk volgt je keuze.' : 'Je antwoorden bevatten geen gevoelige onderdelen.'} Op dit apparaat blijven al je antwoorden bewaard.</p>
-      ${boxes}
+      <p class="wiz-hint">Kies wat er in de link staat. Herkomst/gemeenschap, opleiding en inkomen staan er standaard niet in. Op dit apparaat blijven al je antwoorden bewaard.</p>
       <div class="wiz-share-row">
-        <input type="text" class="wiz-share-url" readonly aria-label="Deellink" value="${esc(shareUrl(opts))}">
-        <button type="button" class="area-btn" data-wiz="copyLink">Kopieer link</button>
+        <button type="button" class="area-btn" data-wiz="share" aria-haspopup="dialog" aria-controls="share-modal">Deellink maken…</button>
       </div>
-      <p class="wiz-hint wiz-share-status" aria-live="polite"></p>
     </section>`;
-}
-
-/** Copies the share link; falls back to selecting it (execCommand), then to asking the user to copy it. */
-async function copyShareLink() {
-  const input = els?.dialog.querySelector('.wiz-share-url');
-  const status = els?.dialog.querySelector('.wiz-share-status');
-  const url = shareUrl(getShareOptions());
-  if (input) input.value = url;
-  let ok = false;
-  try { await navigator.clipboard.writeText(url); ok = true; } catch { /* no clipboard API or no permission */ }
-  if (!ok && input) { try { input.select(); ok = document.execCommand('copy'); } catch { ok = false; } }
-  if (!ok) input?.select();
-  if (status) status.textContent = ok ? 'Link gekopieerd.' : 'Kopiëren lukte niet: de link is geselecteerd, kopieer hem zelf (Ctrl/Cmd+C).';
 }
 
 async function resultHtml() {
@@ -362,7 +341,7 @@ function onClick(e) {
   else if (act === 'next') go(step + 1);
   else if (act === 'restart') { step = 0; render(); }
   else if (act === 'map') { returnFocus = null; closeWizard(); setState({ view: 'map' }, { source: 'wizard' }); }
-  else if (act === 'copyLink') copyShareLink();
+  else if (act === 'share') openShareDialog({ trigger: t.closest('[data-wiz]'), focus: 'answers' });
   else if (act === 'compare') { choosePreset(scoreKind(getState().score) === 'standaard' ? 'custom' : 'standaard'); }
 }
 
@@ -387,13 +366,6 @@ function onInput(e) {
 function onChange(e) {
   const t = e.target;
   const f = t.dataset.field;
-  if (t.dataset.share) {
-    // The address bar and the link follow the choice at once; nothing to re-render.
-    setShareOptions({ ...getShareOptions(), [t.dataset.share]: t.checked });
-    const input = els.dialog.querySelector('.wiz-share-url');
-    if (input) input.value = shareUrl(getShareOptions());
-    return;
-  }
   if (f === 'income' || f === 'maxPrice') {
     answers = normalizeAnswers({ ...answers, budget: { ...answers.budget, [f]: parseEuroK(t.value) } });
     render({ focus: `[data-field="${f}"]` });

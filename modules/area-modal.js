@@ -202,6 +202,8 @@ let current = null;       // code shown
 let returnFocus = null;
 
 const isOpen = () => !!els && !els.modal.hidden;
+/** True while the area detail modal is shown (the share link can reopen it). */
+export const isAreaModalOpen = () => isOpen();
 
 /** Nederland scope, or any non-Rotterdam code: the national wijk/buurt set (nl-areas.js); else Rotterdam's. */
 const peersFor = code => (getState().scope === 'nederland' || !isRotterdamCode(code) ? 'nederland' : 'rotterdam');
