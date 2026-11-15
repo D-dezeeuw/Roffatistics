@@ -1023,7 +1023,7 @@ footer {
   padding: 0.4rem 0.6rem; text-align: right; white-space: nowrap;
   border-bottom: 1px solid rgba(124, 58, 237, 0.12); background: var(--bg-surface-alt);
 }
-.list-table thead th { position: sticky; top: 0; z-index: 2; background: var(--bg-surface); font-weight: 600; }
+.list-table thead th { position: sticky; top: 0; z-index: 3; background: var(--bg-surface); font-weight: 600; }
 .list-table thead button {
   font: inherit; color: var(--text-muted); background: none; border: 0; padding: 0; cursor: pointer;
   display: inline-flex; align-items: center; gap: 0.2rem;
@@ -1037,9 +1037,15 @@ footer {
 .list-table td.is-rank-key { background: #1b1426; }
 .list-table thead .col-score.is-single button { white-space: normal; text-align: left; line-height: 1.15; font-size: 0.72rem; }
 .list-sort-arrow { font-size: 0.6rem; min-width: 0.6rem; }
-/* Sticky leading columns: rank, name and score stay put; the datasets scroll. */
-.list-table .col-rank, .list-table .col-name, .list-table .col-score { position: sticky; z-index: 1; }
-.list-table thead .col-rank, .list-table thead .col-name, .list-table thead .col-score { z-index: 3; }
+/* Sticky leading columns: rank, name and score stay put; the datasets scroll.
+   Layers: data cells 0 (each its own stacking context, so the value span and
+   outlier dot inside cannot rise above the sticky cells), sticky body cells 2,
+   header row 3, header corner (sticky both ways) 4. Every sticky cell has an
+   opaque background per row state, so nothing shows through. */
+.list-table td.col-data { z-index: 0; }
+.list-table .col-rank, .list-table .col-name, .list-table .col-score { position: sticky; z-index: 2; }
+.list-table thead .col-rank, .list-table thead .col-name, .list-table thead .col-score { z-index: 4; background: var(--bg-surface); }
+.list-table .col-score { box-shadow: 6px 0 6px -4px rgba(0, 0, 0, 0.7); }
 .list-table .col-rank  { left: 0; width: var(--list-rank-w); min-width: var(--list-rank-w); max-width: var(--list-rank-w); color: var(--text-muted); font-family: var(--font-data); }
 .list-table .col-name  {
   left: var(--list-rank-w); width: var(--list-name-w); min-width: var(--list-name-w); max-width: var(--list-name-w);
@@ -1070,11 +1076,15 @@ footer {
 .list-bar { position: absolute; left: 0; bottom: 0; height: 3px; opacity: 0.85; border-radius: 0 2px 2px 0; }
 .list-table td.is-missing { color: var(--text-muted); }
 .list-table tbody tr { cursor: pointer; }
+/* Row states, all opaque (the sticky cells take the same colour as the row). */
+.list-table tbody tr:nth-child(even) > * { background: #120f1e; }
+.list-table tbody tr:nth-child(even) > td.is-rank-key { background: #1e1729; }
 .list-table tbody tr:hover > * { background: #1a1528; }
 .list-table tbody tr.is-unranked > * { color: var(--text-muted); }
 .list-table tbody tr.is-selected > * { background: #241a3a; }
 .list-table tbody tr.is-flash > * { animation: list-flash 2.2s ease-out; }
-@keyframes list-flash { 0%, 30% { background: rgba(234, 88, 12, 0.45); } 100% { background: #241a3a; } }
+/* #722f14 = the old rgba(234, 88, 12, 0.45) flattened onto the row colour. */
+@keyframes list-flash { 0%, 30% { background: #722f14; } 100% { background: #241a3a; } }
 .list-empty { display: flex; flex-direction: column; align-items: center; gap: 0.8rem; padding: 2rem 1rem; text-align: center; font-size: 0.85rem; color: var(--text-muted); }
 .list-to-rotterdam {
   font: inherit; color: var(--text-primary); background: var(--gradient-accent);
@@ -1086,7 +1096,7 @@ footer {
   .list-table th, .list-table td { padding: 0.35rem 0.4rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .list-table tbody tr.is-flash > * { animation: none; background: rgba(234, 88, 12, 0.35); }
+  .list-table tbody tr.is-flash > * { animation: none; background: #5c2715; }
 }
 
 /* ─── Search modal (modules/search.js) ───────────────────── */

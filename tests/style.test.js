@@ -52,6 +52,14 @@ describe('style.css', () => {
     assert.deepEqual([...new Set(missing)], []);
   });
 
+  it('keeps the Ranglijst sticky cells opaque and layered', () => {
+    const rules = [...stripped.matchAll(/([^{}]*\.list-table[^{}]*)\{([^}]*)\}/g)].filter(m => /background/.test(m[2]));
+    for (const [, sel, body] of rules) assert.doesNotMatch(body, /background:\s*rgba\(/, `translucent row background in ${sel.trim()}`);
+    assert.match(stripped, /\.list-table \.col-rank, \.list-table \.col-name, \.list-table \.col-score \{ position: sticky; z-index: 2; \}/);
+    assert.match(stripped, /\.list-table thead \.col-rank, \.list-table thead \.col-name, \.list-table thead \.col-score \{ z-index: 4;/);
+    assert.match(stripped, /\.list-table td\.col-data \{ z-index: 0; \}/);
+  });
+
   it('gives SVG text, options and the views an explicit light colour', () => {
     assert.match(stripped, /\.dash svg text\s*\{[^}]*fill:\s*var\(--text-muted\)/);
     assert.match(stripped, /(^|\n)option, optgroup\s*\{[^}]*background:\s*var\(--bg-surface\)/);
