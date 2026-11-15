@@ -1,6 +1,6 @@
 {
   "name": "roffatistics",
-  "version": "0.33.0",
+  "version": "0.34.0",
   "description": "Interactive map-based data visualization for the Netherlands",
   "type": "module",
   "scripts": {
