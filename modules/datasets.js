@@ -286,7 +286,7 @@ const INFO = {
     formula: 'gemiddelde wegafstand in km, gemiddeld over de inwoners (CBS nabijheidsstatistiek)',
     source: [SRC.kwb2025],
     year: '2025 (kerncijfers-tabel)',
-    caveats: ['Alleen grote supermarkten volgens de CBS-definitie; kleine buurtwinkels tellen niet mee.'],
+    caveats: ['Alleen grote supermarkten volgens de CBS-definitie: een winkel met meerdere soorten dagelijkse artikelen en minimaal 150 m² oppervlakte. Kleinere buurtwinkels tellen niet mee.'],
   },
 };
 
