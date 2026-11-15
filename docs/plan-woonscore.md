@@ -34,6 +34,10 @@ gemeente score.
   (empirical Bayes, weight n / (n + k)) before the percentile is taken. The
   modal shows a "weinig inwoners" badge.
 
+- *Geen woonwijk* (W7, 15 Nov 2026): business, port, recreation and empty
+  wijken/buurten (`modules/woongebied.js`, from inwoners, woningvoorraad,
+  niet-woningvoorraad and bedrijfsvestigingen) are no peers and get no score.
+
 **Combine:** score = 100 × Σ wᵢ·fᵢ / Σ wᵢ over the metrics that have data.
 An area needs ≥ 60 % of the weight covered, otherwise "onvoldoende data"
 (hatched, as no-data is now).

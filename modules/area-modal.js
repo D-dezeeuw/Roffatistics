@@ -121,6 +121,13 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
         ${infoButton('woonscore', 'Woonscore')}</div>
       ${whyHtml(ws)}` : '';
 
+  // Business, port or empty areas (woongebied.js): no Woonscore and no rank.
+  const wg = d.woongebied;
+  const nonres = wg && !wg.residential
+    ? `<div class="area-score area-nonres"><span class="area-score-num" aria-hidden="true">—</span>
+        <span><strong>${esc(wg.label)}</strong><small>${esc(wg.facts)}. Telt niet mee in de Woonscore, de rangen en de ranglijst van andere ${lvl}.</small></span>
+        ${infoButton('woongebied', 'Geen woonwijk')}</div>` : '';
+
   const chips = d.notable.length
     ? `<section class="area-sec"><h3>Opvallend</h3><ul class="area-chips">${d.notable.map(e =>
         `<li class="area-chip is-${e.higherIsBetter == null ? 'neutral' : (e.side === 'high') === e.higherIsBetter ? 'good' : 'bad'}" title="${esc(`${e.title}: ${formatValue(e.value, e.key, d.mode)}`)}">${esc(e.text)}</li>`).join('')}</ul></section>` : '';
@@ -169,7 +176,7 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
         ${peers === 'nederland' ? '' : '<button type="button" class="area-btn" data-area-action="compare">Vergelijk</button>'}
         <button type="button" class="area-btn" data-area-action="copy">Kopieer link</button>
       </div>
-      ${woonscore}${overall}${chips}
+      ${nonres}${woonscore}${overall}${chips}
       ${extras.length ? `<section class="area-sec"><div class="area-extras">${extras.join('')}</div></section>` : ''}
       ${table}${children}
     </div>`;

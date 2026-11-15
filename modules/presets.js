@@ -4,6 +4,7 @@
 import { DATASETS, DATASET_KEYS } from './datasets.js';
 import { scoreAreas, MIN_COVERAGE } from './score.js';
 import { DETAIL_KEYS, withDetailShares } from './herkomst-gemeente.js';
+import { classifyWoongebied } from './woongebied.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 
@@ -141,10 +142,18 @@ export function availableKeys(areas) {
 export function scoreWithPreset(areas, preset = DEFAULT_PRESET, { parents = null } = {}) {
   const raw = typeof preset === 'string' ? PRESETS[preset] : preset;
   if (!raw || !areas?.length) return { factors: [], results: [] };
-  const p = resolveTargets(raw, areas);
-  const factors = resolvePreset(p, availableKeys(areas));
+  // Non-residential wijken/buurten (woongebied.js) are no peers: they get no
+  // score and do not move the percentiles or quantile targets of the others.
+  const kinds = areas.map(a => classifyWoongebied(a.values, a.code));
+  const peers = areas.filter((_, i) => kinds[i].residential);
+  const p = resolveTargets(raw, peers);
+  const factors = resolvePreset(p, availableKeys(peers));
   const shrinkKeys = p.shrink && parents ? factors.map(f => f.key).filter(k => RATE_KEYS.includes(k)) : [];
-  const results = scoreAreas(areas, factors, { parents, shrinkKeys, filters: (p.filters ?? []).filter(f => !ORIGIN_KEYS.includes(f.key)), minCoverage: p.minCoverage ?? MIN_COVERAGE });
+  const scored = peers.length ? scoreAreas(peers, factors, { parents, shrinkKeys, filters: (p.filters ?? []).filter(f => !ORIGIN_KEYS.includes(f.key)), minCoverage: p.minCoverage ?? MIN_COVERAGE }) : [];
+  if (peers.length === areas.length) return { factors, results: scored };
+  let j = 0;
+  const results = areas.map((a, i) => (kinds[i].residential ? scored[j++]
+    : { code: a.code, score: null, coverage: 0, shrunk: false, filtered: false, factors: [], nonResidential: kinds[i].kind }));
   return { factors, results };
 }
 

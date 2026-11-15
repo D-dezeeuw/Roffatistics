@@ -10,6 +10,7 @@ import { originSplit } from './herkomst.js';
 import { explain, scoreRank } from './score.js';
 import { themeBreakdown } from './presets.js';
 import { areaEducationMix } from './dashboard-data.js';
+import { classifyWoongebied, isResidentialArea, woongebiedFacts } from './woongebied.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -161,7 +162,11 @@ const byName = (a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')
 export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
   if (!area) return null;
   const level = levelOf(area);
-  const peers = (level === 'buurt' ? areas?.buurten : areas?.wijken) ?? [];
+  // Peers are the woongebieden of the level (woongebied.js): business and port
+  // areas do not move anyone's rank. A non-residential area is still compared
+  // against them (peerRank adds its own value) but gets no overall rank.
+  const woongebied = classifyWoongebied(area.values, area.code);
+  const peers = ((level === 'buurt' ? areas?.buurten : areas?.wijken) ?? []).filter(isResidentialArea);
   const entries = [];
   for (const key of DATASET_KEYS) {
     if (DATASETS[key].unit === 'score') continue;   // the Woonscore has its own block
@@ -181,7 +186,7 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
       outlier: buildScale(peerValues).outlierSide(value),
     });
   }
-  const notable = entries.filter(e => e.extreme)
+  const notable = !woongebied.residential ? [] : entries.filter(e => e.extreme)
     .sort((a, b) => a.sideRank / a.of - b.sideRank / b.of || a.sideRank - b.sideRank);
   const v = area.values ?? {};
   const population = isNum(v.population) ? v.population : null;
@@ -194,7 +199,8 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
     children: level === 'wijk' ? (areas?.buurten ?? []).filter(b => b.parent === area.code).sort(byName) : [],
     peers: peers.length,
     entries, notable,
-    overall: overallRank(area.code, peers, mode),
+    woongebied: { ...woongebied, facts: woongebiedFacts(v) },
+    overall: woongebied.residential ? overallRank(area.code, peers, mode) : null,
     woonscore: woonscoreDetail(area, peers),
     crimeTrend: isNum(v.crimeTrend) ? v.crimeTrend : null,
     origin: originSplit(v),

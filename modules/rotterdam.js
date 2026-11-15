@@ -8,6 +8,7 @@ import { buildScale, getScaleMethod, outlierLabel, NO_DATA_COLOR, OUTLIER_COLOR 
 import { datasetValue, DATASETS } from './datasets.js';
 import { createScoreLabels } from './score-labels.js';
 import { formatValue } from './dashboard-data.js';
+import { nonResidentialLabel } from './woongebied.js';
 
 export { NO_DATA_COLOR };
 export const MASK_COLOR      = '#0d0a14';
@@ -55,11 +56,12 @@ export function buildMaskRings(geojson) {
 }
 
 /** Tooltip HTML: name plus the formatted value or "geen data", and the outlier note for `side` ('high'|'low'). */
-export function tooltipHtml(name, value, format = v => v.toLocaleString('nl-NL'), side = null) {
+export function tooltipHtml(name, value, format = v => v.toLocaleString('nl-NL'), side = null, note = null) {
   const v = toNumber(value);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const note = v != null && side ? `<br><span class="tt-outlier">${outlierLabel(side)}</span>` : '';
-  return `<strong>${esc(name)}</strong><br><span class="tt-value">${v == null ? 'geen data' : esc(format(v))}</span>${note}`;
+  const mark = v != null && side ? `<br><span class="tt-outlier">${outlierLabel(side)}</span>` : '';
+  const extra = note ? `<br><span class="tt-note">${esc(note)}</span>` : '';
+  return `<strong>${esc(name)}</strong><br><span class="tt-value">${v == null ? 'geen data' : esc(format(v))}</span>${mark}${extra}`;
 }
 
 // ── Leaflet layers ────────────────────────────────────────────────────────────
@@ -85,7 +87,7 @@ function makeAreaLayer(geojson, list, kind, onSelect) {
     style: () => ({ color: kind === 'wijk' ? ACCENT : '#ea580c', weight: kind === 'wijk' ? 1.2 : 0.6, opacity: 0.7, fillColor: NO_DATA_COLOR, fillOpacity: 0.45 }),
     onEachFeature(feature, fl) {
       const area = lookup.get(feature.properties.statcode);
-      fl.bindTooltip(() => tooltipHtml(area.name, valueOf(area), v => formatValue(v, dataset, crimeMode), scales[kind].outlierSide(valueOf(area))), { sticky: true, direction: 'top', className: 'area-tooltip' });
+      fl.bindTooltip(() => tooltipHtml(area.name, valueOf(area), v => formatValue(v, dataset, crimeMode), scales[kind].outlierSide(valueOf(area)), nonResidentialLabel(area)), { sticky: true, direction: 'top', className: 'area-tooltip' });
       fl.on({
         mouseover(e) { e.target.setStyle({ weight: 2.5, color: '#ea580c', opacity: 1 }); e.target.bringToFront(); },
         mouseout(e)  { e.target.setStyle(strokeFor(kind, area)); },
