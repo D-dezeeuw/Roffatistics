@@ -24,6 +24,8 @@ const CRIME_KEYS = Object.keys(CRIME_CATEGORIES);
 const SUM_KEYS = ['population', 'totalCrimes', ...CRIME_KEYS.map(k => `${k}Count`), 'housingStock', 'nonResidentialStock'];
 const POP_KEYS = ['pop15to24', 'pop25to44', 'pop45to64', 'pop65plus', 'hhWithKidsPct', 'highEdu', 'medEdu', 'lowEdu',
   'nonWesternPct', 'originDutchPct', 'originEuropePct', 'bornAbroadPct', 'avgIncome', 'welfarePer1000', 'woonscore'];
+// Facilities and setting the Jouw dashboard reads (W19); population-weighted like POP_KEYS.
+const PERSONAL_KEYS = ['singleHhPct', 'density', 'waterPct', 'horeca1km', 'distStation', 'distSchool', 'distKinderopvang', 'distGP', 'distSupermarket'];
 const HOUSING_KEYS = ['wozValue', 'ownerOccupiedPct', 'rentalPct', 'oldBuildPct', 'modernBuildPct', 'newBuildPct'];
 
 /**
@@ -40,6 +42,7 @@ export function aggregateAreas(areas) {
     out[k] = vals.length ? vals.reduce((s, v) => s + v, 0) : null;
   }
   for (const k of POP_KEYS) out[k] = weightedMean(list, k, 'population');
+  for (const k of PERSONAL_KEYS) { const v = weightedMean(list, k, 'population'); if (v != null) out[k] = v; }
   const withStock = list.filter(a => isNum(a.values?.housingStock) && a.values.housingStock > 0);
   for (const k of HOUSING_KEYS) out[k] = withStock.length ? weightedMean(withStock, k, 'housingStock') ?? weightedMean(list, k) : weightedMean(list, k);
   const pop = out.population;
@@ -224,11 +227,11 @@ export function buildContext({ scope = 'rotterdam', units = [], scored = units, 
 const subjectName = ctx => ctx.selected?.name ?? ctx.refName;
 const subjectValues = ctx => ctx.selected?.values ?? ctx.ref;
 
-function kpiHtml(value, label, refText = '') {
+export function kpiHtml(value, label, refText = '') {
   return `<div class="dp-kpi"><span class="dp-kpi-value">${esc(value)}</span><span class="dp-kpi-label">${esc(label)}</span>${refText ? `<span class="dp-kpi-ref">${esc(refText)}</span>` : ''}</div>`;
 }
 
-function listItems(rows, fmt, selected) {
+export function listItems(rows, fmt, selected) {
   return rows.map((r, i) => `<li class="dp-li${r.code === selected ? ' is-selected' : ''}"${r.code ? ` data-code="${esc(r.code)}" role="button" tabindex="0"` : ''}>
       <span class="dp-li-rank">${i + 1}</span><span class="dp-li-name">${esc(r.name)}</span><span class="dp-li-val">${esc(fmt(r.value))}</span></li>`).join('');
 }
@@ -511,7 +514,7 @@ function wozTenure(ctx) {
   };
 }
 
-const bouwParts = x => (isNum(x?.oldBuildPct) && isNum(x?.modernBuildPct)
+export const bouwParts = x => (isNum(x?.oldBuildPct) && isNum(x?.modernBuildPct)
   ? [{ label: 'Voor 1945', value: x.oldBuildPct }, { label: '1945–2004', value: Math.max(0, 100 - x.oldBuildPct - x.modernBuildPct) }, { label: '2005+', value: x.modernBuildPct }]
   : null);
 
@@ -554,9 +557,12 @@ export function dashboardLayout(ctx) {
   }));
 }
 
-/** The grid HTML for dashboardLayout() rows. */
-export function boardHtml(rows) {
-  return `<div class="dash-board">${rows.map(row => `
+/** Algemeen panel builders by id, for reuse in the Jouw dashboard (dashboard-personal.js). */
+export const PANEL_BUILDERS = Object.freeze(Object.fromEntries(CATEGORIES.flatMap(c => c.panels)));
+
+/** The grid HTML for dashboardLayout() rows; `personal` gives the blue Jouw-dashboard variant. */
+export function boardHtml(rows, { personal = false } = {}) {
+  return `<div class="dash-board${personal ? ' is-personal' : ''}">${rows.map(row => `
     <h3 class="dash-cat" id="dash-cat-${row.key}">${esc(row.title)}</h3>${row.panels.map(p => `
     <article class="dash-panel${p.body == null ? ' is-na' : ''}" data-panel="${p.id}" aria-labelledby="dash-p-${p.id}">
       <header class="dash-panel-head"><h4 id="dash-p-${p.id}">${esc(p.title)}</h4>${p.caption ? `<p class="dash-panel-cap">${esc(p.caption)}</p>` : ''}</header>

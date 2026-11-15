@@ -2,7 +2,8 @@
 // This module loads the data for the scope and paints; the panels themselves
 // are pure (dashboard-panels.js). Rotterdam compares wijken, Nederland compares
 // gemeenten (aggregated from the national wijk file). A selected area is
-// compared with the Rotterdam / Nederland figure.
+// compared with the Rotterdam / Nederland figure. Two tabs (W19): Algemeen and
+// Jouw dashboard (dashboard-personal.js, blue), the latter from the wizard answers.
 import { getState, setState, onStateChange } from './state.js';
 import { openAreaModal } from './area-modal.js';
 import { loadRotterdamAreas } from './areas.js';
@@ -11,6 +12,9 @@ import { loadGemeenteRegio } from './herkomst-regio.js';
 import { loadBouwjaar, isBouwLoaded } from './bouwjaar-pc4.js';
 import { buildContext, dashboardLayout, boardHtml, aggregateGemeenten, gemeenteCodeOf } from './dashboard-panels.js';
 import { sumRegioEntries } from './dashboard-herkomst.js';
+import { personalDashboardSpec, personalLayout, personalContext, standardScores } from './dashboard-personal.js';
+import { decodeAnswers, presetFromScore, scoreKind } from './wizard-model.js';
+import { openWizard } from './wizard.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const ROTTERDAM_GM = 'GM0599';
@@ -21,6 +25,7 @@ let nlWijken = null;      // all NL wijken (scored)
 let nlCache = null;       // { key, gemeenten }
 let regio = null;         // Map(GM → herkomst-regio entry) once loaded
 let regioAll = null;      // the summed NL entry
+let stdCache = null;      // { key, map }: Standaard Woonscore per unit, for Jouw score vs Standaard
 
 export function initDashboard() {
   root = document.getElementById('dashboard-root');
@@ -35,7 +40,7 @@ export function initDashboard() {
     if (state.view !== 'dashboard') { hideTip(); return; }
     if (changed.includes('score')) nlCache = null;   // Woonscore rescored in place
     if (changed.some(k => k === 'view' || k === 'scope' || k === 'score')) render();
-    else if (changed.includes('area')) paint();
+    else if (changed.includes('area') || changed.includes('dtab')) paint();
   });
 
   root.addEventListener('click', onActivate);
@@ -53,6 +58,8 @@ export function initDashboard() {
 function onActivate(e) {
   const action = e.target.closest?.('[data-action]');
   if (action?.dataset.action === 'clear-area') { setState({ area: null }, { source: 'dashboard' }); return; }
+  if (action?.dataset.action === 'tab') { setState({ dtab: action.dataset.tab }, { source: 'dashboard' }); return; }
+  if (action?.dataset.action === 'open-wizard') { openWizard({ trigger: action }); return; }
   const el = e.target.closest?.('[data-code]');
   const code = el?.dataset.code;
   if (!code) return;
@@ -128,14 +135,41 @@ function contextFor(state) {
   });
 }
 
+function standardFor(state, ctx) {
+  const key = `${state.scope}:${isBouwLoaded()}:${ctx.scored.length}`;
+  if (stdCache?.key !== key) stdCache = { key, map: standardScores(ctx.scored, { gemeenten: state.scope === 'nederland' }) };
+  return stdCache.map;
+}
+
+function tabsHtml(tab, personal) {
+  const btn = (id, label, extra = '') => `<button type="button" role="tab" class="dash-tab dash-tab-${id}${tab === id ? ' is-active' : ''}" aria-selected="${tab === id}" data-action="tab" data-tab="${id}"${extra}>${label}</button>`;
+  return `<div class="dash-tabs" role="tablist" aria-label="Dashboard">${btn('algemeen', 'Algemeen')}${btn('jouw', 'Jouw dashboard', personal ? '' : ' title="Vul eerst de wizard in"')}</div>`;
+}
+
 function paint() {
   if (!root) return;
   const state = getState();
   const ctx = contextFor(state);
   if (!ctx) return;
-  const title = state.scope === 'nederland' ? 'Nederland in cijfers' : 'Rotterdam in cijfers';
-  const sub = ctx.selected
+  const tab = state.dtab === 'jouw' ? 'jouw' : 'algemeen';
+  const personal = scoreKind(state.score) === 'custom';
+  const tabs = tabsHtml(tab, personal);
+  const compare = ctx.selected
     ? `<p>${esc(ctx.selected.name)} vergeleken met ${esc(ctx.refName)} · <button type="button" class="dash-btn dash-btn-small" data-action="clear-area">Toon heel ${esc(ctx.refName)}</button></p>`
-    : `<p>${ctx.units.length} ${ctx.unitWord} · kies een gebied op de kaart of in een lijst om het met ${esc(ctx.refName)} te vergelijken</p>`;
-  root.innerHTML = `<header class="dash-head"><h2>${title}</h2>${sub}</header>${boardHtml(dashboardLayout(ctx))}`;
+    : null;
+  if (tab === 'jouw') {
+    if (!personal) {
+      root.innerHTML = `${tabs}<div class="placeholder-card dash-message dash-personal-hint"><h2>Jouw dashboard</h2><p>Vul eerst de wizard in. Daarna zie je hier jouw beste matches en de cijfers die bij jouw wensen horen.</p><button type="button" class="dash-btn dash-btn-personal" data-action="open-wizard">Vind jouw ideale woonplek</button></div>`;
+      return;
+    }
+    const answers = decodeAnswers(state.score);
+    const spec = personalDashboardSpec(answers, presetFromScore(state.score));
+    const pc = personalContext(ctx, { answers, std: standardFor(state, ctx), weights: spec.weights });
+    const sub = compare ?? `<p>Op basis van jouw antwoorden in de wizard · ${ctx.units.length} ${ctx.unitWord} · <button type="button" class="dash-btn dash-btn-small" data-action="open-wizard">Wensen aanpassen</button></p>`;
+    root.innerHTML = `${tabs}<header class="dash-head dash-head-personal"><h2>Jouw dashboard · ${state.scope === 'nederland' ? 'Nederland' : 'Rotterdam'}</h2>${sub}</header>${boardHtml(personalLayout(ctx, spec, pc), { personal: true })}`;
+    return;
+  }
+  const title = state.scope === 'nederland' ? 'Nederland in cijfers' : 'Rotterdam in cijfers';
+  const sub = compare ?? `<p>${ctx.units.length} ${ctx.unitWord} · kies een gebied op de kaart of in een lijst om het met ${esc(ctx.refName)} te vergelijken</p>`;
+  root.innerHTML = `${tabs}<header class="dash-head"><h2>${title}</h2>${sub}</header>${boardHtml(dashboardLayout(ctx))}`;
 }

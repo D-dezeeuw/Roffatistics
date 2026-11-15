@@ -15,7 +15,7 @@ const answers = {
 };
 const score = encodeAnswers(answers);
 const snap = {
-  state: { scope: 'rotterdam', view: 'list', dataset: 'crimeRate', crime: 'abs', area: 'WK059901', score },
+  state: { scope: 'rotterdam', view: 'list', dataset: 'crimeRate', crime: 'abs', area: 'WK059901', score, dtab: 'jouw' },
   map: { lat: 51.922501234, lng: 4.479171234, zoom: 12.5 },
   modal: true,
   list: { level: 'buurten', rankKey: 'woonscore', sort: { column: 'rank', dir: 'desc' } },
@@ -29,7 +29,7 @@ const params = h => Object.fromEntries(new URLSearchParams(h.replace(/^#/, '')))
 describe('share-link: defaults', () => {
   it('ticks every Weergave part and Jouw wensen, never a sensitive part', () => {
     const d = defaultShareOptions(snap);
-    for (const k of ['view', 'scope', 'dataset', 'map', 'area', 'list', 'basemap', 'theme', 'answers']) assert.equal(d[k], true, k);
+    for (const k of ['view', 'scope', 'dataset', 'map', 'area', 'list', 'basemap', 'theme', 'dtab', 'answers']) assert.equal(d[k], true, k);
     for (const k of SENSITIVE_KEYS) assert.equal(d[k], false, k);
     assert.deepEqual(availableParts(snap), { ...all });
   });
@@ -58,7 +58,7 @@ describe('share-link: defaults', () => {
 describe('share-link: each checkbox toggles exactly its part', () => {
   const expect = {
     view: ['view'], scope: ['scope'], dataset: ['dataset', 'crime'], area: ['area', 'modal'], map: ['map'],
-    list: ['lvl', 'rank', 'sort'], basemap: ['basemap'], theme: ['theme'], answers: ['score'],
+    list: ['lvl', 'rank', 'sort'], basemap: ['basemap'], theme: ['theme'], dtab: ['dtab'], answers: ['score'],
   };
   for (const [key, keys] of Object.entries(expect)) {
     it(`${key} → ${keys.join(', ')}`, () => {
@@ -91,7 +91,7 @@ describe('share-link: round trip', () => {
     const url = buildShareUrl(snap, { ...all }, 'https://x.test/r#scope=nederland');
     assert.match(url, /^https:\/\/x\.test\/r#scope=rotterdam&view=list/);
     const back = parseShareHash(url.slice(url.indexOf('#')));
-    assert.deepEqual(back.state, { scope: 'rotterdam', view: 'list', dataset: 'crimeRate', crime: 'abs', area: 'WK059901', score });
+    assert.deepEqual(back.state, { scope: 'rotterdam', view: 'list', dataset: 'crimeRate', crime: 'abs', area: 'WK059901', score, dtab: 'jouw' });
     assert.deepEqual(back.map, { lat: 51.9225, lng: 4.47917, zoom: 12.5 });
     assert.equal(back.modal, true);
     assert.deepEqual(back.list, snap.list);
@@ -112,6 +112,16 @@ describe('share-link: round trip', () => {
       assert.deepEqual(back.state, parseHash(h), h);
       assert.equal(hasShareExtras(back), false, h);
     }
+  });
+  it('dtab=jouw round-trips (W19); Algemeen is the default and stays out of the link', () => {
+    assert.equal(params(buildShareHash(snap, { ...none, dtab: true })).dtab, 'jouw');
+    assert.equal(parseShareHash(buildShareHash(snap, { ...none, dtab: true })).state.dtab, 'jouw');
+    const alg = { ...snap, state: { ...snap.state, dtab: 'algemeen' } };
+    assert.equal(availableParts(alg).dtab, false);
+    assert.equal('dtab' in params(buildShareHash(alg, { ...all })), false);
+    assert.equal(partSummary(snap, 'dtab'), 'Jouw dashboard');
+    assert.equal(partSummary(alg, 'dtab'), 'Algemeen');
+    assert.ok(SHARE_GROUPS[0].parts.some(p => p.key === 'dtab'), 'dtab under Weergave');
   });
   it('drops unreadable view keys', () => {
     const back = parseShareHash('#map=999,4,12&modal=1&lvl=straten&rank=nope&sort=x.up&basemap=evil&theme=neon');

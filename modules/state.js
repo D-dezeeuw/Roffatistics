@@ -7,6 +7,8 @@ import { shareableScore, restoreLocalScore, isShareOf, SHARE_NONE } from './wiza
 
 export const SCOPES = Object.freeze(['rotterdam', 'nederland']);
 export const VIEWS  = Object.freeze(['map', 'dashboard', 'list']);
+/** Dashboard tab (W19): Algemeen or Jouw dashboard; in the hash only as `dtab=jouw`. */
+export const DASH_TABS = Object.freeze(['algemeen', 'jouw']);
 export const SCOPE_STORAGE_KEY = 'roffatistics.scope';
 export const CRIME_STORAGE_KEY = 'roffatistics.crime';
 /** Active Woonscore preset (#score=…, see wizard-model.js); restored when the hash has none. */
@@ -15,7 +17,7 @@ const SCORE_RE = /^[a-z0-9.]{1,120}$/;
 /** Retired layer keys still accepted in links: `jouwscore` is now the Woonscore with the `score` preset (v0.22.0). */
 export const LEGACY_DATASETS = Object.freeze({ jouwscore: 'woonscore' });
 // crime: 'rate' (per 1.000 inwoners) | 'abs' (registered offences); see datasets.js datasetFor().
-export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate', score: null });
+export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate', score: null, dtab: 'algemeen' });
 
 const AREA_RE = /^(PV\d{2}|GM\d{4}|WK\d{4}[0-9A-Z]{2}|BU\d{4}[0-9A-Z]{4})$/;   // Amsterdam: WK0363AA, BU0363AA01
 
@@ -28,6 +30,7 @@ export function sanitizePatch(patch = {}) {
   const dataset = resolveLayerKey(LEGACY_DATASETS[patch.dataset] ?? patch.dataset);
   if (DATASET_KEYS.includes(dataset))       out.dataset = dataset;
   if (CRIME_MODES.includes(patch.crime))    out.crime   = patch.crime;
+  if (DASH_TABS.includes(patch.dtab))       out.dtab    = patch.dtab;
   if ('score' in patch) {
     const sc = patch.score == null ? '' : String(patch.score).trim().toLowerCase();
     if (sc === '') out.score = null;
@@ -45,12 +48,12 @@ export function sanitizePatch(patch = {}) {
 export function parseHash(hash) {
   const params = new URLSearchParams(String(hash ?? '').replace(/^#/, ''));
   const raw = {};
-  for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score']) if (params.has(key)) raw[key] = params.get(key);
+  for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score', 'dtab']) if (params.has(key)) raw[key] = params.get(key);
   return sanitizePatch(raw);
 }
 
 /**
- * State → '#scope=…&view=…[&dataset=…][&area=…][&crime=abs][&score=…]'. The default
+ * State → '#scope=…&view=…[&dataset=…][&area=…][&crime=abs][&score=…][&dtab=jouw]'. The default
  * dataset (Woonscore) and crime mode are left out, so a hash without
  * dataset opens on the Woonscore.
  */
@@ -62,6 +65,7 @@ export function serializeHash(state, shareOpts = shareChoice) {
   // Sensitive parts (gemeenschap, opleiding, inkomen) only when ticked in "Deellink maken" (default: none).
   const shared = state.score && SCORE_RE.test(state.score) ? shareableScore(state.score, shareOpts) : null;
   if (shared) params.set('score', shared);
+  if (state.dtab === 'jouw') params.set('dtab', 'jouw');
   return `#${params}`;
 }
 

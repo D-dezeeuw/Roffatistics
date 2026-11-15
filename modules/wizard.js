@@ -280,7 +280,8 @@ async function render({ focus = null } = {}) {
 function applyAnswers() {
   const s = encodeAnswers(answers);
   saveAnswers(storage(), answers);
-  setState({ score: s || null, dataset: 'woonscore' }, { source: 'wizard' });
+  // A finished wizard opens the dashboard on "Jouw dashboard" (W19).
+  setState({ score: s || null, dataset: 'woonscore', ...(s ? { dtab: 'jouw' } : {}) }, { source: 'wizard' });
 }
 
 function clearStep(key) {
