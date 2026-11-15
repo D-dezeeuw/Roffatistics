@@ -1,6 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  color-scheme: dark;          /* native controls, option popups and scrollbars render dark */
   --bg-base:        #0d0a14;
   --bg-surface:     #141020;
   --bg-surface-alt: #0f0d1a;
@@ -8,7 +9,7 @@
   --accent-orange:  #ea580c;
   --gradient-accent: linear-gradient(135deg, var(--accent-purple), var(--accent-orange));
   --text-primary:   #f1f0f5;
-  --text-muted:     #8b8a96;
+  --text-muted:     #9d9ca9;   /* ≥ 4.5:1 on every surface, incl. the 'geen data' bar */
   --radius:         8px;
   --nav-h:          48px;
   --footer-h:       48px;
@@ -262,6 +263,13 @@ body {
 }
 
 .view[hidden] { display: none !important; }
+
+/* Views set their own text colour and form controls inherit it, so nothing
+   falls back to the UA's black text on the dark surfaces. Zero specificity:
+   component rules still win. */
+.view { color: var(--text-primary); }
+:where(.view) :where(button, select, input, textarea, table, th, td) { color: inherit; }
+option, optgroup { color: var(--text-primary); background: var(--bg-surface); }
 
 #view-map {
   display: flex;
@@ -993,6 +1001,8 @@ footer {
 }
 @media (prefers-reduced-motion: reduce) {
   .list-table tbody tr.is-flash > * { animation: none; background: rgba(234, 88, 12, 0.35); }
+}
+
 /* ─── Search modal (modules/search.js) ───────────────────── */
 
 .search-modal {
@@ -1191,7 +1201,7 @@ footer {
 
 .dash-chart { width: 100%; }
 .dash-svg { display: block; overflow: visible; font-family: var(--font-data); font-size: 11px; }
-.dash-svg text { fill: var(--text-muted); }
+.dash svg text { fill: var(--text-muted); }   /* SVG text defaults to black */
 .dash-svg .dash-bar-label { fill: var(--text-primary); font-family: var(--font-ui); }
 .dash-svg .dash-bar-value { fill: var(--text-primary); font-size: 10px; }
 .dash-svg .dash-bar-nodata { font-style: italic; font-size: 10px; }
