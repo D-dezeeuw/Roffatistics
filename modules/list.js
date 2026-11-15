@@ -55,6 +55,20 @@ export function setNationalRows(level, rows) {
   if (isVisible() && getState().scope === 'nederland') render();
 }
 
+/** The Ranglijst choices a share link can carry (share-link.js): level of the current scope, rank key, sort. */
+export function getListOptions() {
+  return { level: ui.level[getState().scope], rankKey: ui.rankKey, sort: { ...ui.sort } };
+}
+
+/** Applies shared Ranglijst choices; unknown values are ignored. Re-renders when the list is visible. */
+export function setListOptions({ level, rankKey, sort } = {}) {
+  const scope = getState().scope;
+  if (level && LEVELS[scope].some(l => l.key === level)) ui.level[scope] = level;
+  if (rankKey === 'overall' || DATASET_KEYS.includes(rankKey)) ui.rankKey = rankKey;
+  if (sort && /^[A-Za-z0-9]{1,40}$/.test(sort.column ?? '') && (sort.dir === 'asc' || sort.dir === 'desc')) ui.sort = { column: sort.column, dir: sort.dir };
+  if (isVisible()) render();
+}
+
 /** Mounts the view once; renders lazily when the list view is (or becomes) visible. */
 export function initList(root = document.getElementById('view-list')) {
   if (!root || ui.root) return;
