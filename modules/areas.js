@@ -22,7 +22,11 @@ export const WIJK_COLUMNS = Object.freeze({
   region:              'WijkenEnBuurten',                    // 'WK059901  ' — padded with spaces
   population:          'AantalInwoners_5',                   // aantal
   age65plus:           'k_65JaarOfOuder_12',                 // aantal
+  originDutch:         'Nederland_17',                       // herkomstland Nederland, aantal
+  originEurope:        'EuropaExclusiefNederland_18',        // herkomstland Europa excl. NL, aantal
   originOutsideEurope: 'BuitenEuropa_19',                    // herkomstland buiten Europa, aantal
+  bornAbroadEurope:    'EuropaExclusiefNederland_23',        // geboren buiten NL, herkomst Europa excl. NL, aantal
+  bornAbroadOutside:   'BuitenEuropa_24',                    // geboren buiten NL, herkomst buiten Europa, aantal
   density:             'Bevolkingsdichtheid_34',             // inwoners per km²
   wozValue:            'GemiddeldeWOZWaardeVanWoningen_39',  // ×€1,000
   lowEdu:              'BasisonderwijsVmboMbo1_67',          // aantal, hoogst behaald
@@ -119,6 +123,7 @@ export function extractAreaValues(row) {
   const low = toNumber(r[C.lowEdu]), med = toNumber(r[C.medEdu]), high = toNumber(r[C.highEdu]);
   const eduTotal = low != null && med != null && high != null ? low + med + high : null;
   const values = Object.fromEntries(DATASET_KEYS.map(k => [k, null]));
+  const abroadE = toNumber(r[C.bornAbroadEurope]), abroadO = toNumber(r[C.bornAbroadOutside]);
   return {
     ...values,
     population,
@@ -128,6 +133,10 @@ export function extractAreaValues(row) {
     wozValue:      toNumber(r[C.wozValue]),
     pop65plus:     share(r[C.age65plus], population),
     nonWesternPct: share(r[C.originOutsideEurope], population),
+    originDutchPct:  share(r[C.originDutch], population),
+    originEuropePct: share(r[C.originEurope], population),
+    // Herkomst Nederland is by definition born in NL, so _23 + _24 is everyone born abroad.
+    bornAbroadPct: abroadE != null && abroadO != null ? share(abroadE + abroadO, population) : null,
     density:       toNumber(r[C.density]),
     ownerOccupiedPct: toNumber(r[C.ownerOccupied]),
     rentalPct:     toNumber(r[C.rental]),
@@ -142,7 +151,8 @@ export function extractAreaValues(row) {
 
 // Value keys taken over together from the fallback year: the education shares
 // come from one triple of counts, so they never mix years.
-const FALLBACK_BUNDLES = [['lowEdu', 'medEdu', 'highEdu']];
+// The herkomst shares travel together too, so the NL/Europa/buiten-Europa split is one year.
+const FALLBACK_BUNDLES = [['lowEdu', 'medEdu', 'highEdu'], ['nonWesternPct', 'originDutchPct', 'originEuropePct', 'bornAbroadPct']];
 
 /**
  * Values from the base-year row, with every field that is null there taken from

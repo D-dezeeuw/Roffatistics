@@ -1,4 +1,5 @@
 import { getState, onStateChange } from './state.js';
+import { originBarHtml } from './herkomst.js';
 
 function cat(data, label) {
   const entry = data?.categories?.find(c => c.label === label);
@@ -47,6 +48,9 @@ export function formatPanelData(data, mode = 'rate') {
     pop65plus:           pct(data?.pop65plus),
     migrationBalance:    sign(data?.migrationBalance),
     nonWesternPct:       pct(data?.nonWesternPct),
+    originDutchPct:      pct(data?.originDutchPct),
+    originEuropePct:     pct(data?.originEuropePct),
+    bornAbroadPct:       pct(data?.bornAbroadPct),
     // Rotterdam wijk/buurt only (86165NED, police 47018NED)
     dataYears:           data?.dataYears || '—',
     ownerOccupiedPct:    pct(data?.ownerOccupiedPct),
@@ -79,6 +83,9 @@ async function setSlot(prefix, name, code, data) {
   setValue(`${prefix}.name`,              name ?? '');
   setValue(`${prefix}.code`,              code ?? '');
   for (const [key, text] of Object.entries(fmt)) setValue(`${prefix}.${key}`, text);
+  // Mini stacked bar NL / Europa / buiten Europa: plain DOM, spektrum only binds text.
+  const bar = globalThis.document?.querySelector(`[data-origin-bar="${prefix}"]`);
+  if (bar) { bar.innerHTML = originBarHtml(data); bar.hidden = !bar.innerHTML; }
 }
 
 export async function showPanel({ name, code, data }) {

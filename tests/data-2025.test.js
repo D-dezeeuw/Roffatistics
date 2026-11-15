@@ -175,9 +175,9 @@ describe('new layers and dropdown groups', () => {
     assert.ok(datasetInScope('density', 'nederland'), 'Nederland rows have density');
     assert.ok(!datasetInScope('nope', 'rotterdam'));
   });
-  it('groups every dataset into the four sections, in order', () => {
+  it('groups every dataset into the five sections, in order', () => {
     const groups = groupDatasets();
-    assert.deepEqual(groups.map(g => g.label), ['Bevolking', 'Welvaart & wonen', 'Veiligheid', 'Voorzieningen']);
+    assert.deepEqual(groups.map(g => g.label), ['Bevolking', 'Herkomst', 'Welvaart & wonen', 'Veiligheid', 'Voorzieningen']);
     assert.deepEqual(groups.flatMap(g => g.datasets.map(d => d.key)).sort(), [...DATASET_KEYS].sort());
     assert.deepEqual(groups.find(g => g.key === 'veiligheid').datasets.map(d => d.key), ['crimeRate', 'crimeBurglary', 'crimeBike', 'crimePickpocket', 'crimeViolence']);
     assert.equal(groups.find(g => g.key === 'voorzieningen').scope, 'rotterdam');

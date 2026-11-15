@@ -640,6 +640,15 @@ footer {
   border-bottom: 1px solid rgba(124, 58, 237, 0.2);
 }
 
+/* ─── Panel herkomst bar (NL / Europa / buiten Europa) ───── */
+
+.panel-origin-bar { margin: 0.2rem 0 0.5rem; }
+.origin-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
+.origin-seg { display: block; height: 100%; min-width: 1px; }
+.origin-legend { display: flex; flex-wrap: wrap; gap: 0.2rem 0.7rem; margin-top: 0.3rem; font-size: 0.68rem; color: var(--text-muted); }
+.origin-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.origin-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+
 /* ─── Panel stats ────────────────────────────────────────── */
 
 .panel-stats {

@@ -45,6 +45,8 @@ export const CBS_COLUMNS = Object.freeze({
   age65to80:        'k_65Tot80Jaar_8',                    // aantal (was % before the 2024 restructure)
   age80plus:        'k_80JaarOfOuder_9',                  // aantal
   migrationBalance: 'Migratiesaldo_46',                   // aantal (immigratie − emigratie)
+  originDutch:      'Nederland_14',                       // herkomstland Nederland, aantal
+  originEurope:     'EuropaExclusiefNederland_15',        // herkomstland Europa excl. NL, aantal
   originOutsideEurope: 'BuitenEuropa_16',                 // herkomstland buiten Europa, aantal; replaces "niet-westerse migratieachtergrond"
 });
 
@@ -78,6 +80,8 @@ export function normalizeProvinces(rows) {
       migrationBalance: r[C.migrationBalance] ?? null,
       // Herkomst buiten Europa (%) — key kept as nonWesternPct for the UI wiring
       nonWesternPct:    pct(r[C.originOutsideEurope], population),
+      originDutchPct:   pct(r[C.originDutch], population),
+      originEuropePct:  pct(r[C.originEurope], population),
     };
   });
 }
@@ -140,6 +144,13 @@ const FALLBACK_NOTE = 'Ontbreekt het 2025-cijfer voor een gebied, dan wordt het 
 const CRIME_PLACE_NOTE = 'Per inwoner telt de plek van het misdrijf, niet waar daders of slachtoffers wonen: drukke gebieden met weinig bewoners (Centrum, Stadsdriehoek, haven-, winkel- en uitgaansgebieden) komen daardoor hoog uit. De stand Absoluut laat de aantallen zelf zien.';
 const CRIME_MIN_NOTE = 'Geen per-1.000-cijfer voor wijken onder 1.000 en buurten onder 200 inwoners ("geen data"); in de stand Absoluut krijgen ze wel een waarde.';
 const CRIME_SUB_NOTE = 'Telt niet mee in de totaalscore van de Ranglijst (anders weegt criminaliteit vijf keer).';
+const HERKOMST_DEF = 'Herkomst volgt de CBS-definitie (sinds 2022): het eigen geboorteland; voor wie in Nederland is geboren het geboorteland van de moeder, of als zij ook in Nederland is geboren dat van de vader. Wie in Nederland is geboren uit twee in Nederland geboren ouders heeft herkomst Nederland.';
+const HERKOMST_NOTES = [
+  'CBS rondt de wijk- en buurtaantallen af op vijftallen; Nederland, Europa en buiten Europa tellen daardoor niet altijd precies op tot 100 %.',
+  'CBS rekent Turkije en de Kaukasische en Centraal-Aziatische landen van de voormalige Sovjet-Unie tot Azië, dus tot "buiten Europa".',
+  'Landen en landengroepen (Turkije, Marokko, Suriname, Afrika bezuiden de Sahara …) zijn alleen voor heel Rotterdam beschikbaar (Dashboard, CBS 85458NED), niet per wijk of buurt.',
+  'Beschrijvend: telt niet mee in de totaalscore van de Ranglijst.',
+];
 const CRIME_CELL_NOTE = 'De politie laat sommige kleine aantallen weg; een opgetelde categorie is pas "geen data" als alle delen ontbreken.';
 
 const INFO = {
@@ -164,12 +175,33 @@ const INFO = {
     year: '2025 (wijk/buurt) · 2023 (Nederland)',
     caveats: [FALLBACK_NOTE],
   },
+  originDutchPct: {
+    description: 'Het aandeel inwoners met herkomst Nederland: in Nederland geboren, net als beide ouders. ' + HERKOMST_DEF,
+    formula: 'inwoners met herkomst Nederland / inwoners × 100',
+    source: [SRC.kwb2025, SRC.regio],
+    year: '2025 (wijk/buurt) · 2023 (Nederland)',
+    caveats: [...HERKOMST_NOTES, FALLBACK_NOTE],
+  },
+  originEuropePct: {
+    description: 'Het aandeel inwoners met een herkomstland in Europa buiten Nederland (bijvoorbeeld Polen, Duitsland, Bulgarije, Portugal, Oekraïne). ' + HERKOMST_DEF,
+    formula: 'inwoners met herkomst Europa (exclusief Nederland) / inwoners × 100',
+    source: [SRC.kwb2025, SRC.regio],
+    year: '2025 (wijk/buurt) · 2023 (Nederland)',
+    caveats: [...HERKOMST_NOTES, FALLBACK_NOTE],
+  },
   nonWesternPct: {
-    description: 'Het aandeel inwoners met een herkomstland buiten Europa: het eigen geboorteland, of bij in Nederland geborenen dat van de ouders. Beschrijvend: er zit geen oordeel in.',
+    description: 'Het aandeel inwoners met een herkomstland buiten Europa (onder meer Turkije, Marokko, Suriname, de Nederlandse Cariben, Kaapverdië, Indonesië, Syrië). ' + HERKOMST_DEF,
     formula: 'inwoners met herkomst buiten Europa / inwoners × 100',
     source: [SRC.kwb2025, SRC.regio],
     year: '2025 (wijk/buurt) · 2023 (Nederland)',
-    caveats: ['Vervangt de oude CBS-indeling "niet-westerse migratieachtergrond"; niet één op één vergelijkbaar met oudere cijfers.', FALLBACK_NOTE],
+    caveats: ['Vervangt de oude CBS-indeling "niet-westerse migratieachtergrond"; niet één op één vergelijkbaar met oudere cijfers.', ...HERKOMST_NOTES, FALLBACK_NOTE],
+  },
+  bornAbroadPct: {
+    description: 'Het aandeel inwoners dat zelf in het buitenland is geboren (de "eerste generatie"), ongeacht waar vandaan. De rest is in Nederland geboren: met herkomst Nederland of als kind van een in het buitenland geboren ouder. ' + HERKOMST_DEF,
+    formula: '(geboren buiten Nederland met herkomst Europa + geboren buiten Nederland met herkomst buiten Europa) / inwoners × 100',
+    source: [SRC.kwb2025],
+    year: '2025',
+    caveats: ['Iemand met herkomst Nederland is per definitie in Nederland geboren, dus deze twee CBS-kolommen dekken iedereen die in het buitenland is geboren.', ...HERKOMST_NOTES, FALLBACK_NOTE],
   },
   highEdu: {
     description: 'Het aandeel inwoners met hbo of wo als hoogst behaalde opleiding. Hoger telt in de Ranglijst als beter.',
@@ -299,7 +331,10 @@ export const DATASETS = Object.freeze({
   population:       ds('population',       'Bevolking',            'Inwoners',                        'aantal',    null,  'bevolking'),
   density:          ds('density',          'Bevolkingsdichtheid',  'Inwoners per km²',                'per km²',   null,  'bevolking'),
   pop65plus:        ds('pop65plus',        '65+ (%)',              '65+ (%)',                         '%',         null,  'bevolking'),
-  nonWesternPct:    ds('nonWesternPct',    'Buiten Europa (%)',    'Herkomst buiten Europa (%)',      '%',         null,  'bevolking'),
+  originDutchPct:   ds('originDutchPct',   'Nederlands (%)',       'Herkomst Nederland (%)',          '%',         null,  'herkomst', { inOverall: false }),
+  originEuropePct:  ds('originEuropePct',  'Europa excl. NL (%)',  'Herkomst Europa excl. NL (%)',    '%',         null,  'herkomst', { inOverall: false }),
+  nonWesternPct:    ds('nonWesternPct',    'Buiten Europa (%)',    'Herkomst buiten Europa (%)',      '%',         null,  'herkomst', { inOverall: false }),
+  bornAbroadPct:    ds('bornAbroadPct',    'Buitenland geboren (%)', 'In het buitenland geboren (%)', '%',         null,  'herkomst', { ...RTM, inOverall: false }),
   highEdu:          ds('highEdu',          'Opleiding',            'Hoog opgeleid (%)',               '%',         true,  'bevolking'),
   avgIncome:        ds('avgIncome',        'Inkomen',              'Gem. inkomen (×€1k)',             '×€1.000',   true,  'welvaart'),
   wozValue:         ds('wozValue',         'WOZ waarde',           'Gem. WOZ waarde (×€1k)',          '×€1.000',   true,  'welvaart'),
@@ -319,6 +354,7 @@ export const DATASET_KEYS = Object.freeze(Object.keys(DATASETS));
 
 export const DATASET_GROUPS = Object.freeze([
   Object.freeze({ key: 'bevolking',     label: 'Bevolking' }),
+  Object.freeze({ key: 'herkomst',      label: 'Herkomst' }),
   Object.freeze({ key: 'welvaart',      label: 'Welvaart & wonen' }),
   Object.freeze({ key: 'veiligheid',    label: 'Veiligheid' }),
   Object.freeze({ key: 'voorzieningen', label: 'Voorzieningen' }),

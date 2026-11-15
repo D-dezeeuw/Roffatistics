@@ -147,10 +147,20 @@
               <dl class="panel-stats">
                 <dt>65+ (%)</dt>
                 <dd>{{ panel.pop65plus }}</dd>
-                <dt>Herkomst buiten Europa (%)</dt>
-                <dd>{{ panel.nonWesternPct }}</dd>
                 <dt>Migratiesaldo</dt>
                 <dd>{{ panel.migrationBalance }}</dd>
+              </dl>
+              <p class="panel-section-title">Herkomst</p>
+              <div class="panel-origin-bar" data-origin-bar="panel" hidden></div>
+              <dl class="panel-stats">
+                <dt>Nederland</dt>
+                <dd>{{ panel.originDutchPct }}</dd>
+                <dt>Europa (excl. NL)</dt>
+                <dd>{{ panel.originEuropePct }}</dd>
+                <dt>Buiten Europa</dt>
+                <dd>{{ panel.nonWesternPct }}</dd>
+                <dt data-scope="rotterdam">In buitenland geboren</dt>
+                <dd data-scope="rotterdam">{{ panel.bornAbroadPct }}</dd>
               </dl>
               <p class="panel-section-title">Criminaliteit</p>
               <dl class="panel-stats">
@@ -234,10 +244,20 @@
               <dl class="panel-stats">
                 <dt>65+ (%)</dt>
                 <dd>{{ panel2.pop65plus }}</dd>
-                <dt>Herkomst buiten Europa (%)</dt>
-                <dd>{{ panel2.nonWesternPct }}</dd>
                 <dt>Migratiesaldo</dt>
                 <dd>{{ panel2.migrationBalance }}</dd>
+              </dl>
+              <p class="panel-section-title">Herkomst</p>
+              <div class="panel-origin-bar" data-origin-bar="panel2" hidden></div>
+              <dl class="panel-stats">
+                <dt>Nederland</dt>
+                <dd>{{ panel2.originDutchPct }}</dd>
+                <dt>Europa (excl. NL)</dt>
+                <dd>{{ panel2.originEuropePct }}</dd>
+                <dt>Buiten Europa</dt>
+                <dd>{{ panel2.nonWesternPct }}</dd>
+                <dt data-scope="rotterdam">In buitenland geboren</dt>
+                <dd data-scope="rotterdam">{{ panel2.bornAbroadPct }}</dd>
               </dl>
               <p class="panel-section-title">Criminaliteit</p>
               <dl class="panel-stats">
