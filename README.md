@@ -24,7 +24,7 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 - **Rangschik op follows the layer** — picking a layer in the topnav also ranks the Ranglijst on it; Totaalscore stays selectable and leaves the map alone
 - **Deep links** — `#scope=rotterdam|nederland&view=map|dashboard|list&area=<CBS code>&crime=abs`; the scope and crime choice are remembered
 - **Province choropleth** — four selectable datasets color all 12 provinces
-- **Municipality drill-down** — zoom to level 10+ to see gemeente-level data
+- **Municipality drill-down** — zoom to level 10+ to see gemeente-level data; at 12 the wijken and at 13 the buurten of the gemeente in the centre (any gemeente in NL, "Wijken en buurten" on a gemeente panel), scored against all NL wijken / buurten
 - **Neighbourhood outlines** — zoom to level 13+ to see buurt boundaries within the active gemeente
 - **Side panel** — click a province or gemeente for population, income, crime and education stats; in Rotterdam a map click opens the area modal and the panel serves compare ("Vergelijk" in the modal)
 - **Zero build step** — importmap + native ES modules, runs directly in the browser
@@ -46,7 +46,7 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 | Rotterdam population by country of origin 2022–2026 (gemeente only; 19 groups, top 15 countries, trend) | CBS OData — Bevolking; herkomstland, geboorteland, leeftijd, regio, 1 januari | 85458NED |
 | Rotterdam gemeente + wijk geometry | PDOK CBS gebiedsindelingen 2024 (`gemeente_gegeneraliseerd`, `wijk_gegeneraliseerd`), pre-cached in `data/rotterdam_*.geojson` | — |
 
-Wijk/buurt datasets: population, income (standardised household income), higher education, WOZ value, 65+, herkomst (Nederland / Europa / buiten Europa, born abroad). Wijk crime (misdrijven per 1.000 inwoners) comes from police table 47018NED; buurten and wijken under 1.000 inhabitants show "geen data" for crime. Regenerate the Rotterdam geometry with `node scripts/build-rotterdam-geo.mjs`.
+Wijk/buurt datasets: population, income (standardised household income), higher education, WOZ value, 65+, herkomst (Nederland / Europa / buiten Europa, born abroad). Wijk crime (misdrijven per 1.000 inwoners) comes from police table 47018NED; buurten and wijken under 1.000 inhabitants show "geen data" for crime. Regenerate the Rotterdam geometry with `node scripts/build-rotterdam-geo.mjs`. Regenerate the national wijk/buurt data (data/nl/, all NL wijken and buurten) with `node scripts/build-nl-kwb.mjs`.
 
 ## Run locally
 

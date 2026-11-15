@@ -5,6 +5,7 @@
 
 import { getState, setState, onStateChange, serializeHash } from './state.js';
 import { loadRotterdamAreas, areaPanelData } from './areas.js';
+import { loadNlAreas } from './nl-areas.js';
 import { buildAreaDetail } from './area-detail.js';
 import { formatValue } from './dashboard-data.js';
 import { originBarHtml } from './herkomst.js';
@@ -21,11 +22,28 @@ const LEVEL_LABEL = { wijk: 'Wijk', buurt: 'Buurt' };
 /** Event the app handles for "Vergelijk": detail { code }. */
 export const COMPARE_EVENT = 'area-compare';
 
+/** True for a wijk/buurt code of Rotterdam (WK0599…/BU0599…). */
+export const isRotterdamCode = code => /^(WK|BU)0599/.test(String(code ?? ''));
+
+/**
+ * Scope that shows `code`: Rotterdam areas open in the Rotterdam scope (peers
+ * within the city), every other NL wijk/buurt in the Nederland drill-down.
+ */
+export function scopeForArea(code) {
+  return isRotterdamCode(code) ? 'rotterdam' : 'nederland';
+}
+
 /** Shareable link to the area: the current URL with &area=<code>. */
 export function areaLink(code, state = getState(), loc = globalThis.location) {
   const base = loc ? `${loc.origin}${loc.pathname}` : '';
-  return `${base}${serializeHash({ ...state, scope: 'rotterdam', area: code })}`;
+  return `${base}${serializeHash({ ...state, scope: scopeForArea(code), area: code })}`;
 }
+
+/** Peer wording per data source: Rotterdam scope ranks within the city, Nederland within all NL. */
+export const PEER_TEXT = Object.freeze({
+  rotterdam: Object.freeze({ adj: 'Rotterdamse', within: 'in Rotterdam' }),
+  nederland: Object.freeze({ adj: 'Nederlandse', within: 'in Nederland' }),
+});
 
 function trendText(v) {
   if (v == null) return null;
@@ -78,7 +96,8 @@ export function personalScoreHtml(js, lvl, label = 'Woonscore · jouw wensen') {
  * "Woonscore · jouw wensen", or false) shows the Woonscore as the personalised
  * block: d.woonscore then holds the active preset's result.
  */
-export function areaModalHtml(d, { dataYears = '', personal = false } = {}) {
+export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'rotterdam' } = {}) {
+  const pt = PEER_TEXT[peers] ?? PEER_TEXT.rotterdam;
   if (!d) return '<p class="area-empty">Geen gegevens voor dit gebied.</p>';
   const lvl = d.level === 'wijk' ? 'wijken' : 'buurten';
   const facts = [
@@ -124,9 +143,9 @@ export function areaModalHtml(d, { dataYears = '', personal = false } = {}) {
   const table = d.entries.length ? `<section class="area-sec">
       <div class="area-sec-head"><h3>Alle cijfers</h3>${hasCrime ? crimeToggleHtml(d.mode) : ''}</div>
       <div class="area-table-wrap"><table class="area-table">
-        <thead><tr><th scope="col">Cijfer</th><th scope="col">Waarde</th><th scope="col" title="1 = beste; bij beschrijvende cijfers 1 = hoogste">Rang</th><th scope="col">Percentiel</th><th scope="col" title="Verschil met de mediaan van alle ${lvl} in Rotterdam (procentpunten bij percentages)">t.o.v. mediaan</th></tr></thead>
+        <thead><tr><th scope="col">Cijfer</th><th scope="col">Waarde</th><th scope="col" title="1 = beste; bij beschrijvende cijfers 1 = hoogste">Rang</th><th scope="col">Percentiel</th><th scope="col" title="Verschil met de mediaan van alle ${lvl} ${pt.within} (procentpunten bij percentages)">t.o.v. mediaan</th></tr></thead>
         <tbody>${rows}</tbody></table></div>
-      <p class="area-note">Rang onder ${d.entries[0].of === d.peers ? `alle ${d.peers}` : 'de'} Rotterdamse ${lvl} met een waarde; gebieden zonder cijfer tellen niet mee. Criminaliteit: #1 = minste misdrijven.</p>
+      <p class="area-note">Rang onder ${d.entries[0].of === d.peers ? `alle ${d.peers}` : 'de'} ${pt.adj} ${lvl} met een waarde; gebieden zonder cijfer tellen niet mee. Criminaliteit: #1 = minste misdrijven.</p>
     </section>` : '';
 
   const children = d.children.length
@@ -144,7 +163,7 @@ export function areaModalHtml(d, { dataYears = '', personal = false } = {}) {
     <div class="area-body">
       <div class="area-actions">
         <button type="button" class="area-btn" data-area-action="map">Toon op kaart</button>
-        <button type="button" class="area-btn" data-area-action="compare">Vergelijk</button>
+        ${peers === 'nederland' ? '' : '<button type="button" class="area-btn" data-area-action="compare">Vergelijk</button>'}
         <button type="button" class="area-btn" data-area-action="copy">Kopieer link</button>
       </div>
       ${woonscore}${overall}${chips}
@@ -161,11 +180,21 @@ let returnFocus = null;
 
 const isOpen = () => !!els && !els.modal.hidden;
 
+/** Nederland scope, or any non-Rotterdam code: the national wijk/buurt set (nl-areas.js); else Rotterdam's. */
+const peersFor = code => (getState().scope === 'nederland' || !isRotterdamCode(code) ? 'nederland' : 'rotterdam');
+
 async function render(code) {
-  const areas = await loadRotterdamAreas();
+  const peers = peersFor(code);
+  let areas;
+  try {
+    areas = peers === 'nederland' ? await loadNlAreas() : await loadRotterdamAreas();
+  } catch {
+    areas = { wijken: [], buurten: [] };
+  }
+  if (current !== code) return false;
   const area = areas.wijken.find(a => a.code === code) ?? areas.buurten.find(a => a.code === code);
   const detail = buildAreaDetail(area, areas, { mode: getState().crime });
-  els.dialog.innerHTML = areaModalHtml(detail, { dataYears: area ? areaPanelData(area).dataYears : '', personal: scoreKind(getState().score) === 'standaard' ? false : scoreLabel(getState().score) });
+  els.dialog.innerHTML = areaModalHtml(detail, { peers, dataYears: area ? areaPanelData(area).dataYears : '', personal: scoreKind(getState().score) === 'standaard' ? false : scoreLabel(getState().score) });
   els.dialog.scrollTop = 0;
   els.dialog.querySelector('.area-body')?.scrollTo?.(0, 0);
   return !!area;
@@ -220,7 +249,7 @@ function onAction(action, btn) {
   closeAreaModal();
   if (action === 'map') {
     if (getState().area === code) setState({ area: null }, { source: 'modal' });
-    setState({ area: code, view: 'map', scope: 'rotterdam' }, { source: 'modal' });
+    setState({ area: code, view: 'map', scope: peersFor(code) }, { source: 'modal' });
   } else if (action === 'compare') {
     document.dispatchEvent(new CustomEvent(COMPARE_EVENT, { detail: { code } }));
   }

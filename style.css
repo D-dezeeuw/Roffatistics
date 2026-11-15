@@ -252,6 +252,16 @@ body {
 body.scope-nederland [data-scope="rotterdam"],
 body.scope-rotterdam [data-scope="nederland"] { display: none !important; }
 
+/* Nederland drill-down (wijk/buurt zoom): every NL wijk and buurt has the
+   Rotterdam-only layers too, so they show; distCentrum stays Rotterdam-only. */
+body.scope-nederland.nl-drill .layers-dropdown li[data-scope="rotterdam"] { display: list-item !important; }
+body.scope-nederland.nl-drill .layers-dropdown .layer-opt[data-scope="rotterdam"] { display: flex !important; }
+body.scope-nederland.nl-drill .layers-dropdown .layer-opt[data-scope][data-dataset="distCentrum"],
+body.nl-drill .layers-dropdown .layer-hint { display: none !important; }
+/* "Wijken en buurten" only on a gemeente panel. */
+.panel-drill-btn { display: none; }
+#panel[data-region="gemeente"] .panel-drill-btn { display: inline-block; }
+
 .layer-opt {
   display: flex;
   align-items: center;
@@ -447,12 +457,12 @@ option, optgroup { color: var(--text-primary); background: var(--bg-surface); }
 
 /* Hide pin button once comparing */
 #panel.comparing .panel-pin-btn { display: none; }
-.panel-pin-btn, .panel-details-btn { font-family: var(--font-ui); }
-.panel-details-btn {
+.panel-pin-btn, .panel-details-btn, .panel-drill-btn { font-family: var(--font-ui); }
+.panel-details-btn, .panel-drill-btn {
   padding: 0.3rem 0.65rem; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.04em; border-radius: 4px; cursor: pointer;
   border: 1px solid rgba(234, 88, 12, 0.5); background: rgba(234, 88, 12, 0.12); color: var(--text-primary);
 }
-.panel-details-btn:hover { background: rgba(234, 88, 12, 0.25); }
+.panel-details-btn:hover, .panel-drill-btn:hover { background: rgba(234, 88, 12, 0.25); }
 
 /* ─── Footer ─────────────────────────────────────────────── */
 

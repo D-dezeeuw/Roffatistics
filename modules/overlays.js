@@ -2,13 +2,19 @@ import { getMap } from './map.js';
 import { DATASETS } from './datasets.js';
 import { createScoreLabels } from './score-labels.js';
 import { buildScale, getScaleMethod, outlierLabel, OUTLIER_COLOR } from './scale.js';
+import { pointInRings, labelPoint } from './score-labels.js';
+import { showDrill, hideDrill, getDrillStatus, focusDrillArea } from './nl-drill.js';
+import { gemeenteOf } from './nl-areas.js';
+
+export { getDrillStatus };
 
 const ZOOM_NATIONAL     = 6;
 const ZOOM_MUNICIPALITY = 10;
-const ZOOM_BUURT        = 13;
+const ZOOM_WIJK         = 12;   // Nederland drill-down: wijken of the gemeente at the map centre
+const ZOOM_BUURT        = 13;   // … then its buurten
+export const DRILL_ZOOM = Object.freeze({ wijk: ZOOM_WIJK, buurt: ZOOM_BUURT });
 
 const GEMEENTE_URL = 'https://service.pdok.nl/cbs/gebiedsindelingen/2024/wfs/v1_0?request=GetFeature&service=WFS&version=2.0.0&typeName=gebiedsindelingen:gemeente_gegeneraliseerd&outputFormat=json&srsName=EPSG:4326';
-const BUURT_URL    = './data/buurt_2024.geojson';
 
 const STYLE_DEFAULT = {
   fillColor:   '#7c3aed',
@@ -33,14 +39,6 @@ const STYLE_HOVER = {
   opacity:     1,
 };
 
-const STYLE_BUURT = {
-  fillColor:   'transparent',
-  fillOpacity: 0,
-  color:       '#ea580c',
-  weight:      0.75,
-  opacity:     0.5,
-};
-
 // The ramp lives in scale.js; re-exported for older importers.
 export { interpolateColor } from './scale.js';
 
@@ -50,11 +48,13 @@ const STYLE_OUTLIER = { color: OUTLIER_COLOR, weight: 2.5, opacity: 1 };
 export function resolveZoomTier(zoom) {
   if (zoom <= ZOOM_NATIONAL)     return 'national';
   if (zoom >= ZOOM_BUURT)        return 'buurt';
+  if (zoom >= ZOOM_WIJK)         return 'wijk';
   if (zoom >= ZOOM_MUNICIPALITY) return 'municipality';
   return 'province';
 }
 
-const layers   = { national: null, province: null, municipality: null, buurt: null };
+const layers   = { national: null, province: null, municipality: null };
+const isDrillTier = tier => tier === 'wijk' || tier === 'buurt';
 let activeTier = null;
 let provinceData     = [];
 let municipalityData = [];
@@ -93,14 +93,19 @@ export function setMunicipalityData(data) {
 }
 
 export function getActiveTier()         { return activeTier; }
+/** Name of gemeente `code` from the loaded outlines, or the code itself. */
+export function gemeenteName(code) {
+  const f = geoCache[GEMEENTE_URL]?.features?.find(x => String(x.properties?.statcode ?? '').trim() === code);
+  return f?.properties?.statnaam ?? code;
+}
 export function getActiveGemeente()     { return activeGemeente; }
 export function getActiveGemeenteName() { return activeGemeenteName; }
 
 // Choropleth fill opacity by tier.
-// At buurt zoom the gemeente fill drops to 0 — buurt outlines provide the
-// visual structure and a solid fill would just show one flat city colour.
+// At wijk/buurt zoom the gemeente fill drops to 0 — the drill-down layer
+// (nl-drill.js) colours the gemeente at the centre; the rest stay outlines.
 function choroplethOpacity() {
-  if (activeTier === 'buurt')        return 0;
+  if (isDrillTier(activeTier))       return 0;
   if (activeTier === 'municipality') return 0.45;
   return 0.65;
 }
@@ -110,8 +115,8 @@ export function applyDataset(data, valueKey, method = getScaleMethod()) {
   const scale  = buildScale(data.map(d => d[valueKey]), { method });   // empty for a Rotterdam-only dataset
   activeColorState = { lookup, scale };
 
-  // Color the municipality layer — it is visible at both municipality and buurt tiers.
-  const targetLayer = (activeTier === 'municipality' || activeTier === 'buurt')
+  // Color the municipality layer — it is visible at the municipality, wijk and buurt tiers.
+  const targetLayer = (activeTier === 'municipality' || isDrillTier(activeTier))
     ? layers.municipality
     : layers.province;
 
@@ -129,7 +134,7 @@ export function applyDataset(data, valueKey, method = getScaleMethod()) {
 
 /**
  * Score stamps for the shown NL level: gemeenten at the municipality tier,
- * provincies at the province tier; none at the buurt tier (gemeente fill off),
+ * provincies at the province tier; none at the wijk/buurt tiers (nl-drill.js stamps those),
  * at the national tier or for a non-score layer.
  */
 function stampScores(valueKey, lookup) {
@@ -146,7 +151,7 @@ function stampScores(valueKey, lookup) {
 }
 
 function restoreStyle(code) {
-  const base = activeTier === 'buurt'
+  const base = isDrillTier(activeTier)
     ? { ...STYLE_DEFAULT, fillOpacity: 0 }
     : { ...STYLE_DEFAULT };
   if (!activeColorState) return base;
@@ -192,6 +197,7 @@ function makeProvinceLayer(geojson) {
         },
         click() {
           const data = provinceData.find(d => d.regionCode === code) ?? null;
+          markPanelRegion(code);
           import('./panel.js').then(({ showPanel }) => showPanel({ name, code, data }));
         },
       });
@@ -228,44 +234,9 @@ function makeGemeenteLayer(geojson) {
             activeGemeente     = code;
             activeGemeenteName = name;
             const data = municipalityData.find(d => d.regionCode === code) ?? null;
+            markPanelRegion(code);
             import('./panel.js').then(({ showPanel }) => showPanel({ name, code, data }));
           }
-        },
-      });
-    },
-  });
-}
-
-function makeBuurtLayer(geojson, gmCode) {
-  const prefix = 'BU' + gmCode.replace('GM', '');
-  const filtered = {
-    ...geojson,
-    features: geojson.features.filter(f =>
-      (f.properties?.statcode ?? '').startsWith(prefix),
-    ),
-  };
-  return L.geoJSON(filtered, {
-    style: () => ({ ...STYLE_BUURT }),
-    onEachFeature(feature, featureLayer) {
-      const buurtName = feature.properties?.statnaam ?? '';
-      featureLayer.on({
-        mouseover(e) {
-          e.target.setStyle({ ...STYLE_BUURT, color: '#f97316', weight: 1.5, opacity: 1 });
-          e.target.bringToFront();
-          L.popup({ closeButton: false, offset: [0, -4] })
-            .setLatLng(e.latlng)
-            .setContent(`<strong>${buurtName}</strong>`)
-            .openOn(getMap());
-        },
-        mouseout(e) {
-          e.target.setStyle({ ...STYLE_BUURT });
-          getMap().closePopup();
-        },
-        // Clicking a buurt shows the parent gemeente data.
-        click() {
-          const data = municipalityData.find(d => d.regionCode === activeGemeente) ?? null;
-          import('./panel.js').then(({ showPanel }) =>
-            showPanel({ name: activeGemeenteName, code: activeGemeente, data }));
         },
       });
     },
@@ -292,17 +263,30 @@ export function addKeyboardNav(geoLayer) {
   });
 }
 
-function deriveGemeenteFromMapCentre() {
-  if (!layers.municipality) return null;
-  const centre = getMap().getCenter();
-  let found = null;
-  layers.municipality.eachLayer(fl => {
-    if (found) return;
-    if (fl.getBounds().contains(centre)) {
-      found = fl.feature?.properties?.statcode ?? null;
-    }
-  });
-  return found;
+/**
+ * statcode of the gemeente whose polygon contains [lat, lng] (even-odd test
+ * over every ring), or null (sea, abroad).
+ */
+export function gemeenteAt(geojson, [lat, lng]) {
+  for (const f of geojson?.features ?? []) {
+    const g = f.geometry;
+    const polys = g?.type === 'Polygon' ? [g.coordinates] : g?.type === 'MultiPolygon' ? g.coordinates : [];
+    if (polys.some(rings => pointInRings([lng, lat], rings))) return String(f.properties?.statcode ?? '').trim() || null;
+  }
+  return null;
+}
+
+/** The gemeente to drill into: the one at the map centre, else the last drilled/clicked one. */
+function drillGemeente() {
+  const geo = geoCache[GEMEENTE_URL];
+  const c = getMap().getCenter();
+  return (geo && gemeenteAt(geo, [c.lat, c.lng])) ?? getDrillStatus()?.gemeente ?? activeGemeente ?? null;
+}
+
+/** Marks the panel with the level of the region it shows (the "Bekijk wijken en buurten" button is for gemeenten). */
+function markPanelRegion(code) {
+  const el = globalThis.document?.getElementById('panel');
+  if (el) el.dataset.region = /^GM/.test(code ?? '') ? 'gemeente' : /^PV/.test(code ?? '') ? 'provincie' : 'gebied';
 }
 
 // Ensure the gemeente layer is loaded and on the map.
@@ -321,14 +305,11 @@ async function _doSwap(tier) {
   const map = getMap();
 
   if (tier === 'municipality') {
-    // Remove province/national if that was active; remove buurt overlay if present.
+    // Remove province/national if that was active; remove the drill-down layer.
     if (activeTier === 'province' || activeTier === 'national') {
       if (layers[activeTier]) map.removeLayer(layers[activeTier]);
     }
-    if (layers.buurt) {
-      map.removeLayer(layers.buurt);
-      layers.buurt = null;
-    }
+    hideDrill();
     try {
       await ensureGemeenteLayer(map);
     } catch {
@@ -341,51 +322,28 @@ async function _doSwap(tier) {
     return;
   }
 
-  if (tier === 'buurt') {
+  if (isDrillTier(tier)) {
     // Remove province/national if that was active.
     if (activeTier === 'province' || activeTier === 'national') {
       if (layers[activeTier]) map.removeLayer(layers[activeTier]);
     }
-    // Keep the gemeente layer on the map as the choropleth background.
+    // Keep the gemeente layer on the map: outlines around the drilled gemeente.
     try {
       await ensureGemeenteLayer(map);
     } catch {
       if (layers[activeTier]) layers[activeTier].addTo(map);
       return;
     }
-
-    const gmCode = activeGemeente ?? deriveGemeenteFromMapCentre();
-    if (!gmCode) {
-      // No gemeente context — show municipality tier instead.
-      activeTier = 'municipality';
-      document.dispatchEvent(new CustomEvent('tier-change', { detail: { tier: 'municipality' } }));
-      return;
-    }
-
-    activeGemeente = gmCode;
-    // Remove stale buurt layer (gemeente may have changed).
-    if (layers.buurt) {
-      map.removeLayer(layers.buurt);
-      layers.buurt = null;
-    }
-    try {
-      const buurtData = await loadGeoJSON(BUURT_URL);
-      layers.buurt = makeBuurtLayer(buurtData, gmCode);
-    } catch {
-      activeTier = 'municipality';
-      return;
-    }
-    layers.buurt.addTo(map);
-    activeTier = 'buurt';
-    document.dispatchEvent(new CustomEvent('tier-change', { detail: { tier: 'buurt' } }));
+    const gmCode = drillGemeente();
+    if (gmCode) await showDrill(gmCode, tier);
+    else hideDrill();
+    activeTier = tier;
+    document.dispatchEvent(new CustomEvent('tier-change', { detail: { tier } }));
     return;
   }
 
-  // province or national — tear down the municipality/buurt layers.
-  if (layers.buurt) {
-    map.removeLayer(layers.buurt);
-    layers.buurt = null;
-  }
+  // province or national — tear down the municipality and drill-down layers.
+  hideDrill();
   if (layers.municipality && map.hasLayer(layers.municipality)) {
     map.removeLayer(layers.municipality);
   }
@@ -399,10 +357,7 @@ function removeAllTierLayers() {
   for (const k of ['national', 'province', 'municipality']) {
     if (layers[k] && map.hasLayer(layers[k])) map.removeLayer(layers[k]);
   }
-  if (layers.buurt) {
-    map.removeLayer(layers.buurt);
-    layers.buurt = null;
-  }
+  hideDrill();
   activeTier  = null;
   pendingTier = null;
   scoreLabels?.clear();
@@ -465,16 +420,48 @@ export async function initOverlays({ enabled: startEnabled = true } = {}) {
   }
 
   map.on('zoomend', () => swapToTier(resolveZoomTier(map.getZoom())));
+  map.on('moveend', followDrillGemeente);
+}
+
+// Panning at wijk/buurt zoom: when the centre crosses into another gemeente, drill that one.
+let following = false;
+async function followDrillGemeente() {
+  if (!enabled || isSwapping || following || !isDrillTier(activeTier)) return;
+  const gm = drillGemeente();
+  const st = getDrillStatus();
+  if (!gm || (st?.gemeente === gm && st?.level === activeTier)) return;
+  following = true;
+  try { await showDrill(gm, activeTier); } finally { following = false; }
+  if (enabled && isDrillTier(activeTier)) document.dispatchEvent(new CustomEvent('tier-change', { detail: { tier: activeTier } }));
+}
+
+/**
+ * "Bekijk wijken en buurten": flies to gemeente `code` at wijk zoom (or deeper
+ * when the gemeente is small); the zoom/move handlers then show its wijken.
+ */
+export async function drillIntoGemeente(code) {
+  let geo;
+  try { geo = await loadGeoJSON(GEMEENTE_URL); } catch { return false; }
+  const feature = geo?.features?.find(f => String(f.properties?.statcode ?? '').trim() === code);
+  if (!feature) return false;
+  const map = getMap();
+  const bounds = L.geoJSON(feature).getBounds();
+  const fitZoom = map.getBoundsZoom(bounds, false, L.point(24, 24));
+  const at = labelPoint(feature.geometry) ?? bounds.getCenter();   // inside the gemeente, so the centre test finds it
+  map.setView(at, Math.min(Math.max(fitZoom, ZOOM_WIJK), ZOOM_BUURT + 1));
+  return true;
 }
 
 // ── Focus (search, deep links) ───────────────────────────────────────────────
 
 /**
- * Nederland scope: zooms to a provincie (PV..) or gemeente (GM..) and opens its panel.
+ * Nederland scope: zooms to a provincie (PV..), gemeente (GM..) or a wijk/buurt (WK../BU..,
+ * via the drill-down) and opens its panel.
  * Gemeenten land at least on the gemeente tier so their outline is on the map.
  */
 export async function focusNederlandArea(code) {
   const c = String(code ?? '').trim().toUpperCase();
+  if (gemeenteOf(c)) return focusDrillArea(c, { zoomFor: lvl => DRILL_ZOOM[lvl] });   // NL wijk/buurt
   const isProvince = /^PV\d{2}$/.test(c);
   if (!isProvince && !/^GM\d{4}$/.test(c)) return null;
   let geo;
@@ -489,11 +476,12 @@ export async function focusNederlandArea(code) {
     const fitZoom = map.getBoundsZoom(bounds, false, L.point(48, 48));
     const zoom = isProvince
       ? Math.min(fitZoom, ZOOM_MUNICIPALITY - 1)
-      : Math.min(Math.max(fitZoom, ZOOM_MUNICIPALITY), ZOOM_BUURT - 1);
+      : Math.min(Math.max(fitZoom, ZOOM_MUNICIPALITY), ZOOM_WIJK - 1);
     map.setView(bounds.getCenter(), zoom);
   }
   if (!isProvince) { activeGemeente = rawCode; activeGemeenteName = name; }
   const data = (isProvince ? provinceData : municipalityData).find(d => d.regionCode === rawCode) ?? null;
+  markPanelRegion(rawCode);
   import('./panel.js').then(({ showPanel }) => showPanel({ name, code: rawCode, data }));
   return { code: c, name };
 }

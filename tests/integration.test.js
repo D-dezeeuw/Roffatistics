@@ -158,3 +158,17 @@ describe('CBS API — Rotterdam nabijheid', { timeout: 15000 }, () => {
     assert.ok(values.distStation > 0 && values.distStation < 5 && values.distCafe > 0 && values.horeca1km > 10, JSON.stringify(values));
   });
 });
+
+// ── PDOK wijk/buurt geometry per gemeente (Nederland drill-down) ─────────────
+
+describe('PDOK — wijken of one gemeente (nl-areas.buildGemeenteGeoUrl)', { timeout: 20000 }, () => {
+  it('returns only that gemeente, with statcode/statnaam, and CORS for the browser', async () => {
+    const { buildGemeenteGeoUrl, slimGeo } = await import('../modules/nl-areas.js');
+    const res = await fetch(buildGemeenteGeoUrl('wijk', 'GM0599'), { headers: { Origin: 'https://example.org' } });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('access-control-allow-origin'), '*');
+    const geo = slimGeo(await res.json(), 'GM0599');
+    assert.ok(geo.features.length >= 20, `expected ~21 Rotterdam wijken, got ${geo.features.length}`);
+    assert.ok(geo.features.every(f => f.properties.statcode.startsWith('WK0599') && f.properties.statnaam));
+  });
+});

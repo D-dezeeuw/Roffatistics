@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveZoomTier, interpolateColor } from '../modules/overlays.js';
+import { resolveZoomTier, interpolateColor, gemeenteAt, DRILL_ZOOM } from '../modules/overlays.js';
 
 describe('resolveZoomTier', () => {
   it('returns national at zoom ≤ 6', () => {
@@ -15,16 +15,36 @@ describe('resolveZoomTier', () => {
     assert.equal(resolveZoomTier(9), 'province');
   });
 
-  it('returns municipality at zoom 10–12', () => {
+  it('returns municipality at zoom 10–11', () => {
     assert.equal(resolveZoomTier(10), 'municipality');
     assert.equal(resolveZoomTier(11), 'municipality');
-    assert.equal(resolveZoomTier(12), 'municipality');
+  });
+
+  it('returns wijk (Nederland drill-down) at zoom 12', () => {
+    assert.equal(resolveZoomTier(12), 'wijk');
   });
 
   it('returns buurt at zoom ≥ 13', () => {
     assert.equal(resolveZoomTier(13), 'buurt');
     assert.equal(resolveZoomTier(15), 'buurt');
     assert.equal(resolveZoomTier(17), 'buurt');
+  });
+});
+
+describe('gemeenteAt (drill-down gemeente at the map centre)', () => {
+  const sq = (x, y) => [[[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1], [x, y]]];
+  const geo = { features: [
+    { properties: { statcode: 'GM0001' }, geometry: { type: 'Polygon', coordinates: sq(4, 52) } },
+    { properties: { statcode: 'GM0002 ' }, geometry: { type: 'MultiPolygon', coordinates: [sq(6, 52), sq(8, 52)] } },
+  ] };
+  it('finds the polygon that holds the [lat, lng] point', () => {
+    assert.equal(gemeenteAt(geo, [52.5, 4.5]), 'GM0001');
+    assert.equal(gemeenteAt(geo, [52.5, 8.5]), 'GM0002');
+    assert.equal(gemeenteAt(geo, [52.5, 5.5]), null);
+    assert.equal(gemeenteAt(null, [52.5, 4.5]), null);
+  });
+  it('drill zooms: wijken at 12, buurten at 13', () => {
+    assert.deepEqual({ ...DRILL_ZOOM }, { wijk: 12, buurt: 13 });
   });
 });
 

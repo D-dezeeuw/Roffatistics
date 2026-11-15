@@ -100,8 +100,8 @@ export function areaLevel(code) {
   if (!c) return null;
   if (/^PV\d{2}$/.test(c))   return 'provincie';
   if (/^GM\d{4}$/.test(c))   return 'gemeente';
-  if (/^WK\d{6}$/.test(c))   return 'wijk';
-  if (/^BU\d{8}$/.test(c))   return 'buurt';
+  if (/^WK\d{4}[0-9A-Z]{2}$/.test(c)) return 'wijk';    // Amsterdam: WK0363AA
+  if (/^BU\d{4}[0-9A-Z]{4}$/.test(c)) return 'buurt';   // Amsterdam: BU0363AA01
   return null;
 }
 
