@@ -149,9 +149,17 @@ const SRC = Object.freeze({
   pc4bouw: Object.freeze({ id: 'PC4-2023', name: `Gegevens per postcode (PC4) ${PC4_YEAR}, woningen naar bouwjaar`, publisher: 'CBS', url: BOUW_SOURCE_URL, scope: 'postcode' }),
   pc6:     Object.freeze({ id: 'pc6huisnr', name: `Buurt, wijk en gemeente per postcode en huisnummer ${PC4_YEAR}`, publisher: 'CBS', url: `https://download.cbs.nl/postcode/${PC4_YEAR}-cbs_pc6huisnr.zip`, scope: 'postcode' }),
   herkomst: Object.freeze({ id: REGIO_TABLE, name: 'Bevolking; herkomstland, geboorteland, leeftijd, regio, 1 januari', publisher: 'CBS', url: statline(REGIO_TABLE), scope: 'Nederland (gemeenten)' }),
+  osm:     Object.freeze({ id: 'OSM', name: 'OpenStreetMap: metro- en tramlijnen en haltes (ODbL), via Overpass API', publisher: '© OpenStreetMap-bijdragers', url: 'https://www.openstreetmap.org/copyright', scope: 'Nederland' }),
   crimeNl: Object.freeze({ id: '83648NED', name: 'Geregistreerde criminaliteit; soort misdrijf, regio', publisher: 'CBS', url: statline('83648NED'), scope: 'Nederland' }),
 });
 
+const OV_YEAR = 'november 2026 (OpenStreetMap)';
+const OV_FORMULA = what => `afstand in km over het aardoppervlak van het zwaartepunt van de gebiedsgrens tot de dichtstbijzijnde ${what} (haltes uit OpenStreetMap-routes, beide richtingen samengevoegd)`;
+const OV_CAVEATS = Object.freeze([
+  'Berekend door deze app uit de kaart en OpenStreetMap, geen CBS-cijfer. Het zwaartepunt van een groot gebied kan ver van de woningen liggen.',
+  'Hemelsbreed: water, spoor of snelwegen kunnen de looproute langer maken. Bus telt niet mee.',
+  'Bron: © OpenStreetMap-bijdragers (ODbL). Lijnen en haltes zoals in OpenStreetMap op de bouwdatum; nieuwe of tijdelijk gesloten haltes kunnen afwijken.',
+]);
 const FALLBACK_NOTE = 'Ontbreekt het 2025-cijfer voor een gebied, dan wordt het 2024-cijfer (85984NED) getoond; het paneel noemt dat onder Peiljaar.';
 const CRIME_PLACE_NOTE = 'Per inwoner telt de plek van het misdrijf, niet waar daders of slachtoffers wonen: drukke gebieden met weinig bewoners (Centrum, Stadsdriehoek, haven-, winkel- en uitgaansgebieden) komen daardoor hoog uit. De stand Absoluut laat de aantallen zelf zien.';
 const CRIME_MIN_NOTE = 'Geen per-1.000-cijfer voor wijken onder 1.000 en buurten onder 200 inwoners ("geen data"); in de stand Absoluut krijgen ze wel een waarde.';
@@ -517,7 +525,7 @@ const INFO = {
     formula: 'gemiddelde wegafstand in km tot een treinstation, gemiddeld over de inwoners (CBS nabijheid voorzieningen)',
     source: [SRC.nabij2025, SRC.nabij2024],
     year: '2025',
-    caveats: [ROAD_NOTE, 'Alleen treinstations: metro, tram en bus tellen niet mee, terwijl die in Rotterdam vaak dichterbij zijn.', NABIJ_NOTE],
+    caveats: [ROAD_NOTE, 'Alleen treinstations: metro en tram staan apart in Afstand metro, Afstand tram en Afstand OV (trein, metro of tram).', NABIJ_NOTE],
   },
   distCafe: {
     description: 'De gemiddelde afstand over de weg van de inwoners tot het dichtstbijzijnde café, bar of kroeg. Klein = uitgaan om de hoek; groot = rustig. Beschrijvend: of dat goed is, hangt af van wat je zoekt.',
@@ -588,6 +596,34 @@ const INFO = {
     source: [SRC.nabij2017],
     year: '2017',
     caveats: [GROEN_NOTE, ROAD_NOTE, DICHTBIJ_NOTE],
+  },
+  distMetro: {
+    description: 'Hemelsbrede afstand van het midden van het gebied tot de dichtstbijzijnde metrohalte (RET-metro inclusief de lijnen naar Den Haag en Hoek van Holland, en de Amsterdamse metro). Lager is dichterbij.',
+    formula: OV_FORMULA('metrohalte'),
+    source: [SRC.osm, SRC.geo],
+    year: OV_YEAR,
+    caveats: OV_CAVEATS,
+  },
+  distTram: {
+    description: 'Hemelsbrede afstand van het midden van het gebied tot de dichtstbijzijnde tramhalte (RET, HTM, GVB, Utrecht en andere trams in Nederland). Lager is dichterbij.',
+    formula: OV_FORMULA('tramhalte'),
+    source: [SRC.osm, SRC.geo],
+    year: OV_YEAR,
+    caveats: OV_CAVEATS,
+  },
+  distOvHalte: {
+    description: 'Hemelsbrede afstand van het midden van het gebied tot de dichtstbijzijnde metro- of tramhalte: de kleinste van Afstand metro en Afstand tram.',
+    formula: 'kleinste van Afstand metro en Afstand tram, in km',
+    source: [SRC.osm, SRC.geo],
+    year: OV_YEAR,
+    caveats: [...OV_CAVEATS, DICHTBIJ_NOTE],
+  },
+  distOv: {
+    description: 'Afstand tot het dichtstbijzijnde OV-station: treinstation, metro- of tramhalte, wat het dichtstbij is. Dit cijfer gebruikt de wizard als je bij Vervoer OV kiest.',
+    formula: 'kleinste van Afstand treinstation (CBS, over de weg) en Afstand metro/tram (hemelsbreed), in km',
+    source: [SRC.nabij2025, SRC.osm, SRC.geo],
+    year: OV_YEAR,
+    caveats: ['Mengt twee maten: de treinafstand is de CBS-wegafstand gemiddeld over de inwoners, de metro- en tramafstand is hemelsbreed vanaf het midden van het gebied.', 'Zonder CBS-treinafstand (gemeenten, provincies) is er geen waarde.', ...OV_CAVEATS.slice(1)],
   },
   distCentrum: {
     description: 'Hemelsbrede afstand van het midden van het gebied tot Rotterdam Centraal. Klein = midden in de stad; groot = aan de rand. Beschrijvend: of dat goed is, hangt af van wat je zoekt.',
@@ -696,6 +732,10 @@ export const DATASETS = Object.freeze({
   distBos:          ds('distBos',          'Afstand bos',          'Afstand tot bos (km, 2017)',      'km',        null,  'voorzieningen', { ...RTM, inOverall: false }),
   distOpenNatuur:   ds('distOpenNatuur',   'Afstand open natuur',  'Afstand tot open natuur (km, 2017)', 'km',     null,  'voorzieningen', { ...RTM, inOverall: false }),
   waterPct:         ds('waterPct',         'Water (%)',            'Water in de oppervlakte (%)',     '%',         null,  'voorzieningen', { ...RTM, inOverall: false }),
+  distMetro:        ds('distMetro',        'Afstand metro',        'Hemelsbreed tot metrohalte (km)', 'km',         null,  'voorzieningen', { inOverall: false }),
+  distTram:         ds('distTram',         'Afstand tram',         'Hemelsbreed tot tramhalte (km)',  'km',         null,  'voorzieningen', { inOverall: false }),
+  distOvHalte:      ds('distOvHalte',      'Afstand metro/tram',   'Hemelsbreed tot metro- of tramhalte (km)', 'km', null, 'voorzieningen', { inOverall: false }),
+  distOv:           ds('distOv',           'Afstand OV',           'Tot trein-, metro- of tramstation (km)', 'km',  null,  'voorzieningen', { inOverall: false }),
   distCentrum:      ds('distCentrum',      'Afstand centrum',      'Hemelsbreed tot Rotterdam Centraal (km)', 'km', null, 'voorzieningen', { ...RTM, inOverall: false }),
 });
 

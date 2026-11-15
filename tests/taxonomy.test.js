@@ -43,7 +43,7 @@ describe('categories', () => {
     assert.equal(rankKeyForCategory('criminaliteit', 'avgIncome', 'rotterdam'), 'crimeRate', 'a metric of another category is ignored');
     assert.equal(rankKeyForCategory('criminaliteit', 'crimeBike', 'nederland'), 'crimeRate', 'not in scope');
     assert.equal(rankKeyForCategory('overall', 'crimeBike'), 'overall');
-    assert.equal(categoryHeadline('voorzieningen', 'nederland'), null, 'no layers there');
+    assert.equal(categoryHeadline('voorzieningen', 'nederland'), 'distMetro', 'W26: only the OV distances there');
     assert.equal(categoryHeadline('nope'), null);
   });
   it('the crime category is in the layer list for both scopes', () => {

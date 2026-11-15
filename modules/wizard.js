@@ -113,7 +113,7 @@ function stepBody(key) {
   if (key === 'vervoer') return `
     <p class="wiz-q" id="wiz-q">Hoe kom je meestal ergens? Kies er meer als je wilt.</p>
     <div class="wiz-chips" role="group" aria-labelledby="wiz-q">${Object.entries(VERVOER).map(([k, l]) => chip('vervoer', k, l, a.vervoer.includes(k))).join('')}</div>
-    <p class="wiz-hint">Fiets: fietsendiefstal telt drie keer zwaarder. OV: afstand tot een treinstation. Auto: diefstal uit auto’s en liever minder dichtbebouwd. Lopen: huisarts en supermarkt dichtbij.</p>`;
+    <p class="wiz-hint">Fiets: fietsendiefstal telt drie keer zwaarder. OV: afstand tot het dichtstbijzijnde treinstation, metro- of tramstation. Auto: diefstal uit auto’s en liever minder dichtbebouwd. Lopen: huisarts en supermarkt dichtbij.</p>`;
   if (key === 'sfeer') {
     const v = a.sfeer ?? 50;
     return `

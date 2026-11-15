@@ -203,7 +203,7 @@ describe('new layers and dropdown groups', () => {
     assert.deepEqual(all.flatMap(g => g.datasets.map(d => d.key)).sort(), [...DATASET_KEYS].sort());
     assert.deepEqual(groups.find(g => g.key === 'criminaliteit').datasets.map(d => d.key), ['crimeRate', 'crimeBurglary', 'crimeBike', 'crimePickpocket', 'crimeViolence',
       'crimeStreetRobbery', 'crimeThreat', 'crimeVehicle', 'crimeShoplifting', 'crimeVandalism', 'crimeDrugs', 'crimeDensity', 'crimeNearby']);
-    assert.equal(groups.find(g => g.key === 'voorzieningen').scope, 'rotterdam');
+    assert.equal(groups.find(g => g.key === 'voorzieningen').scope, 'all', 'OV distances (W26) exist at every NL level');
     assert.equal(groups.find(g => g.key === 'bevolking').scope, 'all');
   });
   it('drops empty sections and sends unknown groups to the last one', () => {

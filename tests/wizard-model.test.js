@@ -106,10 +106,10 @@ describe('wizard: answers → preset', () => {
     assert.equal(metricOf(p, 'woningmarkt', 'ownerOccupiedPct'), undefined);
     assert.equal(p.targets.wozValue, undefined);
   });
-  it('vervoer: fiets ×3 on crimeBike, OV on distStation, auto on crimeVehicle and lower density', () => {
+  it('vervoer: fiets ×3 on crimeBike, OV on distOv (train/metro/tram), auto on crimeVehicle and lower density', () => {
     const p = answersToPreset({ vervoer: ['fiets', 'ov', 'auto'] });
     assert.equal(metricOf(p, 'veiligheid', 'crimeBike').w, 3);
-    assert.equal(metricOf(p, 'voorzieningen', 'distStation').w, STRESS_W);
+    assert.equal(metricOf(p, 'voorzieningen', 'distOv').w, STRESS_W);
     assert.ok(metricOf(p, 'veiligheid', 'crimeVehicle'));
     assert.equal(metricOf(p, 'sfeer', 'density').pref, 'lower');
     const f = resolvePreset(p, ALL);

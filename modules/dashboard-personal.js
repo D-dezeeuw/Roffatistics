@@ -77,7 +77,7 @@ function personalRows(a) {
     out.wonen = { panels, focus: { metrics, ceiling, bouw: a.bouw, mode: a.budget?.mode ?? null } };
   }
   const reach = [];
-  if (vv.has('ov')) reach.push(m('distStation', 'lower'));
+  if (vv.has('ov')) reach.push(m('distOv', 'lower'));
   if (vv.has('fiets')) reach.push(m('crimeBike', 'lower'));
   if (vv.has('lopen')) reach.push(m('distSupermarket', 'lower'), m('distGP', 'lower'));
   if (a.sfeer != null && a.sfeer < 35) reach.push(m('horeca1km', 'higher'), m('density', 'higher'), m('distCentrum', 'lower'));

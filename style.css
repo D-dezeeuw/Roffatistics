@@ -2089,6 +2089,22 @@ footer {
   color: var(--text-muted);
 }
 
+/* OV-lijnen switch (modules/ov.js): the swatch is the legend; line colours are the same in both themes */
+.ov-switcher { align-items: center; }
+.ov-switcher .theme-label {
+  padding: 0 0.5rem;
+  font: 500 0.65rem var(--font-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ov-opt { display: inline-flex; align-items: center; gap: 0.3rem; }
+.ov-swatch { display: inline-block; width: 0.9rem; border-radius: 2px; background: currentColor; opacity: 0.35; }
+.ov-swatch-metro { height: 4px; background: #2f7bff; }
+.ov-swatch-tram  { height: 3px; background: #e5322d; }
+.ov-swatch-bus   { height: 2px; background: #b49a6a; }
+.ov-opt.active .ov-swatch { opacity: 1; }
+
 /* ─── Loading screen (shown/hidden by modules/loader.js) ─────
    Contract: .is-visible fades it in, [hidden] removes it, --progress (0..1)
    fills the green bar, .is-indeterminate spins a green arc. Brand colours are
