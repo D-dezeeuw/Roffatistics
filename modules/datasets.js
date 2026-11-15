@@ -1,6 +1,7 @@
 import { BOUW_SOURCE_URL, BOUW_MIN_DWELLINGS, OLD_BUILD_BEFORE, MODERN_BUILD_FROM } from './bouwjaar-pc4.js';
 import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, pc4RegionComposition, regionAtBuurt } from './herkomst-pc4.js';
 import { REGIONS, REGIO_TABLE, REGIO_YEAR, regionComposition } from './herkomst-regio.js';
+import { P2000_SOURCE_URL, P2000_COVERAGE, P2000_MIN_POPULATION } from './p2000.js';
 
 const CBS_BASE = 'https://opendata.cbs.nl/ODataApi/odata';
 
@@ -150,10 +151,21 @@ const SRC = Object.freeze({
   pc6:     Object.freeze({ id: 'pc6huisnr', name: `Buurt, wijk en gemeente per postcode en huisnummer ${PC4_YEAR}`, publisher: 'CBS', url: `https://download.cbs.nl/postcode/${PC4_YEAR}-cbs_pc6huisnr.zip`, scope: 'postcode' }),
   herkomst: Object.freeze({ id: REGIO_TABLE, name: 'Bevolking; herkomstland, geboorteland, leeftijd, regio, 1 januari', publisher: 'CBS', url: statline(REGIO_TABLE), scope: 'Nederland (gemeenten)' }),
   osm:     Object.freeze({ id: 'OSM', name: 'OpenStreetMap: metro- en tramlijnen en haltes (ODbL), via Overpass API', publisher: '© OpenStreetMap-bijdragers', url: 'https://www.openstreetmap.org/copyright', scope: 'Nederland' }),
+  p2000:   Object.freeze({ id: 'P2000', name: 'Randstad P2000: meldingen hulpdiensten per buurt, wijk en gemeente (live)', publisher: 'Randstad, uit het openbare P2000-net', url: P2000_SOURCE_URL, scope: P2000_COVERAGE }),
   crimeNl: Object.freeze({ id: '83648NED', name: 'Geregistreerde criminaliteit; soort misdrijf, regio', publisher: 'CBS', url: statline('83648NED'), scope: 'Nederland' }),
 });
 
 const OV_YEAR = 'november 2026 (OpenStreetMap)';
+
+// Actuele meldingen hulpdiensten (P2000, W30): live from Randstad (modules/p2000.js).
+const P2000_YEAR = 'live: laatste 30 of 7 dagen (gegevens vanaf oktober 2026)';
+const P2000_FORMULA = what => `aantal ${what} in de gekozen periode (30 of 7 dagen) ÷ inwoners × 1.000; onder ${P2000_MIN_POPULATION} inwoners alleen het aantal`;
+export const P2000_NOTES = Object.freeze([
+  'Meldingen hulpdiensten (P2000), geen criminaliteitscijfer: P2000 toont maar een deel van het politiewerk, want het meeste politieverkeer is versleuteld. Brandweer en ambulance staan er vollediger in.',
+  'Locaties zijn bij benadering: een melding noemt meestal een straat of postcode, die Randstad aan een buurt koppelt. Meldingen zonder herkenbare plek tellen niet mee.',
+  `Alleen de veiligheidsregio's ${P2000_COVERAGE}, en pas vanaf oktober 2026. Gebieden daarbuiten zijn grijs (geen gegevens), niet nul.`,
+  'Live opgehaald bij Randstad wanneer je deze laag kiest; telt niet mee in de Woonscore, de totaalscore, de wizard of de ranglijst.',
+]);
 const OV_FORMULA = what => `afstand in km over het aardoppervlak van het zwaartepunt van de gebiedsgrens tot de dichtstbijzijnde ${what} (haltes uit OpenStreetMap-routes, beide richtingen samengevoegd)`;
 const OV_CAVEATS = Object.freeze([
   'Berekend door deze app uit de kaart en OpenStreetMap, geen CBS-cijfer. Het zwaartepunt van een groot gebied kan ver van de woningen liggen.',
@@ -632,6 +644,12 @@ const INFO = {
     year: 'indeling 2024',
     caveats: ['Berekend door deze app uit de kaart, geen CBS-cijfer. Het zwaartepunt van een groot of langgerekt gebied (havens, Hoek van Holland) kan ver van de woningen liggen.', 'Hemelsbreed: de Maas en de havens kunnen de werkelijke reisafstand veel groter maken.', TASTE_NOTE],
   },
+  p2000Totaal:   { description: 'Alle meldingen hulpdiensten (P2000) in het gebied: politie, brandweer en ambulance samen, per 1.000 inwoners. Een drukke winkelstraat, uitgaansgebied of snelweg trekt veel meldingen zonder dat er veel mensen wonen.', formula: P2000_FORMULA('meldingen'), source: [SRC.p2000], year: P2000_YEAR, caveats: P2000_NOTES },
+  p2000Verkeer:  { description: 'Meldingen hulpdiensten (P2000) over verkeersongevallen, per 1.000 inwoners.', formula: P2000_FORMULA('meldingen van verkeersongevallen'), source: [SRC.p2000], year: P2000_YEAR, caveats: P2000_NOTES },
+  p2000Brand:    { description: 'Meldingen hulpdiensten (P2000) over branden, per 1.000 inwoners. Ook kleine meldingen (container, buitenbrand) en automatische brandmeldingen tellen mee.', formula: P2000_FORMULA('brandmeldingen'), source: [SRC.p2000], year: P2000_YEAR, caveats: P2000_NOTES },
+  p2000Explosie: { description: 'Meldingen hulpdiensten (P2000) over explosies, per 1.000 inwoners. Kleine aantallen: één melding maakt al verschil.', formula: P2000_FORMULA('meldingen van explosies'), source: [SRC.p2000], year: P2000_YEAR, caveats: P2000_NOTES },
+  p2000Geweld:   { description: 'Meldingen hulpdiensten (P2000) over geweld en diefstal, per 1.000 inwoners. Omdat het meeste politieverkeer versleuteld is, is dit maar een klein deel van wat er gebeurt.', formula: P2000_FORMULA('meldingen van geweld en diefstal'), source: [SRC.p2000], year: P2000_YEAR, caveats: P2000_NOTES },
+  p2000Spoed:    { description: 'Spoedritten van de ambulance (A1/A2) naar het gebied, per 1.000 inwoners. Hangt sterk samen met de leeftijd van de inwoners en met zorginstellingen in de buurt.', formula: P2000_FORMULA('spoedritten ambulance'), source: [SRC.p2000], year: P2000_YEAR, caveats: P2000_NOTES },
 };
 
 // Detailed herkomst per wijk/buurt, estimated from postcode data (v0.25.0, herkomst-pc4.js).
@@ -737,6 +755,13 @@ export const DATASETS = Object.freeze({
   distOvHalte:      ds('distOvHalte',      'Afstand metro/tram',   'Hemelsbreed tot metro- of tramhalte (km)', 'km', null, 'voorzieningen', { inOverall: false }),
   distOv:           ds('distOv',           'Afstand OV',           'Tot trein-, metro- of tramstation (km)', 'km',  null,  'voorzieningen', { inOverall: false }),
   distCentrum:      ds('distCentrum',      'Afstand centrum',      'Hemelsbreed tot Rotterdam Centraal (km)', 'km', null, 'voorzieningen', { ...RTM, inOverall: false }),
+  // Live (W30): values only exist once modules/p2000.js loaded them; `live` keeps them out of Ranglijst and Vergelijken.
+  p2000Totaal:      ds('p2000Totaal',      'Alle meldingen',       'Meldingen hulpdiensten (P2000) per 1.000 inw.', 'per 1.000', null, 'actueel', { inOverall: false, live: true }),
+  p2000Verkeer:     ds('p2000Verkeer',     'Verkeersongevallen',   'Verkeersongevallen (P2000) per 1.000 inw.', 'per 1.000', null, 'actueel', { inOverall: false, live: true }),
+  p2000Brand:       ds('p2000Brand',       'Branden',              'Branden (P2000) per 1.000 inw.',   'per 1.000', null, 'actueel', { inOverall: false, live: true }),
+  p2000Explosie:    ds('p2000Explosie',    'Explosies',            'Explosies (P2000) per 1.000 inw.', 'per 1.000', null, 'actueel', { inOverall: false, live: true }),
+  p2000Geweld:      ds('p2000Geweld',      'Geweld en diefstal',   'Geweld en diefstal (P2000) per 1.000 inw.', 'per 1.000', null, 'actueel', { inOverall: false, live: true }),
+  p2000Spoed:       ds('p2000Spoed',       'Spoedritten ambulance', 'Spoedritten ambulance (P2000) per 1.000 inw.', 'per 1.000', null, 'actueel', { inOverall: false, live: true }),
 });
 
 export const DATASET_KEYS = Object.freeze(Object.keys(DATASETS));
@@ -758,6 +783,7 @@ export const DATASET_GROUPS = Object.freeze([
   Object.freeze({ key: 'opleiding',      label: 'Opleiding',                     headline: 'highEdu' }),
   Object.freeze({ key: 'welvaart',       label: 'Welvaart & wonen',              headline: 'avgIncome' }),
   Object.freeze({ key: 'voorzieningen',  label: 'Voorzieningen',                 headline: 'distSupermarket' }),
+  Object.freeze({ key: 'actueel',        label: 'Actueel: meldingen hulpdiensten', headline: 'p2000Totaal', live: true }),
   Object.freeze({ key: 'herkomstDetail', label: 'Herkomst (overige indelingen)', headline: null, layer: false }),
 ]);
 
@@ -787,6 +813,8 @@ export const RETIRED_LAYERS = Object.freeze({
 export const resolveLayerKey = key => RETIRED_LAYERS[key] ?? key;
 
 const LAYER_GROUPS = DATASET_GROUPS.filter(g => g.layer !== false);
+/** True for live layers (P2000, W30): on the map and in Uitleg, never in Ranglijst, Vergelijken or a score. */
+export const isLiveDataset = key => !!DATASETS[key]?.live;
 /** The categories that have layers (Layers dropdown, Ranglijst). */
 export const LAYER_CATEGORIES = Object.freeze(LAYER_GROUPS);
 
@@ -799,7 +827,7 @@ export const LAYER_CATEGORIES = Object.freeze(LAYER_GROUPS);
  */
 export function groupDatasets(datasets = DATASETS, groups = DATASET_GROUPS, { includeHidden = false } = {}) {
   const known = new Set(groups.map(g => g.key));
-  const last = [...groups].reverse().find(g => g.layer !== false)?.key;
+  const last = [...groups].reverse().find(g => g.layer !== false && !g.live)?.key;   // never the live Actueel section
   return groups.filter(g => includeHidden || g.layer !== false).map(g => {
     const list = Object.values(datasets).filter(d => (known.has(d.group) ? d.group : last) === g.key);
     const only = ['rotterdam', 'nederland'].find(sc => list.length && list.every(d => d.scope === sc));

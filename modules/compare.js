@@ -72,7 +72,7 @@ export function clearSlot(slots, i) {
 
 /** The rows: one headline per layer category, plus the active map layer (marked active) when it is none of them. */
 export function compareKeys(dataset) {
-  const rows = LAYER_CATEGORIES.map(g => {
+  const rows = LAYER_CATEGORIES.filter(g => !g.live).map(g => {   // live P2000 (W30): only as the active layer
     const key = categoryHeadline(g.key);
     return key ? { key, category: g.label, active: key === dataset } : null;
   }).filter(Boolean);

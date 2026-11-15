@@ -136,6 +136,14 @@ export function personalScoreHtml(js, lvl, label = 'Woonscore · jouw wensen') {
  * "Woonscore · jouw wensen", or false) shows the Woonscore as the personalised
  * block: d.woonscore then holds the active preset's result.
  */
+/** The P2000 block of the modal (W30): counts with the rate per 1.000 where there are enough inwoners. */
+export function p2000Html(p) {
+  if (!p) return '';
+  if (!p.covered) return '<p>Geen gegevens: alleen Rotterdam-Rijnmond en Zuid-Holland-Zuid.</p>';
+  const items = p.rows.map(r => `<li><strong>${nl(r.count)}</strong> ${esc(r.count === 1 && r.group === 'totaal' ? 'melding' : r.label)}${r.rate != null ? ` <small>(${nl(r.rate, 1)} per 1.000 inw.)</small>` : ''}</li>`).join('');
+  return `<ul class="area-p2000-list">${items}</ul><p class="area-note">Live van <a href="https://randstad.hermes.blockworlds.nl/" target="_blank" rel="noopener">Randstad</a>. P2000 toont maar een deel van het politiewerk; locaties zijn bij benadering.${p.rows[0].rate == null ? ' Te weinig inwoners voor een cijfer per 1.000.' : ''}</p>`;
+}
+
 export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'rotterdam' } = {}) {
   const pt = PEER_TEXT[peers] ?? PEER_TEXT.rotterdam;
   if (!d) return '<p class="area-empty">Geen gegevens voor dit gebied.</p>';
@@ -190,6 +198,7 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
   const gm = d.level === 'gemeente' ? d.code : d.code ? gemeenteOf(d.code) : null;
   const reg = gm ? regionHtml(gm) : '';
   if (reg) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst per regio${d.level === 'gemeente' ? '' : ' · hele gemeente'}</span>${reg}</div>`);
+  if (d.p2000) extras.push(`<div class="area-extra area-extra-wide area-p2000"><span class="area-extra-label">Meldingen hulpdiensten (P2000)${d.p2000.days ? ` · ${d.p2000.days} dagen` : ''}</span>${p2000Html(d.p2000)}</div>`);
   if (d.education) extras.push(`<div class="area-extra"><span class="area-extra-label">Opleiding</span>${eduDonutHtml(d.education)}</div>`);
   if (d.outliers.length) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Uitschieter</span><p>${d.outliers.map(e => `${esc(e.label)}: ${outlierLabel(e.outlier)}`).join(' · ')}</p></div>`);
   if (dataYears) extras.push(`<div class="area-extra"><span class="area-extra-label">Peiljaar</span><p>${esc(dataYears)} · misdrijven 2025</p></div>`);

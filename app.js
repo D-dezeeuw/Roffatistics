@@ -33,6 +33,7 @@ import { loadBouwjaar, onBouwLoaded, addBouwShares, isBouwKey, isBouwLoaded, pre
 import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, presetUsesPc4 } from './modules/herkomst-pc4.js';
 import { loadGemeenteRegio, isRegioLoaded, isRegionMetric, withRegionShares } from './modules/herkomst-regio.js';
 import { showLoader, hideLoader, setLoaderProgress, withLoader } from './modules/loader.js';
+import { isP2000Key, isP2000Loaded, loadP2000, setP2000Window, getP2000Window, activeP2000, addP2000Values, withP2000Rows, p2000LegendHtml, P2000_ERROR_TEXT, P2000_LOADING_TEXT } from './modules/p2000.js';
 
 // ── Legend ────────────────────────────────────────────────────────────────────
 setValue('legend.title',           '');
@@ -135,6 +136,7 @@ fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
   .then(async rawGM => {
     const ov = await loadOvAfstand();   // prebuilt metro/tram distances per gemeente ({} when it fails)
     gemeenteRows = rowsWithWoonscore(withRegionShares(normalizeProvinces(rawGM).filter(r => r.regionCode).map(r => withOvValues(r, r.regionCode, ov))));   // regions: once loaded
+    gemeenteRows = withP2000Rows(gemeenteRows);   // P2000 meldingen (W30) when the layer was opened first
     setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows);
     refreshMunicipalityView();
     // Merge municipality crime in the background.
@@ -247,8 +249,40 @@ document.addEventListener('rotterdam-level-change', async () => {
 
 // Legend extras: the (i) button explains the visible layer; the crime toggle shows for crime layers,
 // the Standaard / Gelijk / Jouw score switcher (and Reset) for the Woonscore.
+// ── Actueel: meldingen hulpdiensten (P2000, W30) ──────────────────────────────
+// Fetched from Randstad only when a P2000 layer is shown; the values join every
+// loaded area set. A failure shows a notice in the legend; the app carries on.
+let p2000Status = '';
+function renderP2000Legend() {
+  document.querySelectorAll('[data-live-slot]').forEach(el => { el.innerHTML = p2000LegendHtml(getP2000Window(), p2000Status); });
+}
+function applyP2000ToLoaded() {
+  const rd = peekRotterdamAreas();
+  if (rd) { addP2000Values(rd.wijken); addP2000Values(rd.buurten); }
+  const nl = peekNlAreas();
+  addP2000Values(nl.wijken); addP2000Values(nl.buurten);
+  if (gemeenteRows.length) { gemeenteRows = withP2000Rows(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
+}
+async function ensureP2000() {
+  if (isP2000Loaded()) { applyP2000ToLoaded(); return; }
+  p2000Status = P2000_LOADING_TEXT; renderP2000Legend();
+  try { await loadP2000(); p2000Status = ''; applyP2000ToLoaded(); }
+  catch (err) { console.warn('p2000:', err); p2000Status = P2000_ERROR_TEXT; }
+  renderP2000Legend();
+}
+document.addEventListener('click', e => {
+  const btn = e.target.closest?.('[data-p2000-window]');
+  if (!btn || btn.dataset.p2000Window === getP2000Window()) return;
+  setP2000Window(btn.dataset.p2000Window);
+  renderP2000Legend();
+  if (isP2000Key(getState().dataset)) activateDataset(getState().dataset);
+});
+
 function syncLegendExtras(key) {
   const legend = document.getElementById('legend');
+  const live = isP2000Key(key);
+  if (live && !legend?.classList.contains('legend-has-live')) renderP2000Legend();
+  legend?.classList.toggle('legend-has-live', live);
   legend?.classList.toggle('legend-has-crime', isCrimeDataset(key));
   legend?.classList.toggle('legend-has-score', DATASETS[key]?.unit === 'score');
   const info = legend?.querySelector('.legend-info');
@@ -275,9 +309,17 @@ async function activateDataset(key) {
     if (isRegioLoaded() && gemeenteRows.length) { gemeenteRows = withRegionShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
     if (getState().dataset !== key) return;
   }
+  // Actuele meldingen (P2000, W30): fetched from Randstad on first use, per 30/7-dagen window.
+  if (isP2000Key(key)) {
+    syncLegendExtras(key);
+    await ensureP2000();
+    if (getState().dataset !== key) return;
+  }
   const mode = getState().crime;
   const base = datasetFor(key, mode);
-  const ds = base.unit === 'score' ? { ...base, title: scoreTitle(getState().score, base.title) } : base;   // "Woonscore · jouw wensen"
+  const p2000 = isP2000Key(key) ? activeP2000() : null;
+  const ds = base.unit === 'score' ? { ...base, title: scoreTitle(getState().score, base.title) }
+    : isP2000Key(key) ? { ...base, title: `${base.title} · ${p2000?.days ?? Number.parseInt(getP2000Window(), 10)} dagen` } : base;   // "Woonscore · jouw wensen"
   syncLegendExtras(key);
   if (getState().scope === 'rotterdam') {
     const { scale, level, hasData } = applyRotterdamDataset(key, mode);
