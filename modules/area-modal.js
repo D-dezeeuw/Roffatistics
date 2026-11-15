@@ -57,6 +57,13 @@ export function areaModalHtml(d, { dataYears = '' } = {}) {
         <span>Totaalscore · <strong>#${d.overall.rank}</strong> van ${d.overall.of} ${lvl}<small>gemiddeld percentiel over ${d.overall.used} van ${d.overall.possible} cijfers met een richting</small></span>
         ${infoButton('score', 'Totaalscore')}</div>` : '';
 
+  const ws = d.woonscore;
+  const woonscore = ws
+    ? `<div class="area-score area-woonscore"><span class="area-score-num">${Math.round(ws.score)}</span>
+        <span>Woonscore${ws.rank ? ` · <strong>#${ws.rank}</strong> van ${ws.of} ${lvl}` : ''}${ws.shrunk ? ' <span class="area-badge" title="Minder dan 300 inwoners: criminaliteit en bijstand zijn naar de wijk toe getrokken">weinig inwoners</span>' : ''}<small>0–100 t.o.v. andere ${lvl}; veiligheid, welvaart, voorzieningen, opleiding en koopwoningen</small></span>
+        ${infoButton('woonscore', 'Woonscore')}</div>
+      ${ws.plus.length || ws.minus.length ? `<div class="area-ws-why">${ws.plus.length ? `<p class="area-ws-plus"><span>Sterk:</span> ${ws.plus.map(f => esc(f.label)).join(' · ')}</p>` : ''}${ws.minus.length ? `<p class="area-ws-minus"><span>Zwak:</span> ${ws.minus.map(f => esc(f.label)).join(' · ')}</p>` : ''}</div>` : ''}` : '';
+
   const chips = d.notable.length
     ? `<section class="area-sec"><h3>Opvallend</h3><ul class="area-chips">${d.notable.map(e =>
         `<li class="area-chip is-${e.higherIsBetter == null ? 'neutral' : (e.side === 'high') === e.higherIsBetter ? 'good' : 'bad'}" title="${esc(`${e.title}: ${formatValue(e.value, e.key, d.mode)}`)}">${esc(e.text)}</li>`).join('')}</ul></section>` : '';
@@ -103,7 +110,7 @@ export function areaModalHtml(d, { dataYears = '' } = {}) {
         <button type="button" class="area-btn" data-area-action="compare">Vergelijk</button>
         <button type="button" class="area-btn" data-area-action="copy">Kopieer link</button>
       </div>
-      ${overall}${chips}
+      ${woonscore}${overall}${chips}
       ${extras.length ? `<section class="area-sec"><div class="area-extras">${extras.join('')}</div></section>` : ''}
       ${table}${children}
     </div>`;

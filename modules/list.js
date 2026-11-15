@@ -29,7 +29,7 @@ function storeRankMode(mode) {
 const ui = {
   root: null,
   level: { rotterdam: 'wijken', nederland: 'provincies' },
-  rankKey: 'overall',
+  rankKey: 'woonscore',     // follows the default map layer
   sort: { column: 'rank', dir: 'asc' },
   rankMode: 'fixed',       // 'fixed' (Vast) | 'sort' (Volgt sortering); persisted in localStorage
   rendered: null,          // Promise of the last render
@@ -59,7 +59,7 @@ export function initList(root = document.getElementById('view-list')) {
       <div class="list-level" role="group" aria-label="Niveau"></div>
       <label class="list-rank-by">Rangschik op
         <select class="list-rank-select">
-          <option value="overall">Totaalscore</option>
+          <option value="overall">Totaalscore (gelijk gewogen)</option>
           ${ALL_DATASETS.map(d => `<option value="${d.key}">${esc(d.label)}</option>`).join('')}
         </select>
       </label>
@@ -272,6 +272,7 @@ async function doRender() {
   else if (follows) notes.push(`Rang volgt de sortering op de score, ${ui.sort.dir === 'desc' ? 'hoogste' : 'laagste'} eerst.`);
   if (sortDs) { /* the score note above replaces the basis note */ }
   else if (!rankDs) notes.push('Score = percentiel 0–100 binnen de lijst, gemiddeld over de datasets met een richting.');
+  else if (rankDs.unit === 'score') notes.push('Gerangschikt op de Woonscore: 0–100 binnen de lijst, gewogen over veiligheid (35), welvaart (20), voorzieningen (25), opleiding (10) en koopwoningen (10).');
   else if (rankDs.higherIsBetter == null) notes.push(`Gerangschikt op ${rankDs.title}, hoogste waarde eerst; score = percentiel 0–100 van die waarde.`);
   else notes.push(`Score = percentiel 0–100 op ${rankDs.title} alleen (${rankDs.higherIsBetter ? 'hoger' : 'lager'} is beter).`);
   if ((rankDs || follows) && rows.some(r => r.rank == null)) notes.push('Gebieden zonder waarde staan onderaan, zonder rang.');

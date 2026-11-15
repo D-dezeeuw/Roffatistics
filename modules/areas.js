@@ -5,6 +5,7 @@
 // Pure helpers are exported for the unit tests; loaders take injectable
 // fetcher/storage so they run under node --test as well as in the browser.
 import { DATASETS, DATASET_KEYS } from './datasets.js';
+import { withWoonscore } from './presets.js';
 
 export { DATASETS, DATASET_KEYS };
 
@@ -499,8 +500,11 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
       dataOk = false;
     }
     const oldRows = await fallback;
-    const wijken  = mergeCrime(joinAreas(wijkGeo.features, rows, oldRows), await wijkCrime, { minPopulation: CRIME_MIN_POPULATION });
-    const buurten = mergeCrime(joinAreas(buurtGeo.features, rows, oldRows), await buurtCrime, { minPopulation: CRIME_MIN_POPULATION_BUURT });
+    const wijkenRaw = mergeCrime(joinAreas(wijkGeo.features, rows, oldRows), await wijkCrime, { minPopulation: CRIME_MIN_POPULATION });
+    const buurtenRaw = mergeCrime(joinAreas(buurtGeo.features, rows, oldRows), await buurtCrime, { minPopulation: CRIME_MIN_POPULATION_BUURT });
+    // Woonscore per level among its peers; buurt rates shrink toward the parent wijk.
+    const wijken  = withWoonscore(wijkenRaw);
+    const buurten = withWoonscore(buurtenRaw, { parents: wijkenRaw });
     const [city] = joinAreas([{ properties: { statcode: ROTTERDAM.gemeente, statnaam: ROTTERDAM.name } }], rows, oldRows);
     return {
       wijken,

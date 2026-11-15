@@ -366,6 +366,18 @@ const INFO = {
     year: '2025',
     caveats: [CRIME_SUB_NOTE, 'Gaat om door de politie ontdekte handel: het cijfer volgt ook waar de politie actief zoekt, niet alleen hoeveel er wordt gehandeld.', CRIME_MIN_NOTE, CRIME_CELL_NOTE],
   },
+  woonscore: {
+    description: 'Eén cijfer van 0 tot 100 voor hoe prettig je er gemiddeld woont, vergeleken met gelijke gebieden: gemeenten met gemeenten, wijken met wijken, buurten met buurten. 100 = het beste gebied van de lijst, 0 = het slechtste. Opgebouwd uit veiligheid (35), welvaart (20), voorzieningen (25), opleiding (10) en koopwoningen (10). Smaakkwesties zoals drukte, leeftijd, herkomst en de WOZ-waarde tellen niet mee.',
+    formula: 'per cijfer de percentielscore binnen de lijst (omgedraaid bij lager = beter); Woonscore = 100 × Σ gewicht × score / Σ gewicht over de cijfers met data. Een themagewicht wordt verdeeld over de cijfers van dat thema die er zijn.',
+    source: [SRC.kwb2025, SRC.crime, SRC.regio, SRC.crimeNl],
+    year: '2023–2025 (zie de onderliggende cijfers)',
+    caveats: [
+      'Een score is relatief: een 80 voor een buurt is iets anders dan een 80 voor een gemeente, en zegt niet hoe groot het verschil in werkelijkheid is.',
+      'In de Nederland-weergave zijn er minder cijfers (misdrijven totaal, inkomen, opleiding); de gewichten worden dan herverdeeld.',
+      'Weinig inwoners: bij buurten worden criminaliteit en bijstand naar de wijk toe getrokken (gewicht inwoners / (inwoners + 300)), zodat een paar incidenten in een kleine buurt de score niet domineren.',
+      'Een gebied met data voor minder dan 60% van het gewicht krijgt geen score (onvoldoende data).',
+    ],
+  },
   distGP: {
     description: 'De gemiddelde afstand over de weg van de inwoners tot de dichtstbijzijnde huisartsenpraktijk. Lager telt als beter.',
     formula: 'gemiddelde wegafstand in km, gemiddeld over de inwoners (CBS nabijheidsstatistiek)',
@@ -388,6 +400,7 @@ const ds = (key, label, title, unit, higherIsBetter, group, extra = {}) =>
 const RTM = { scope: 'rotterdam' };
 
 export const DATASETS = Object.freeze({
+  woonscore:        ds('woonscore',        'Woonscore',            'Woonscore (0–100, t.o.v. gelijke gebieden)', 'score', true, 'score', { inOverall: false }),
   population:       ds('population',       'Bevolking',            'Inwoners',                        'aantal',    null,  'bevolking'),
   density:          ds('density',          'Bevolkingsdichtheid',  'Inwoners per km²',                'per km²',   null,  'bevolking'),
   pop65plus:        ds('pop65plus',        '65+ (%)',              '65+ (%)',                         '%',         null,  'bevolking'),
@@ -419,6 +432,7 @@ export const DATASETS = Object.freeze({
 export const DATASET_KEYS = Object.freeze(Object.keys(DATASETS));
 
 export const DATASET_GROUPS = Object.freeze([
+  Object.freeze({ key: 'score',         label: 'Score' }),
   Object.freeze({ key: 'bevolking',     label: 'Bevolking' }),
   Object.freeze({ key: 'herkomst',      label: 'Herkomst' }),
   Object.freeze({ key: 'welvaart',      label: 'Welvaart & wonen' }),

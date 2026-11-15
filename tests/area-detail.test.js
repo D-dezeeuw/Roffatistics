@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { peerRank, rankPhrase, rankWords, isExtreme, median, formatDiff, overallRank, buildAreaDetail } from '../modules/area-detail.js';
 import { areaModalHtml, areaLink } from '../modules/area-modal.js';
+import { withWoonscore } from '../modules/presets.js';
 
 describe('peerRank', () => {
   it('ranks high-first for good and neutral data, low-first for crime', () => {
@@ -151,5 +152,43 @@ describe('areaModalHtml', () => {
   it('builds the share link with &area=', () => {
     const url = areaLink('BU05990101', { scope: 'nederland', view: 'list', crime: 'rate' }, { origin: 'https://x.nl', pathname: '/r/' });
     assert.equal(url, 'https://x.nl/r/#scope=rotterdam&view=list&area=BU05990101');
+  });
+});
+
+describe('Woonscore in the area detail', () => {
+  const wv = (crimeRate, avgIncome, highEdu, population) => ({ crimeRate, avgIncome, highEdu, population, distGP: 1, distSupermarket: 1 });
+  const wijken = withWoonscore([
+    { code: 'WK1', name: 'Noord', level: 'wijk', values: wv(10, 40, 50, 9000) },
+    { code: 'WK2', name: 'Zuid', level: 'wijk', values: wv(60, 25, 20, 9000) },
+  ]);
+  const raw = [
+    { code: 'BU1', name: 'Klein', level: 'buurt', parent: 'WK1', values: wv(90, 41, 52, 120) },
+    { code: 'BU2', name: 'Groot', level: 'buurt', parent: 'WK2', values: wv(55, 24, 18, 3000) },
+    { code: 'BU3', name: 'Rustig', level: 'buurt', parent: 'WK1', values: wv(12, 39, 49, 3000) },
+  ];
+  const buurten = withWoonscore(raw, { parents: wijken });
+  const areas = { wijken, buurten };
+
+  it('score, rank among peers and plus/minus factors; no table row for the score itself', () => {
+    const d = buildAreaDetail(wijken[0], areas);
+    assert.equal(d.woonscore.rank, 1);
+    assert.equal(d.woonscore.of, 2);
+    assert.ok(d.woonscore.score > 50);
+    assert.ok(d.woonscore.plus.length > 0);
+    assert.ok(!d.entries.some(e => e.key === 'woonscore'));
+    const html = areaModalHtml(d);
+    assert.match(html, /Woonscore · <strong>#1<\/strong> van 2 wijken/);
+    assert.match(html, /Sterk:/);
+    assert.doesNotMatch(html, /weinig inwoners/);
+  });
+  it('a tiny buurt gets the "weinig inwoners" badge', () => {
+    const d = buildAreaDetail(buurten[0], areas);
+    assert.equal(d.woonscore.shrunk, true);
+    assert.match(areaModalHtml(d), /weinig inwoners/);
+  });
+  it('no Woonscore block without a score', () => {
+    const d = buildAreaDetail(raw[0], { wijken, buurten: raw });
+    assert.equal(d.woonscore, null);
+    assert.doesNotMatch(areaModalHtml(d), /area-woonscore/);
   });
 });

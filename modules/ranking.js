@@ -69,7 +69,7 @@ export function rankValue(row, key, datasets) {
   if (key === 'overall') return row.overall;
   const ds = datasets.find(d => d.key === key);
   if (!ds) return null;
-  if (ds.higherIsBetter == null) return isNum(row.values?.[key]) ? row.values[key] : null;
+  if (ds.higherIsBetter == null || ds.unit === 'score') return isNum(row.values?.[key]) ? row.values[key] : null;
   return row.scores?.[key] ?? null;
 }
 
@@ -83,6 +83,7 @@ export function scoreFor(row, key, datasets) {
   if (key === 'overall') return row.overall ?? null;
   const ds = datasets.find(d => d.key === key);
   if (!ds) return null;
+  if (ds.unit === 'score') return isNum(row.values?.[key]) ? row.values[key] : null;   // Woonscore is already 0–100
   return (ds.higherIsBetter == null ? row.pct?.[key] : row.scores?.[key]) ?? null;
 }
 
@@ -122,6 +123,7 @@ export function orderColumns(datasets, key) {
 export function scoreHeader(key, datasets) {
   const ds = key === 'overall' ? null : datasets.find(d => d.key === key);
   if (!ds) return { label: 'Score', title: 'Gemiddelde percentielscore over de datasets met een richting' };
+  if (ds.unit === 'score') return { label: ds.label, title: `${ds.title}: gewogen score uit veiligheid, welvaart, voorzieningen, opleiding en koopwoningen` };
   const title = ds.higherIsBetter == null
     ? `Percentiel van ${ds.title} binnen de lijst (hoog = hoge waarde)`
     : `Percentielscore op ${ds.title} — ${ds.higherIsBetter ? 'hoger' : 'lager'} is beter`;
@@ -205,6 +207,7 @@ export function formatValue(value, unit) {
     case '×€1.000':   return `€ ${nl(Math.round(value * 1000))}`;
     case 'per 1.000': return nl(value, 1);
     case 'misdrijven': return nl(Math.round(value));
+    case 'score':     return String(Math.round(value));
     default:          return nl(value, Number.isInteger(value) ? 0 : 1);
   }
 }

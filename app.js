@@ -14,6 +14,7 @@ import { initExplain }                    from './modules/explain.js';
 import { initCrimeToggles }               from './modules/crime-mode.js';
 import { initAreaModal, openAreaModal, COMPARE_EVENT } from './modules/area-modal.js';
 import { initSpacePan }                   from './modules/space-pan.js';
+import { rowsWithWoonscore }              from './modules/presets.js';
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -50,7 +51,7 @@ let gemeenteRows  = [];
 // Not awaited: the Rotterdam scope must not wait for national CBS data.
 const provincesReady = fetchCBS(CBS_TABLE, CBS_FILTER, CBS_SELECT)
   .then(raw => {
-    provinceRows = normalizeProvinces(raw);
+    provinceRows = rowsWithWoonscore(normalizeProvinces(raw));
     setProvinceData(provinceRows); setNationalRows('provincie', provinceRows);
     if (getState().scope === 'nederland') return activateDataset(getState().dataset);
   })
@@ -61,8 +62,10 @@ fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
   .then(async crimeRaw => {
     await provincesReady;
     const crimeLookup = Object.fromEntries(normalizeCrime(crimeRaw).map(r => [r.regionCode, r]));
-    provinceRows = provinceRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] }));
+    provinceRows = rowsWithWoonscore(provinceRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] })));
     setProvinceData(provinceRows); setNationalRows('provincie', provinceRows);
+    // Re-colour: the Woonscore (and crime layers) change once crime is merged.
+    if (getState().scope === 'nederland' && getActiveTier() !== 'municipality' && getActiveTier() !== 'buurt') activateDataset(getState().dataset);
   })
   .catch(() => { /* crime unavailable — panel shows dashes for crime fields */ });
 
@@ -89,14 +92,14 @@ function refreshMunicipalityView() {
 
 fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
   .then(rawGM => {
-    gemeenteRows = normalizeProvinces(rawGM).filter(r => r.regionCode);
+    gemeenteRows = rowsWithWoonscore(normalizeProvinces(rawGM).filter(r => r.regionCode));
     setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows);
     refreshMunicipalityView();
     // Merge municipality crime in the background.
     return fetchCBS('83648NED', GM_CRIME_FILTER, CRIME_SELECT, undefined, undefined, 2000)
       .then(crimeRawGM => {
         const crimeLookup = Object.fromEntries(normalizeCrime(crimeRawGM).map(r => [r.regionCode, r]));
-        gemeenteRows = gemeenteRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] }));
+        gemeenteRows = rowsWithWoonscore(gemeenteRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] })));
         setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows);
         refreshMunicipalityView();
       })

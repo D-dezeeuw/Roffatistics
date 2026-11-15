@@ -11,8 +11,8 @@ const memStorage = (init = {}) => {
 };
 
 describe('state helpers', () => {
-  it('defaults to Rotterdam, map view, population', () => {
-    assert.deepEqual(DEFAULT_STATE, { scope: 'rotterdam', view: 'map', dataset: 'population', area: null, crime: 'rate' });
+  it('defaults to Rotterdam, map view, Woonscore', () => {
+    assert.deepEqual(DEFAULT_STATE, { scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate' });
   });
 
   it('sanitizePatch drops invalid values', () => {
@@ -23,11 +23,20 @@ describe('state helpers', () => {
   });
 
   it('parseHash / serializeHash round-trip', () => {
-    const s = { scope: 'nederland', view: 'dashboard', dataset: 'population', area: 'GM0599' };
+    const s = { scope: 'nederland', view: 'dashboard', dataset: 'woonscore', area: 'GM0599' };
     assert.equal(serializeHash(s), '#scope=nederland&view=dashboard&area=GM0599');
     assert.deepEqual(parseHash(serializeHash(s)), { scope: 'nederland', view: 'dashboard', area: 'GM0599' });
     assert.equal(serializeHash({ ...s, area: null }), '#scope=nederland&view=dashboard');
     assert.deepEqual(parseHash(''), {});
+  });
+
+  it('a non-default dataset round-trips through the hash; the Woonscore is left out', () => {
+    const s = { scope: 'rotterdam', view: 'map', dataset: 'crimeRate', area: null };
+    assert.equal(serializeHash(s), '#scope=rotterdam&view=map&dataset=crimeRate');
+    assert.deepEqual(parseHash('#scope=rotterdam&view=map&dataset=crimeRate'), { scope: 'rotterdam', view: 'map', dataset: 'crimeRate' });
+    assert.deepEqual(parseHash('#dataset=nope'), {});
+    assert.equal(resolveInitialState({ hash: '#scope=nederland' }).dataset, 'woonscore');
+    assert.equal(resolveInitialState({ hash: '#dataset=avgIncome' }).dataset, 'avgIncome');
   });
 
   it('initial state: hash beats storage beats defaults; broken storage is ignored', () => {

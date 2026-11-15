@@ -115,6 +115,7 @@ export function formatValue(v, key, mode = 'rate') {
   if (n == null) return 'geen data';
   const unit = datasetFor(key, mode)?.unit;
   if (unit === 'misdrijven') return `${formatNumber(n)} misdrijven`;
+  if (unit === 'score')     return `${formatNumber(Math.round(n))} / 100`;
   if (unit === '×€1.000')   return `€ ${formatNumber(Math.round(n * 1000 / 100) * 100)}`;
   if (unit === '%')         return `${formatNumber(n, 1)}%`;
   if (unit === 'per 1.000') return `${formatNumber(n, 1)} per 1.000 inw.`;

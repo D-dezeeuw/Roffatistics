@@ -7,6 +7,7 @@ import { DATASETS, DATASET_KEYS, datasetFor, datasetValue, crimeAreas, isCrimeDa
 import { scoreAreas, rankRows } from './ranking.js';
 import { buildScale } from './scale.js';
 import { originSplit } from './herkomst.js';
+import { explain, scoreRank } from './score.js';
 import { areaEducationMix } from './dashboard-data.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
@@ -136,6 +137,18 @@ export function overallRank(code, peers, mode = 'rate') {
   return { score: row.overall, rank: row.rank, of: ranked.filter(r => r.rank != null).length, used: row.used, possible: row.possible };
 }
 
+/**
+ * The Woonscore block of the modal: { score, rank, of, coverage, shrunk, plus, minus }
+ * from the score.js result that areas.js attached (area.woonscore), or null.
+ */
+export function woonscoreDetail(area, peers) {
+  const r = area?.woonscore;
+  if (!r || !isNum(r.score)) return null;
+  const rank = scoreRank((peers ?? []).map(p => p.woonscore).filter(Boolean), area.code);
+  const { plus, minus } = explain(r, { top: 3 });
+  return { score: r.score, rank: rank?.rank ?? null, of: rank?.of ?? null, coverage: r.coverage, shrunk: !!r.shrunk, plus, minus };
+}
+
 const levelOf = area => area?.level ?? (String(area?.code).startsWith('BU') ? 'buurt' : 'wijk');
 const byName = (a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'nl', { sensitivity: 'base' });
 
@@ -150,6 +163,7 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
   const peers = (level === 'buurt' ? areas?.buurten : areas?.wijken) ?? [];
   const entries = [];
   for (const key of DATASET_KEYS) {
+    if (DATASETS[key].unit === 'score') continue;   // the Woonscore has its own block
     const ds = datasetFor(key, mode);
     const value = datasetValue(area.values, key, mode);
     if (!isNum(value)) continue;
@@ -180,6 +194,7 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
     peers: peers.length,
     entries, notable,
     overall: overallRank(area.code, peers, mode),
+    woonscore: woonscoreDetail(area, peers),
     crimeTrend: isNum(v.crimeTrend) ? v.crimeTrend : null,
     origin: originSplit(v),
     education: areaEducationMix(area),

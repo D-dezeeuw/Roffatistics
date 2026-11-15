@@ -273,3 +273,23 @@ describe('rankKeyAfterDatasetChange ("Rangschik op" follows the map layer)', () 
     assert.equal(rankKeyAfterDatasetChange('density', null, 'layers'), 'density');
   });
 });
+
+describe('ranking on the Woonscore', () => {
+  const ds = [{ key: 'woonscore', label: 'Woonscore', title: 'Woonscore', unit: 'score', higherIsBetter: true, inOverall: false },
+    { key: 'avgIncome', label: 'Inkomen', title: 'Inkomen', unit: '×€1.000', higherIsBetter: true }];
+  const rows = scoreAreas([
+    { code: 'a', name: 'A', values: { woonscore: 72.4, avgIncome: 30 } },
+    { code: 'b', name: 'B', values: { woonscore: 41, avgIncome: 50 } },
+    { code: 'c', name: 'C', values: { woonscore: null, avgIncome: 40 } },
+  ], ds);
+  it('ranks on the score and shows it as is, not as a percentile', () => {
+    const ranked = rankRows(rows, 'woonscore', ds);
+    assert.deepEqual(ranked.map(r => [r.code, r.rank, r.score]), [['a', 1, 72.4], ['b', 2, 41], ['c', null, null]]);
+    assert.equal(scoreHeader('woonscore', ds).label, 'Woonscore');
+    assert.equal(formatValue(72.4, 'score'), '72');
+  });
+  it('the Woonscore does not count in the Totaalscore', () => {
+    assert.deepEqual(rows.map(r => r.used), [1, 1, 1]);
+    assert.equal(rows[1].overall, 100);
+  });
+});

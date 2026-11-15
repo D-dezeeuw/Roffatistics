@@ -9,7 +9,7 @@ export const VIEWS  = Object.freeze(['map', 'dashboard', 'list']);
 export const SCOPE_STORAGE_KEY = 'roffatistics.scope';
 export const CRIME_STORAGE_KEY = 'roffatistics.crime';
 // crime: 'rate' (per 1.000 inwoners) | 'abs' (registered offences); see datasets.js datasetFor().
-export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'population', area: null, crime: 'rate' });
+export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate' });
 
 const AREA_RE = /^(PV\d{2}|GM\d{4}|WK\d{6}|BU\d{8})$/;
 
@@ -32,13 +32,18 @@ export function sanitizePatch(patch = {}) {
 export function parseHash(hash) {
   const params = new URLSearchParams(String(hash ?? '').replace(/^#/, ''));
   const raw = {};
-  for (const key of ['scope', 'view', 'area', 'crime']) if (params.has(key)) raw[key] = params.get(key);
+  for (const key of ['scope', 'view', 'dataset', 'area', 'crime']) if (params.has(key)) raw[key] = params.get(key);
   return sanitizePatch(raw);
 }
 
-/** State → '#scope=…&view=…[&area=…][&crime=abs]' (the default crime mode is left out). */
+/**
+ * State → '#scope=…&view=…[&dataset=…][&area=…][&crime=abs]'. The default
+ * dataset (Woonscore) and crime mode are left out, so a hash without
+ * dataset opens on the Woonscore.
+ */
 export function serializeHash(state) {
   const params = new URLSearchParams({ scope: state.scope, view: state.view });
+  if (state.dataset && state.dataset !== DEFAULT_STATE.dataset && DATASET_KEYS.includes(state.dataset)) params.set('dataset', state.dataset);
   if (state.area) params.set('area', state.area);
   if (state.crime === 'abs') params.set('crime', 'abs');
   return `#${params}`;

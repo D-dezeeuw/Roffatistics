@@ -38,6 +38,7 @@ const UNIT_LABELS = {
   'per 1.000': 'per 1.000 inwoners',
   'km': 'kilometer',
   'misdrijven': 'aantal misdrijven',
+  'score': 'score 0–100, relatief binnen gelijke gebieden',
 };
 /** Human unit text; crime datasets name both modes. */
 export function unitLabel(ds) {
@@ -85,6 +86,7 @@ export const GENERAL_SECTIONS = Object.freeze([
       'Per cijfer krijgt elk gebied een percentielscore van 0 tot 100 binnen de lijst die je bekijkt (alle wijken, of alle buurten): 100 = het beste gebied van de lijst, 0 = het slechtste, 50 = middenin. Gelijke waarden krijgen dezelfde score. Bij "lager = beter" (criminaliteit, bijstand, afstanden) wordt de score omgedraaid.',
       'De totaalscore is het gemiddelde van de scores op alle cijfers met een richting waarvoor het gebied een waarde heeft. Neutrale cijfers (inwoners, dichtheid, 65+, herkomst, koop en huur) en de sublagen van criminaliteit tellen niet mee. "7/8" naast de score betekent: gemiddeld over 7 van de 8 mogelijke cijfers.',
       'Met "Rangschik op" kies je de basis: de totaalscore of één cijfer. Rang "Vast" houdt die rangnummers vast als je op een kolom sorteert; "Volgt sortering" nummert de rijen opnieuw in de sortering (gelijke waarden delen een rang, gebieden zonder waarde staan onderaan zonder rang) en toont de score van die kolom.',
+      'De Woonscore (de laag waarop de kaart opent) weegt de cijfers wel: veiligheid 35, welvaart 20, voorzieningen 25, opleiding 10 en koopwoningen 10. De totaalscore hierboven weegt alles gelijk ("Gelijk gewogen"). Bij buurten met weinig inwoners worden criminaliteit en bijstand naar de wijk toe getrokken; een gebied met data voor minder dan 60% van het gewicht krijgt geen Woonscore.',
       'Een score vergelijkt alleen binnen de lijst: een 90 voor een buurt betekent iets anders dan een 90 voor een wijk, en zegt niet hoe groot het verschil in werkelijkheid is.',
     ],
   },
