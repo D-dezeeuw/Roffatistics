@@ -58,7 +58,7 @@ out: density/drukte, age mix, origin, WOZ as such (expensive is not better).
 
 | Theme (weight) | Metrics | Direction |
 |---|---|---|
-| Veiligheid (35) | crimeRate, crimeBurglary, crimeViolence, crimeStreetRobbery, crimeVandalism | lower |
+| Veiligheid (35) | crimeRate, crimeBurglary, crimeViolence, crimeStreetRobbery, crimeVandalism, crimeNearby (omgeving, w 1; W8) | lower |
 | Welvaart (20) | avgIncome (higher), welfarePer1000 (lower) | |
 | Voorzieningen (25) | distGP, distSupermarket, distSchool, distStation, distKinderopvang (W2) | lower |
 | Opleiding (10) | highEdu | higher |

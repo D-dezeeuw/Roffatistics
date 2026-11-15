@@ -125,14 +125,20 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
   const wg = d.woongebied;
   const nonres = wg && !wg.residential
     ? `<div class="area-score area-nonres"><span class="area-score-num" aria-hidden="true">—</span>
-        <span><strong>${esc(wg.label)}</strong><small>${esc(wg.facts)}. Telt niet mee in de Woonscore, de rangen en de ranglijst van andere ${lvl}.</small></span>
+        <span><strong>${esc(wg.label)}</strong><small>${esc(wg.facts)}. Krijgt geen Woonscore en telt niet mee in de rangen en de ranglijst van andere ${lvl}. De eigen cijfers hieronder kloppen wel, en de misdrijven hier tellen mee in de criminaliteit in de omgeving van de aangrenzende ${lvl}.</small></span>
         ${infoButton('woongebied', 'Geen woonwijk')}</div>` : '';
 
   const chips = d.notable.length
     ? `<section class="area-sec"><h3>Opvallend</h3><ul class="area-chips">${d.notable.map(e =>
         `<li class="area-chip is-${e.higherIsBetter == null ? 'neutral' : (e.side === 'high') === e.higherIsBetter ? 'good' : 'bad'}" title="${esc(`${e.title}: ${formatValue(e.value, e.key, d.mode)}`)}">${esc(e.text)}</li>`).join('')}</ul></section>` : '';
 
+  const crimeNote = d.crimeNote ? `<div class="area-extra area-extra-wide"><span class="area-extra-label">Misdrijven 2025</span><p>${esc(d.crimeNote)}</p></div>` : '';
+  const om = d.omgeving;
+  const omgeving = om ? `<div class="area-extra area-extra-wide area-omgeving"><span class="area-extra-label">Criminaliteit in de omgeving${infoButton('crimeNearby', 'Criminaliteit omgeving')}</span><p>${esc(om.text)}</p>${om.why ? `<p class="area-omgeving-why">${esc(om.why)}</p>` : ''}</div>` : '';
+
   const extras = [];
+  if (crimeNote) extras.push(crimeNote);
+  if (omgeving) extras.push(omgeving);
   if (d.crimeTrend != null) extras.push(`<div class="area-extra"><span class="area-extra-label">Misdrijven 2025 t.o.v. 2024</span><strong class="${d.crimeTrend > 0 ? 'is-bad' : d.crimeTrend < 0 ? 'is-good' : ''}">${trendText(d.crimeTrend)}</strong></div>`);
   const origin = originBarHtml(Object.fromEntries((d.origin ?? []).map(p => [p.key, p.value])));
   if (origin) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst</span>${origin}</div>`);

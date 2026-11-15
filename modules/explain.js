@@ -161,7 +161,17 @@ export const GENERAL_SECTIONS = Object.freeze([
     paragraphs: [
       'Sommige wijken en buurten zijn geen plek waar mensen wonen: bedrijventerreinen, havens (Botlek, Europoort, Maasvlakte, Waalhaven, Spaanse Polder), recreatieparken of vrijwel lege gebieden. Hun cijfers zeggen weinig over wonen en zouden de rangen van echte woonwijken scheeftrekken. CBS publiceert geen lijst van zulke gebieden; we leiden het af uit de CBS-kerncijfers 2025: inwoners, woningvoorraad, niet-woningen (panden zonder woonfunctie volgens de BAG) en bedrijfsvestigingen.',
       'Een gebied met 200 of meer inwoners of 100 of meer woningen is altijd een woongebied. Daaronder is het "Geen woonwijk (bedrijven-/havengebied)" als er minstens 20 niet-woningen zijn, minstens drie keer zoveel als woningen, en minder dan 20 woningen (of minstens tien keer zoveel niet-woningen als woningen), met bedrijfsvestigingen voor minstens een vijfde van de niet-woningen; zijn er minder bedrijven, dan heet het "recreatie, voorzieningen of bedrijven". Minder dan 20 inwoners en minder dan 10 woningen zonder zulke panden: "vrijwel onbewoond".',
-      'Zulke gebieden zijn grijs op de kaart, krijgen geen Woonscore en geen rang, tellen niet mee als vergelijkingsgebied voor de Woonscore, de rangen in het venster en de Ranglijst, en staan niet in de toplijst van "Vind jouw ideale woonplek". In de Ranglijst staan ze onderaan, zonder rang. Gebieden met weinig inwoners die wel woongebied zijn, tellen gewoon mee met het label "weinig inwoners".',
+      'Zulke gebieden zijn grijs op de Woonscore-kaart, krijgen geen Woonscore en geen rang, tellen niet mee als vergelijkingsgebied voor de Woonscore, de rangen in het venster en de Ranglijst, en staan niet in de toplijst van "Vind jouw ideale woonplek". In de Ranglijst staan ze onderaan, zonder rang. Gebieden met weinig inwoners die wel woongebied zijn, tellen gewoon mee met het label "weinig inwoners".',
+      'Hun eigen cijfers blijven wel zichtbaar, op de kaartlagen en in het venster. Criminaliteit staat daar als aantal (stand Absoluut) en per km² land, met uitleg: per 1.000 inwoners zegt niets als er bijna niemand woont. En hun misdrijven tellen mee in de "criminaliteit in de omgeving" van de aangrenzende woonbuurten.',
+    ],
+  },
+  {
+    id: 'omgeving',
+    title: 'Criminaliteit in de omgeving',
+    paragraphs: [
+      'Wie naast een druk station, een uitgaansgebied of een haven- of bedrijventerrein woont, heeft de criminaliteit van daar dichtbij, ook als er in dat buurgebied bijna niemand woont. Daarom is er naast de eigen cijfers "criminaliteit in de omgeving": alle geregistreerde misdrijven van 2025 in het gebied en de aangrenzende gebieden samen, gedeeld door hun landoppervlakte samen (misdrijven per km²).',
+      'Aangrenzend betekent een stuk gemeenschappelijke grens (alleen een hoekpunt telt niet), op hetzelfde niveau: buurten met buurten, wijken met wijken, ook bedrijven-, haven- en lege gebieden. In de Rotterdam-weergave rekent de app dat uit de Rotterdamse kaart, dus buren in Schiedam, Capelle of Barendrecht tellen niet mee; in de Nederland-weergave zijn de buren vooraf berekend uit de CBS-kaart 2025 en tellen buren in andere gemeenten wel mee.',
+      'In de Woonscore Standaard is het een zesde van het thema Veiligheid (lager is beter), naast de eigen misdrijfcijfers per 1.000 inwoners. In "Vind jouw ideale woonplek" kun je het bij Veiligheid zwaarder laten wegen. Het venster van een gebied noemt het buurgebied dat het meeste bijdraagt als dat ruim de grootste is (minstens 40 % van de misdrijven en anderhalf keer de volgende buur).',
     ],
   },
   {

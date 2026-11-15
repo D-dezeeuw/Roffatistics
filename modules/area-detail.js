@@ -11,6 +11,8 @@ import { explain, scoreRank } from './score.js';
 import { themeBreakdown } from './presets.js';
 import { areaEducationMix } from './dashboard-data.js';
 import { classifyWoongebied, isResidentialArea, woongebiedFacts } from './woongebied.js';
+import { omgevingDetail, omgevingText, crimeNoRateNote } from './omgeving.js';
+import { CRIME_MIN_POPULATION, CRIME_MIN_POPULATION_BUURT } from './areas.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -166,7 +168,8 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
   // areas do not move anyone's rank. A non-residential area is still compared
   // against them (peerRank adds its own value) but gets no overall rank.
   const woongebied = classifyWoongebied(area.values, area.code);
-  const peers = ((level === 'buurt' ? areas?.buurten : areas?.wijken) ?? []).filter(isResidentialArea);
+  const sameLevel = (level === 'buurt' ? areas?.buurten : areas?.wijken) ?? [];
+  const peers = sameLevel.filter(isResidentialArea);
   const entries = [];
   for (const key of DATASET_KEYS) {
     if (DATASETS[key].unit === 'score') continue;   // the Woonscore has its own block
@@ -194,7 +197,8 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
   return {
     code: area.code, name: area.name, level, mode,
     population, density,
-    areaKm2: population && density ? population / density : null,
+    // CBS land area when loaded; else inwoners / dichtheid (meaningless with almost no inwoners).
+    areaKm2: isNum(v.landArea) && v.landArea > 0 ? v.landArea : population && density ? population / density : null,
     parent: level === 'buurt' ? (areas?.wijken ?? []).find(w => w.code === area.parent) ?? null : null,
     children: level === 'wijk' ? (areas?.buurten ?? []).filter(b => b.parent === area.code).sort(byName) : [],
     peers: peers.length,
@@ -203,6 +207,10 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
     overall: woongebied.residential ? overallRank(area.code, peers, mode) : null,
     woonscore: woonscoreDetail(area, peers),
     crimeTrend: isNum(v.crimeTrend) ? v.crimeTrend : null,
+    // Own crime count + per km² where a per-1.000 rate is missing (non-residential, few inwoners).
+    crimeNote: crimeNoRateNote(v, level, level === 'wijk' ? CRIME_MIN_POPULATION : CRIME_MIN_POPULATION_BUURT),
+    // Crime in and around the area (omgeving.js); neighbours of every kind count.
+    omgeving: (() => { const o = omgevingDetail(area, sameLevel); return o ? { ...o, ...omgevingText(o, { level, name: area.name }) } : null; })(),
     origin: originSplit(v),
     education: areaEducationMix(area),
     outliers: entries.filter(e => e.outlier),

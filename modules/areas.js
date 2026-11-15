@@ -7,6 +7,7 @@
 import { DATASETS, DATASET_KEYS } from './datasets.js';
 import { addPc4Shares } from './herkomst-pc4.js';
 import { withWoonscore } from './presets.js';
+import { adjacencyFromFeatures, addOmgeving } from './omgeving.js';
 
 export { DATASETS, DATASET_KEYS };
 
@@ -39,6 +40,7 @@ export const WIJK_COLUMNS = Object.freeze({
   housingStock:        'Woningvoorraad_35',                  // aantal woningen (woongebied.js)
   nonResidentialStock: 'NietWoningvoorraad_37',              // aantal verblijfsobjecten zonder woonfunctie
   businesses:          'BedrijfsvestigingenTotaal_95',       // aantal bedrijfsvestigingen
+  landArea:            'OppervlakteLand_116',                // ha land (stored as km²: omgeving.js, crime per km²)
   lowEdu:              'BasisonderwijsVmboMbo1_67',          // aantal, hoogst behaald
   medEdu:              'HavoVwoMbo24_68',                    // aantal
   highEdu:             'HboWo_69',                           // aantal
@@ -191,6 +193,8 @@ export function extractAreaValues(row) {
     housingStock:  toNumber(r[C.housingStock]),
     nonResidentialStock: toNumber(r[C.nonResidentialStock]),
     businesses:    toNumber(r[C.businesses]),
+    // Land area in km² (CBS gives ha): crime per km² and the omgeving (omgeving.js)
+    landArea:      toNumber(r[C.landArea]) != null ? toNumber(r[C.landArea]) / 100 : null,
   };
 }
 
@@ -627,8 +631,12 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
     const oldRows = await fallback;
     const [nabijRows, nabijOld] = await nabijP;
     const nabij = { rows: nabijRows, fallbackRows: nabijOld };
-    const wijkenRaw = mergeCrime(joinAreas(wijkGeo.features, rows, oldRows, nabij), await wijkCrime, { minPopulation: CRIME_MIN_POPULATION });
-    const buurtenRaw = mergeCrime(joinAreas(buurtGeo.features, rows, oldRows, nabij), await buurtCrime, { minPopulation: CRIME_MIN_POPULATION_BUURT });
+    const wijkenCrime = mergeCrime(joinAreas(wijkGeo.features, rows, oldRows, nabij), await wijkCrime, { minPopulation: CRIME_MIN_POPULATION });
+    const buurtenCrime = mergeCrime(joinAreas(buurtGeo.features, rows, oldRows, nabij), await buurtCrime, { minPopulation: CRIME_MIN_POPULATION_BUURT });
+    // Shared-boundary neighbours from the loaded geometry (once per load; the
+    // promise is cached): crime per km² and "criminaliteit in de omgeving".
+    const wijkenRaw = addOmgeving(wijkenCrime, adjacencyFromFeatures(wijkGeo.features, { decimals: 5 }));
+    const buurtenRaw = addOmgeving(buurtenCrime, adjacencyFromFeatures(buurtGeo.features, { decimals: 5 }));
     // Woonscore per level among its peers; buurt rates shrink toward the parent wijk.
     addPc4Shares(wijkenRaw); addPc4Shares(buurtenRaw);   // postcode herkomst (v0.25.0), once loaded
     const wijken  = withWoonscore(wijkenRaw);

@@ -128,7 +128,7 @@ function stepBody(key) {
   return `
     <p class="wiz-q" id="wiz-q">Welke misdrijven wegen voor jou het zwaarst?</p>
     <div class="wiz-chips" role="group" aria-labelledby="wiz-q">${Object.entries(CRIMES).map(([k, c]) => chip('veiligheid', k, c.label, a.veiligheid.includes(k))).join('')}</div>
-    <p class="wiz-hint">Gekozen misdrijven tellen drie keer zwaarder binnen Veiligheid. Per soort misdrijf is er alleen data voor Rotterdamse wijken en buurten.</p>`;
+    <p class="wiz-hint">Gekozen misdrijven tellen drie keer zwaarder binnen Veiligheid. “Criminaliteit in de omgeving” telt ook de misdrijven in de aangrenzende buurten mee, ook als dat een haven-, bedrijven- of stationsgebied is waar niemand woont. Per soort misdrijf is er alleen data voor Rotterdamse wijken en buurten.</p>`;
 }
 
 function sfeerText(v) {

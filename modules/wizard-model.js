@@ -134,6 +134,7 @@ export const CRIMES = Object.freeze({
   auto:      { label: 'Autodiefstal',    key: 'crimeVehicle' },
   vandalisme:{ label: 'Vandalisme',      key: 'crimeVandalism' },
   drugs:     { label: 'Drugsoverlast',   key: 'crimeDrugs' },
+  omgeving:  { label: 'Criminaliteit in de omgeving', key: 'crimeNearby' },
 });
 
 /** Rough rule shown in the UI: a mortgage of about 4.5 × the gross household income. */
@@ -245,7 +246,7 @@ export function parseEuroK(text) {
 
 /** Working copy of a preset: themes keyed, metrics keyed, mutable. */
 function draft() {
-  const themes = new Map(STANDAARD.themes.map(t => [t.key, { key: t.key, label: t.label, weight: t.weight, metrics: new Map(t.metrics.map(m => [m.key, { key: m.key, pref: m.pref }])) }]));
+  const themes = new Map(STANDAARD.themes.map(t => [t.key, { key: t.key, label: t.label, weight: t.weight, metrics: new Map(t.metrics.map(m => [m.key, { ...m }])) }]));
   return { themes, targets: {}, filters: [] };
 }
 function theme(d, key, weight) {
@@ -458,7 +459,7 @@ export function guardOrigin(preset) {
 const LF = { student: 's', stel: 'p', gezin: 'g', '50plus': 'v', senior: 'r' };
 const OUD = { bewoners: 'b', gebouwen: 'g' };
 const VV = { fiets: 'f', ov: 'o', auto: 'a', lopen: 'l' };
-const CR = { inbraak: 'in', geweld: 'gw', straatroof: 'sr', fiets: 'fd', auto: 'ad', vandalisme: 'vd', drugs: 'dr' };
+const CR = { inbraak: 'in', geweld: 'gw', straatroof: 'sr', fiets: 'fd', auto: 'ad', vandalisme: 'vd', drugs: 'dr', omgeving: 'om' };
 const TH = { veiligheid: 'v', welvaart: 'e', voorzieningen: 'z', opleiding: 'o', woningmarkt: 'm', leeftijd: 'l', nieuwbouw: 'n', budget: 'b', sfeer: 's', situatie: 't' };
 const inv = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [v, k]));
 const ED = Object.fromEntries(Object.entries(SITUATIE_EDU).map(([k, e]) => [k, e.code]));

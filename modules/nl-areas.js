@@ -9,6 +9,7 @@
 import { areaLevel, parentCode, per1000, toNumber, CRIME_CATEGORIES, CRIME_MIN_POPULATION, CRIME_MIN_POPULATION_BUURT, WIJK_YEAR } from './areas.js';
 import { withWoonscore, assignScore } from './presets.js';
 import { addPc4Shares } from './herkomst-pc4.js';
+import { addOmgeving, decodeNeighbours, encodeNeighbours } from './omgeving.js';
 
 export const NL_DATA_FORMAT = 1;
 export const NL_DATA_YEAR = WIJK_YEAR;
@@ -27,7 +28,7 @@ const CRIME_KEYS = Object.keys(CRIME_CATEGORIES);
 /** Value keys derived in the browser (never stored): the crime rates. */
 export const DERIVED_KEYS = Object.freeze(['crimeRate', ...CRIME_KEYS]);
 /** Keys never stored: derived, scored, or Rotterdam-only. */
-const SKIP_KEYS = new Set([...DERIVED_KEYS, 'woonscore', 'distCentrum']);
+const SKIP_KEYS = new Set([...DERIVED_KEYS, 'woonscore', 'distCentrum', 'crimeDensity', 'crimeNearby']);
 
 export const minPopulationFor = level => (level === 'buurt' ? CRIME_MIN_POPULATION_BUURT : CRIME_MIN_POPULATION);
 
@@ -76,7 +77,7 @@ export function addIncomeFallback(areas, rows = []) {
  * dropped), and per key the indexes whose value came from the fallback year
  * ('all' when every non-null value did).
  */
-export function encodeLevel(areas, { level, year = NL_DATA_YEAR, built = null, sources = {} } = {}) {
+export function encodeLevel(areas, { level, year = NL_DATA_YEAR, built = null, sources = {}, neighbours = null } = {}) {
   const keys = new Set();
   for (const a of areas) for (const [k, v] of Object.entries(a.values ?? {})) if (!SKIP_KEYS.has(k) && toNumber(v) != null) keys.add(k);
   const cols = {}, fallback = {};
@@ -88,7 +89,9 @@ export function encodeLevel(areas, { level, year = NL_DATA_YEAR, built = null, s
     const withValue = cols[k].filter(v => v != null).length;
     fallback[k] = { year: Number(Object.keys(yearOf)[0]), idx: fell.length >= withValue ? 'all' : fell };
   }
-  return { format: NL_DATA_FORMAT, level, year, built, sources, codes: areas.map(a => a.code), names: areas.map(a => a.name), cols, fallback };
+  const codes = areas.map(a => a.code);
+  // nb: shared-boundary neighbours (omgeving.js encodeNeighbours), built from PDOK geometry.
+  return { format: NL_DATA_FORMAT, level, year, built, sources, codes, names: areas.map(a => a.name), cols, fallback, ...(neighbours ? { nb: encodeNeighbours(codes, neighbours) } : {}) };
 }
 
 /**
@@ -102,7 +105,7 @@ export function decodeLevel(data) {
   const keys = Object.keys(cols);
   const fellAt = {};
   for (const [k, f] of Object.entries(fallback)) fellAt[k] = f.idx === 'all' ? null : new Set(f.idx);
-  return codes.map((code, i) => {
+  const list = codes.map((code, i) => {
     const level = areaLevel(code);
     const values = {};
     for (const k of keys) values[k] = cols[k][i] ?? null;
@@ -113,6 +116,8 @@ export function decodeLevel(data) {
     addCrimeRates(values, minPopulationFor(level));
     return { code, name: names[i] ?? code, level, parent: parentCode(code), gemeente: gemeenteOf(code), values, years, bounds: null };
   });
+  // Crime per km² and the omgeving (neighbours from the stored `nb` lists; none in an older file).
+  return addOmgeving(list, typeof data.nb === 'string' ? decodeNeighbours(codes, data.nb) : null);
 }
 
 /** Areas of `level`-list that lie in gemeente `gm` (by code prefix). */

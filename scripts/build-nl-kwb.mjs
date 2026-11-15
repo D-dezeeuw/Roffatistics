@@ -7,6 +7,9 @@
 //   85618NED (2023) — avgIncome only, where 2025 and 2024 have none
 //   47018NED (dataderden, politie) geregistreerde misdrijven 2025 + total 2024 (trend)
 //   86165NED/WijkenEnBuurten — names of the 2025 indeling
+//   PDOK CBS gebiedsindelingen 2025 (wijk/buurt_gegeneraliseerd, RD New) — geometry,
+//     used at build time only for the shared-boundary neighbour lists (`nb`,
+//     modules/omgeving.js); the browser keeps loading geometry per gemeente.
 // The rows are mapped with the same pure helpers as the Rotterdam loader
 // (areas.js), so a NL area carries the same value keys. Nothing preset-specific
 // is stored: crime rates and the Woonscore are computed in the browser.
@@ -19,7 +22,8 @@ import {
   CRIME_TABLE, CRIME_PERIOD, CRIME_PREV_PERIOD, CRIME_TOTAL, CRIME_COLUMN, CRIME_CATEGORIES,
   joinAreas, mergeCrime, normalizeAreaCode,
 } from '../modules/areas.js';
-import { encodeLevel, minPopulationFor, NL_DATA_YEAR, addIncomeFallback, INCOME_FALLBACK_TABLE, INCOME_FALLBACK_COLUMN } from '../modules/nl-areas.js';
+import { encodeLevel, minPopulationFor, NL_DATA_YEAR, addIncomeFallback, INCOME_FALLBACK_TABLE, INCOME_FALLBACK_COLUMN, NL_GEO_WFS, NL_GEO_TYPES } from '../modules/nl-areas.js';
+import { adjacencyFromFeatures } from '../modules/omgeving.js';
 
 const FEED  = 'https://opendata.cbs.nl/ODataFeed/odata';
 const CRIME_FEED = 'https://dataderden.cbs.nl/ODataFeed/odata';
@@ -72,6 +76,22 @@ async function crime(prefix) {
   return rows;
 }
 
+// Every wijk/buurt polygon of NL from the PDOK WFS (paged, 1,000 per page;
+// ~15 MB for the buurten), reduced to shared-boundary neighbours at once.
+async function neighbours(level) {
+  const features = [];
+  for (let start = 0; ; start += 1000) {
+    const params = new URLSearchParams({ service: 'WFS', version: '2.0.0', request: 'GetFeature', typeNames: NL_GEO_TYPES[level], outputFormat: 'application/json', count: '1000', startIndex: String(start), sortBy: 'statcode' });
+    const page = await getWithRetry(`${NL_GEO_WFS}?${params}`);
+    features.push(...(page.features ?? []));
+    process.stdout.write(`\rPDOK ${NL_GEO_TYPES[level]} ${features.length} features   `);
+    if ((page.features ?? []).length < 1000) break;
+  }
+  process.stdout.write('\n');
+  // RD New metres: 2 decimals (cm) absorbs float noise; shared nodes are identical.
+  return adjacencyFromFeatures(features, { codeOf: f => normalizeAreaCode(f.properties?.statcode), decimals: 2 });
+}
+
 async function buildLevel(level) {
   const prefix = PREFIX[level];
   const names = await feed(FEED, WIJK_TABLE, 'WijkenEnBuurten', { $filter: `startswith(Key,'${prefix}')`, $select: 'Key,Title' });
@@ -80,18 +100,21 @@ async function buildLevel(level) {
   const nabijRows = await best(nabijheid(NABIJ_TABLE, prefix));
   const nabijOld  = await best(nabijheid(NABIJ_FALLBACK_TABLE, prefix));
   const crimeRows = await best(crime(prefix));
+  const adjacency = await neighbours(level);
   const incomeRows = await best(feed(FEED, INCOME_FALLBACK_TABLE, 'TypedDataSet', { $filter: `startswith(WijkenEnBuurten,'${prefix}')`, $select: `WijkenEnBuurten,${INCOME_FALLBACK_COLUMN}` }));
   const features = names
     .map(n => ({ properties: { statcode: normalizeAreaCode(n.Key), statnaam: String(n.Title ?? '').trim() } }))
     .sort((a, b) => a.properties.statcode.localeCompare(b.properties.statcode));
   const areas = mergeCrime(addIncomeFallback(joinAreas(features, rows, oldRows, { rows: nabijRows, fallbackRows: nabijOld }), incomeRows), crimeRows, { minPopulation: minPopulationFor(level) });
   const data = encodeLevel(areas, {
-    level, year: NL_DATA_YEAR, built: new Date().toISOString().slice(0, 10),
-    sources: { kerncijfers: `${WIJK_TABLE} (fallback ${WIJK_FALLBACK_TABLE})`, nabijheid: `${NABIJ_TABLE} (fallback ${NABIJ_FALLBACK_TABLE})`, inkomen: `fallback ${INCOME_FALLBACK_TABLE}`, misdrijven: `${CRIME_TABLE} ${CRIME_PERIOD}` },
+    level, year: NL_DATA_YEAR, built: new Date().toISOString().slice(0, 10), neighbours: adjacency,
+    sources: { kerncijfers: `${WIJK_TABLE} (fallback ${WIJK_FALLBACK_TABLE})`, nabijheid: `${NABIJ_TABLE} (fallback ${NABIJ_FALLBACK_TABLE})`, inkomen: `fallback ${INCOME_FALLBACK_TABLE}`, misdrijven: `${CRIME_TABLE} ${CRIME_PERIOD}`, buren: `PDOK gebiedsindelingen ${NL_DATA_YEAR} ${NL_GEO_TYPES[level]}` },
   });
   const file = new URL(`${level === 'wijk' ? 'wijken' : 'buurten'}-${NL_DATA_YEAR}.json`, OUT);
   const text = JSON.stringify(data);
   await writeFile(file, text);
+  const linked = [...adjacency.values()].filter(n => n.length).length;
+  console.log(`${level}: ${linked} of ${adjacency.size} polygons with neighbours, nb ${(data.nb.length / 1e3).toFixed(0)} kB`);
   console.log(`${level}: ${areas.length} areas, ${Object.keys(data.cols).length} columns, ${(text.length / 1e6).toFixed(2)} MB → ${file.pathname}`);
 }
 

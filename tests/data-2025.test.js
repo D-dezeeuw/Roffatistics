@@ -198,7 +198,7 @@ describe('new layers and dropdown groups', () => {
     assert.deepEqual(groups.find(g => g.key === 'score').datasets.map(d => d.key), ['woonscore']);
     assert.deepEqual(groups.flatMap(g => g.datasets.map(d => d.key)).sort(), [...DATASET_KEYS].sort());
     assert.deepEqual(groups.find(g => g.key === 'veiligheid').datasets.map(d => d.key), ['crimeRate', 'crimeBurglary', 'crimeBike', 'crimePickpocket', 'crimeViolence',
-      'crimeStreetRobbery', 'crimeThreat', 'crimeVehicle', 'crimeShoplifting', 'crimeVandalism', 'crimeDrugs']);
+      'crimeStreetRobbery', 'crimeThreat', 'crimeVehicle', 'crimeShoplifting', 'crimeVandalism', 'crimeDrugs', 'crimeDensity', 'crimeNearby']);
     assert.equal(groups.find(g => g.key === 'voorzieningen').scope, 'rotterdam');
     assert.equal(groups.find(g => g.key === 'bevolking').scope, 'all');
   });

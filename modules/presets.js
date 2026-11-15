@@ -9,6 +9,13 @@ import { classifyWoongebied } from './woongebied.js';
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 
 /**
+ * Share of "criminaliteit in de omgeving" inside Veiligheid (the own crime
+ * metrics have 1 each): modest, so the area's own figures lead. Rotterdam
+ * buurt with all six: 1/6 of 35 = ≈ 5,8 of 100 points.
+ */
+export const NEARBY_W = 1;
+
+/**
  * "Standaard": average preferable circumstances, no lifestyle metrics. A theme
  * weight is shared by the metrics of that theme that have data; a theme with
  * none is dropped and the rest renormalise, so NL gemeenten (few metrics) and
@@ -18,12 +25,13 @@ export const STANDAARD = Object.freeze({
   id: 'standaard',
   label: 'Standaard',
   themes: Object.freeze([
-    { key: 'veiligheid',    label: 'Veiligheid',    weight: 35, metrics: [['crimeRate', 'lower'], ['crimeBurglary', 'lower'], ['crimeViolence', 'lower'], ['crimeStreetRobbery', 'lower'], ['crimeVandalism', 'lower']] },
+    // crimeNearby (omgeving.js): the area plus its neighbours, one sixth of Veiligheid next to the own five.
+    { key: 'veiligheid',    label: 'Veiligheid',    weight: 35, metrics: [['crimeRate', 'lower'], ['crimeBurglary', 'lower'], ['crimeViolence', 'lower'], ['crimeStreetRobbery', 'lower'], ['crimeVandalism', 'lower'], ['crimeNearby', 'lower', NEARBY_W]] },
     { key: 'welvaart',      label: 'Welvaart',      weight: 20, metrics: [['avgIncome', 'higher'], ['welfarePer1000', 'lower']] },
     { key: 'voorzieningen', label: 'Voorzieningen', weight: 25, metrics: [['distGP', 'lower'], ['distSupermarket', 'lower'], ['distSchool', 'lower'], ['distStation', 'lower'], ['distKinderopvang', 'lower']] },
     { key: 'opleiding',     label: 'Opleiding',     weight: 10, metrics: [['highEdu', 'higher']] },
     { key: 'woningmarkt',   label: 'Woningmarkt',   weight: 10, metrics: [['ownerOccupiedPct', 'higher']] },
-  ].map(t => Object.freeze({ ...t, metrics: Object.freeze(t.metrics.map(([key, pref]) => Object.freeze({ key, pref }))) }))),
+  ].map(t => Object.freeze({ ...t, metrics: Object.freeze(t.metrics.map(([key, pref, w]) => Object.freeze(w == null ? { key, pref } : { key, pref, w }))) }))),
   targets: Object.freeze({}),
   filters: Object.freeze([]),
   shrink: true,
