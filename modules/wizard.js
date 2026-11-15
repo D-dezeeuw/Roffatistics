@@ -19,7 +19,7 @@ import {
   STEPS, LEVENSFASEN, OUD_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
-  SHARE_PARTS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS,
+  SHARE_PARTS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS, gemeenschapOptgroups,
   SITUATIE_EDU, SITUATIE_INCOME, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance,
 } from './wizard-model.js';
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
@@ -108,7 +108,7 @@ function stepBody(key) {
     <label class="wiz-field" id="wiz-q">Herkomstgroep
       <select data-field="gemDetail">
         <option value="">Geen specifieke groep</option>
-        ${Object.entries(DETAIL_GROUPS).map(([k, d]) => `<option value="${esc(k)}"${g?.detail === k ? ' selected' : ''}>${esc(d.long ?? d.label)}${d.direct ? ' · gemeente, wijk en buurt' : d.wijk ? ' · ook per wijk/buurt (geschat)' : ' · alleen per gemeente'}</option>`).join('')}
+        ${gemeenschapOptgroups(DETAIL_GROUPS).map(([title, list]) => `<optgroup label="${esc(title)}">${list.map(([k, d]) => `<option value="${esc(k)}"${g?.detail === k ? ' selected' : ''}>${esc(d.long ?? d.label)}${d.direct ? ' · gemeente, wijk en buurt' : d.wijk ? ' · ook per wijk/buurt (geschat)' : ' · alleen per gemeente'}</option>`).join('')}</optgroup>`).join('')}
       </select></label>
     <p class="wiz-hint wiz-note"><strong>Waar telt het?</strong> Nederland: CBS-kerncijfers per gemeente, wijk en buurt. Groepen met “ook per wijk/buurt (geschat)”: per gemeente CBS-cijfers, per wijk en buurt geschat via de postcode. De andere groepen tellen alleen per gemeente (Nederland-kaart); op wijk- en buurtniveau valt de factor dan weg en tellen de andere thema’s naar verhouding zwaarder.</p>
     ${g ? impSlider('data-field="gemLevel"', level, 'Hoe belangrijk', 1) : ''}

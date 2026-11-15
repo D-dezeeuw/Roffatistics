@@ -39,6 +39,19 @@ export const GEMEENSCHAP_LABEL = 'Nabijheid gemeenschap';
 export { DETAIL_GROUPS };
 
 /**
+ * The Gemeenschap dropdown in sections (v0.28.0): [[title, [[key, group]…]]…].
+ * Countries and groups first, then the world regions (gemeente only). Every
+ * entry is still one opt-in, positive-only group; the default stays "Geen specifieke groep".
+ */
+export function gemeenschapOptgroups(groups = DETAIL_GROUPS) {
+  const all = Object.entries(groups);
+  return [
+    ['Landen en groepen', all.filter(([, d]) => !d.region)],
+    ['Wereldregio’s', all.filter(([, d]) => d.region)],
+  ].filter(([, l]) => l.length);
+}
+
+/**
  * "Jouw situatie" (v0.23.0, opt-in; two sliders since v0.26.0): opleiding →
  * attraction to areas with more people of that level; huishoudinkomen →
  * closeness of the area's average standardised income to yours (a target),

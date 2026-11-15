@@ -57,3 +57,8 @@ Same mix assumed across a postcode area; addresses are not inhabitants
 (offices count); CBS rounding to 5 and suppressed cells (counted as 0); shares
 hidden below 50 estimated inhabitants; 2023 indeling and peildatum; old
 "migratieachtergrond" indeling, not identical to the newer herkomst figures.
+
+## Validation against 85458NED (v0.28.0)
+The estimate summed per gemeente is compared with the official 85458NED counts of the same year (2023) by `scripts/build-pc4-herkomst.mjs`; the result is stored in `herkomst-pc4-2023.json` → `sources.validation` and asserted by `tests/herkomst-regio.test.js` against `PC4_VALIDATION` (quoted in the Uitleg). 342 gemeenten, correlation ≥ 0.997 per column. Ratios estimate/official: total 1.00, Suriname 0.995, Turkije 0.998, Marokko 0.999, Polen 0.997, Nederlandse Cariben 0.957, Indonesië 0.961, Duitsland 0.96, België 0.90, Europa buiten de EU 1.07, Oceanië 0.78; rests Europa 1.016, Afrika 0.969, Amerika 0.911, Azië 0.926 (83503's "migratieachtergrond" and 85458's "herkomstland" differ slightly in definition for small groups). Spot check by the orchestrator: Rotterdam Suriname 51,755 estimated vs 51,838 official.
+
+The file also stores four rest columns (`europaRest`, `afrikaRest`, `amerikaRest`, `azieRest`) so the world regions of `modules/herkomst-regio.js` exist per wijk/buurt with the same country → region table as per gemeente; regions without a named postcode country stay empty below gemeente level.

@@ -2,6 +2,7 @@
 // CBS 85458NED), the opt-in step "Jouw situatie" (opleiding, income; sliders since W7)
 // and a 5-step importance scale per theme. All three keep the W4 rules:
 // positive-only, opt-in, never in Standaard, private unless ticked.
+import { REGIONS } from '../modules/herkomst-regio.js';
 import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -239,7 +240,8 @@ describe('Jouw situatie sliders (income, education; W7)', () => {
 
 describe('Gemeenschap: detailed origin group for gemeenten (85458NED)', () => {
   it('offers the herkomst.js groups (Nederland first, v0.26.0), each with a unique two-letter code', () => {
-    assert.equal(Object.keys(DETAIL_GROUPS).length, ORIGIN_GROUPS.length + 3);   // + Polen, Duitsland, België (v0.25.0)
+    // + Polen, Duitsland, België (v0.25.0), + the world regions not equal to a group (v0.28.0)
+    assert.equal(Object.keys(DETAIL_GROUPS).length, ORIGIN_GROUPS.length + 3 + REGIONS.filter(r => !r.same).length);
     assert.equal(Object.keys(DETAIL_GROUPS)[0], 'nederland');
     assert.deepEqual([DETAIL_GROUPS.nederland.key, DETAIL_GROUPS.nederland.code, DETAIL_GROUPS.nederland.direct], ['originDutchPct', 'nl', true]);
     assert.ok(!DETAIL_KEYS.includes('originDutchPct'), 'nothing to fetch for Nederland');
