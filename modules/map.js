@@ -66,6 +66,21 @@ export function createBasemapLayer(Leaflet, config) {
   });
 }
 
+/**
+ * The OpenFreeMap styles ask for sprite images their sprite sheet lacks
+ * ('wood-pattern', 'circle-11'); MapLibre then warns once per tile. Answer
+ * each missing id with a 1×1 transparent image. Safe on null / a fake map.
+ */
+export function patchMissingImages(glMap) {
+  if (!glMap || typeof glMap.on !== 'function') return false;
+  glMap.on('styleimagemissing', e => {
+    const id = e?.id;
+    if (!id || glMap.hasImage?.(id)) return;
+    try { glMap.addImage(id, { width: 1, height: 1, data: new Uint8Array(4) }); } catch { /* style not ready: next request retries */ }
+  });
+  return true;
+}
+
 // ── Map ───────────────────────────────────────────────────────────────────────
 
 const NL_CENTER = [51.9225, 4.4792]; // Rotterdam centre
@@ -119,6 +134,7 @@ export function setBasemap(id) {
 
   if (basemapLayer) map.removeLayer(basemapLayer);
   basemapLayer = layer.addTo(map);
+  if (config.type === 'vector') patchMissingImages(layer.getMaplibreMap?.());
   activeBasemap = config.id;
 
   try { window.localStorage.setItem(BASEMAP_STORAGE_KEY, config.id); } catch { /* ignore */ }

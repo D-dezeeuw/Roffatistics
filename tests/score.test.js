@@ -148,3 +148,46 @@ describe('explain and scoreRank', () => {
     assert.equal(scoreRank(results, 'd'), null);
   });
 });
+
+import { countBelow } from '../modules/score.js';
+import { percentileScores } from '../modules/ranking.js';
+
+describe('percentile ranks by binary search (15 Nov 2026 freeze fix)', () => {
+  const naive = (values, log = false) => {
+    const isN = v => typeof v === 'number' && Number.isFinite(v);
+    const tf = v => (log && v > -1 ? Math.log1p(v) : v);
+    const nums = values.filter(isN).map(tf);
+    return values.map(raw => {
+      if (!isN(raw)) return null;
+      if (nums.length === 1) return 0.5;
+      const v = tf(raw);
+      let below = 0, equal = 0;
+      for (const x of nums) { if (x < v) below++; else if (x === v) equal++; }
+      return (below + (equal - 1) / 2) / (nums.length - 1);
+    });
+  };
+
+  it('countBelow counts < v and <= v', () => {
+    const s = [1, 2, 2, 2, 5];
+    assert.equal(countBelow(s, 2), 1);
+    assert.equal(countBelow(s, 2, true), 4);
+    assert.equal(countBelow(s, 0), 0);
+    assert.equal(countBelow(s, 9, true), 5);
+    assert.equal(countBelow([], 1), 0);
+  });
+
+  it('matches the linear scan, ties, nulls and log included', () => {
+    const vals = [3, null, 1, 1, 7, -0.5, -3, 'x', 7, 0, Infinity, 2.5, 1];
+    assert.deepEqual(percentileRanks(vals), naive(vals));
+    assert.deepEqual(percentileRanks(vals, { log: true }), naive(vals, true));
+    const pct = percentileScores(vals, true);
+    assert.deepEqual(pct, naive(vals).map(p => (p == null ? null : p * 100)));
+  });
+
+  it('ranks 15,000 values well under a second (was O(n²))', () => {
+    const vals = Array.from({ length: 15000 }, (_, i) => (i * 7919) % 1000);
+    const t = performance.now();
+    percentileRanks(vals); percentileScores(vals);
+    assert.ok(performance.now() - t < 1000);
+  });
+});
