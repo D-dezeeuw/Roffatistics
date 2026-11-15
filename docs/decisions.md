@@ -1,5 +1,15 @@
 # Decisions
 
+## 2026-11-15 — Uitleg panel, crime toggle, rank mode (v0.14.0)
+
+- **Explanations come from the dataset metadata.** Every entry in `DATASETS` carries `description`, `formula`, `source` (table id, name, publisher, link, scope), `year` and `caveats`; `modules/explain.js` builds the Uitleg panel from them, grouped like the Layers panel, plus three general parts (score, crime modes, geen data/peiljaren). `tests/explain.test.js` fails when a dataset lacks any of these, so a new layer cannot ship unexplained. The panel reuses the search modal shell (role=dialog, Esc, focus trap, focus return); its Esc handler stops propagation so the global Escape does not also close the side panel. `data-explain="<key>"` anywhere opens it at that entry.
+- **Crime Absoluut = raw 2025 counts.** `mergeCrime` now also stores `<category>Count` (no inhabitant threshold, so every area has a value in Absoluut); each crime dataset names its `countKey`. `datasetFor(key, mode)` swaps title, unit (`misdrijven`) and formula; `crimeValues`/`crimeAreas` map values so map, legend, tooltip, panel, dashboard and Ranglijst read one representation. Scores and ranks are recomputed on the counts.
+- **Dashboard in Absoluut:** the Rotterdam figure is the sum over wijken (KPI label "(totaal)"), and the bar-chart average line is hidden (an average of counts is not a city figure). **Panel:** the first crime row becomes "Aantal 2025", the second the rate; sub-layers show counts. **Nederland view:** Absoluut uses `totalCrimes` from 83648NED (2023).
+- **Crime mode lives in the shared state** (`state.crime`, `&crime=abs` only when not default, localStorage `roffatistics.crime`), so every toggle and view stays in sync and a link reproduces the view.
+- **Rank mode** (`Rang: Vast | Volgt sortering`) is a Ranglijst-only UI choice in localStorage `roffatistics.rankMode`, not in the URL. "Volgt sortering" renumbers in display order with competition ranks (1-2-2-4), rows without a value unranked at the bottom, and the score column switches to the sorted column's percentile. Sorting on Rang or Naam keeps the fixed ranks (renumbering by name would be meaningless).
+- **Map tooltips** now use the dashboard `formatValue`, so values carry their unit (also "N misdrijven" in Absoluut).
+- **Topnav at 360 px:** the extra Uitleg button is icon-only under 760 px like the others; under 400 px the nav paddings and gaps shrink a step. Not checked in a browser.
+
 ## 2026-11-15 — 2025 data, buurt crime, new layers (v0.13.0)
 
 - **Base table 86165NED** (Kerncijfers wijken en buurten 2025) for gemeente, wijken and buurten; **85984NED** (2024) only as a per-field fallback. Every key in `WIJK_COLUMNS` was looked up in the DataProperties of both tables on 15 Nov 2026 and is identical in the two, so one map serves both (86358NED, 2026, has only 44 of its columns filled and other suffixes: not used).

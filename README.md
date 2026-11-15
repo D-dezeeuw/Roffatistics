@@ -14,7 +14,10 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 - **Dashboard** — the Dashboard view compares all 21 Rotterdam wijken: city KPIs, a sorted bar chart per data layer with the Rotterdam average, and an X/Y scatter; click a wijk to zoom the map to it
 - **Layers in four sections** — Bevolking, Welvaart & wonen, Veiligheid, Voorzieningen; Rotterdam-only layers (housing, bijstand, crime sub-layers, distances) hide in Nederland mode
 - **Data years shown** — wijk/buurt figures are 2025 (CBS 86165NED); fields CBS has not filled yet fall back to 2024 and say so in the dashboard subtitle and the panel ("Peiljaar"); the dashboard also shows the newest city WOZ (2026, peildatum 1 januari)
-- **Deep links** — `#scope=rotterdam|nederland&view=map|dashboard|list&area=<CBS code>`; the scope choice is remembered
+- **Uitleg** — the book button in the topnav opens a filterable explanation of every metric (meaning, unit, calculation, linked CBS/Politie source table, peiljaar, Ranglijst direction, caveats) plus how the score, the crime modes and "geen data" work; the small (i) buttons in the legend, Ranglijst headers and dashboard charts open it at that metric
+- **Crime: Per 1000 inwoners | Absoluut** — one toggle (legend, Ranglijst, Dashboard) switches every crime layer between the rate per 1.000 inhabitants and the raw 2025 count; in Absoluut the dashboard shows the Rotterdam total and every area gets a value
+- **Rang: Vast | Volgt sortering** — in the Ranglijst, "Vast" keeps the rank numbers of "Rangschik op" while you sort a column; "Volgt sortering" renumbers the rows (and shows the score) of the sorted column; the choice is remembered
+- **Deep links** — `#scope=rotterdam|nederland&view=map|dashboard|list&area=<CBS code>&crime=abs`; the scope and crime choice are remembered
 - **Province choropleth** — four selectable datasets color all 12 provinces
 - **Municipality drill-down** — zoom to level 10+ to see gemeente-level data
 - **Neighbourhood outlines** — zoom to level 13+ to see buurt boundaries within the active gemeente
