@@ -1,6 +1,8 @@
 import { bindDOM, run, setValue } from 'spektrum';
 import { initMap, getMap, setMapScope, refreshMapSize } from './modules/map.js';
-import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente, focusNederlandArea } from './modules/overlays.js';
+import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente, focusNederlandArea, drillIntoGemeente, gemeenteName } from './modules/overlays.js';
+import { applyDrillDataset }            from './modules/nl-drill.js';
+import { rescoreNlAreas }               from './modules/nl-areas.js';
 import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD, DATASETS, groupDatasets, datasetInScope, datasetFor, crimeValues, isCrimeDataset } from './modules/datasets.js';
 import { PANEL_FIELDS }                   from './modules/panel.js';
 import { initState, getState, setState, onStateChange } from './modules/state.js';
@@ -47,6 +49,9 @@ const GM_CRIME_FILTER = `startswith(RegioS,'GM') and Perioden eq '${CBS_PERIOD}'
 
 let provinceRows  = [];
 let gemeenteRows  = [];
+// Nederland tiers that show gemeente rows: the gemeente tier and the wijk/buurt drill-down under it.
+const atGemeenteTier = (tier = getActiveTier()) => tier === 'municipality' || tier === 'wijk' || tier === 'buurt';
+const atDrillTier = (tier = getActiveTier()) => tier === 'wijk' || tier === 'buurt';
 
 // ── Province data ─────────────────────────────────────────────────────────────
 // Demographics are fetched first and independently so a crime-fetch failure
@@ -69,7 +74,7 @@ fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
     provinceRows = rowsWithWoonscore(provinceRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] })));
     setProvinceData(provinceRows); setNationalRows('provincie', provinceRows);
     // Re-colour: the Woonscore (and crime layers) change once crime is merged.
-    if (getState().scope === 'nederland' && getActiveTier() !== 'municipality' && getActiveTier() !== 'buurt') activateDataset(getState().dataset);
+    if (getState().scope === 'nederland' && !atGemeenteTier()) activateDataset(getState().dataset);
   })
   .catch(() => { /* crime unavailable — panel shows dashes for crime fields */ });
 
@@ -80,8 +85,7 @@ fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
 // Called after each setMunicipalityData to re-apply coloring and refresh the
 // panel if the user is already at municipality tier.
 function refreshMunicipalityView() {
-  const tier = getActiveTier();
-  if (tier !== 'municipality' && tier !== 'buurt') return;
+  if (!atGemeenteTier()) return;
   if (getState().scope !== 'nederland') return;
   activateDataset(getState().dataset);
   const code = getActiveGemeente();
@@ -142,6 +146,12 @@ document.querySelector('.panel-pin-btn').addEventListener('click', () => {
 document.querySelector('.panel-details-btn')?.addEventListener('click', e => {
   const code = getActiveArea()?.code;
   if (getState().scope === 'rotterdam' && code) openAreaModal(code, e.currentTarget);
+});
+
+// Nederland: "Wijken en buurten" on a gemeente panel zooms into its wijken (nl-drill.js).
+document.querySelector('.panel-drill-btn')?.addEventListener('click', () => {
+  const code = getActiveGemeente();
+  if (getState().scope === 'nederland' && code) drillIntoGemeente(code);
 });
 
 // Modal "Vergelijk": show the area on the map, pinned, so the next click fills slot B.
@@ -262,10 +272,21 @@ async function activateDataset(key) {
     return;
   }
   const tier       = getActiveTier();
-  const useGemeente = tier === 'municipality' || tier === 'buurt';
+  const useGemeente = atGemeenteTier(tier);
   const rows       = useGemeente ? gemeenteRows : provinceRows;
+  document.body.classList.toggle('nl-drill', atDrillTier(tier));   // every layer has wijk/buurt figures
+  if (atDrillTier(tier)) {
+    if (gemeenteRows.length) applyDataset(gemeenteRows.map(r => crimeValues(r, mode)), ds.key);   // gemeente outlines
+    const { scale, level, hasData, status } = applyDrillDataset(key, mode);
+    const suffix = !status ? 'geen gemeente in beeld'
+      : status.error === 'geo' ? `wijk- en buurtgrenzen niet beschikbaar (PDOK) · ${gemeenteName(status.gemeente)}`
+      : status.error === 'data' || !hasData ? `geen ${level}data · ${gemeenteName(status.gemeente)}`
+      : `${level} · ${gemeenteName(status.gemeente)} · t.o.v. heel NL`;
+    await updateLegend({ title: `${ds.title} · ${suffix}`, scale, dataset: key, mode, showNoData: true });
+    return;
+  }
   if (!rows.length) return;
-  const title = !datasetInScope(key, 'nederland') ? `${ds.title} · alleen in Rotterdam-weergave`
+  const title = !datasetInScope(key, 'nederland') ? `${ds.title} · alleen per wijk/buurt: zoom in op een gemeente`
     : useGemeente ? `${ds.title} · gemeente` : ds.title;
   const { scale } = applyDataset(rows.map(r => crimeValues(r, mode)), ds.key);
   await updateLegend({ title, scale, dataset: key, mode });
@@ -304,7 +325,7 @@ async function applyScope(scope, { initial = false } = {}) {
   setMapScope('nederland', { fit: !initial });
   if (!initial) await setOverlaysEnabled(true);   // initOverlays already enabled them on a Nederland start
   if (seq === scopeSeq) await activateDataset(getState().dataset);
-  if (seq === scopeSeq && /^(PV|GM)/.test(getState().area ?? '')) focusNederlandArea(getState().area);   // search / deep link
+  if (seq === scopeSeq && /^(PV|GM|WK|BU)/.test(getState().area ?? '')) focusNederlandArea(getState().area);   // search / deep link
 }
 
 // ── View switcher (Kaart | Dashboard | Ranglijst) ─────────────────────────────
@@ -340,6 +361,7 @@ function applyPersonalScore(score) {
   }
   if (provinceRows.length) { provinceRows = rowsWithWoonscore(provinceRows); setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); }
   if (gemeenteRows.length) { gemeenteRows = rowsWithWoonscore(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); }
+  rescoreNlAreas();   // NL wijken/buurten of the drill-down, when loaded
 }
 
 onStateChange(({ state, changed, source }) => {
@@ -361,7 +383,7 @@ onStateChange(({ state, changed, source }) => {
     else focusArea(state.area);
   }
   if (changed.includes('area') && state.area && source !== 'map' && state.scope === 'nederland') {
-    focusNederlandArea(state.area);   // search: gemeente / provincie
+    focusNederlandArea(state.area);   // search: gemeente / provincie; modal "Toon op kaart": NL wijk/buurt
   }
 });
 
@@ -378,5 +400,5 @@ initLegendCollapse();
 document.addEventListener(SCALE_EVENT, () => activateDataset(getState().dataset));
 initExplain();
 initAreaModal();
-initWizard({ rows: () => (gemeenteRows.length && (getActiveTier() === 'municipality' || getActiveTier() === 'buurt' || !provinceRows.length)
+initWizard({ rows: () => (gemeenteRows.length && (atGemeenteTier() || !provinceRows.length)
   ? { level: 'gemeente', rows: gemeenteRows } : { level: 'provincie', rows: provinceRows }) });

@@ -17,7 +17,7 @@ export const LEGACY_DATASETS = Object.freeze({ jouwscore: 'woonscore' });
 // crime: 'rate' (per 1.000 inwoners) | 'abs' (registered offences); see datasets.js datasetFor().
 export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate', score: null });
 
-const AREA_RE = /^(PV\d{2}|GM\d{4}|WK\d{6}|BU\d{8})$/;
+const AREA_RE = /^(PV\d{2}|GM\d{4}|WK\d{4}[0-9A-Z]{2}|BU\d{4}[0-9A-Z]{4})$/;   // Amsterdam: WK0363AA, BU0363AA01
 
 /** Keeps only valid fields of `patch` (unknown keys and bad values are dropped). */
 export function sanitizePatch(patch = {}) {
