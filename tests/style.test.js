@@ -34,7 +34,7 @@ describe('style.css', () => {
 
   it('keeps the view blocks at the top level, outside any @media rule', () => {
     const top = topLevelSelectors(stripped);
-    for (const sel of ['.view-list', '.list-table', '.dash', '.dash-tip', '.dash-svg', '.search-modal']) {
+    for (const sel of ['.view-list', '.list-table', '.dash', '.dash-tip', '.dash-svg', '.search-modal', '.dash-donuts', '.dash-slice']) {
       assert.ok(top.some(s => s.split(',').map(x => x.trim()).includes(sel)), `${sel} is not a top-level rule`);
     }
   });

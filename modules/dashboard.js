@@ -1,5 +1,5 @@
-// Dashboard view: KPI row, one sorted SVG bar chart per dataset over all
-// Rotterdam wijken, and an X/Y scatter. Plain SVG, no chart library.
+// Dashboard view: KPI row, composition donuts, one sorted SVG bar chart per
+// dataset over all Rotterdam wijken, and an X/Y scatter. Plain SVG, no chart library.
 // Clicking a wijk sets { area, view: 'map' } so the map zooms to it.
 import { getState, setState, onStateChange } from './state.js';
 import { loadRotterdamAreas, DATASETS, DATASET_KEYS } from './areas.js';
@@ -7,8 +7,10 @@ import { interpolateColor } from './overlays.js';
 import { NO_DATA_COLOR } from './rotterdam.js';
 import {
   sortByValue, cityValue, cityKpis, formatValue, formatShort, formatTick,
-  niceTicks, linearScale, barDomain, scatterPoints,
+  niceTicks, linearScale, barDomain, scatterPoints, formatNumber,
+  educationMix, areaEducationMix, shareSplit, populationItems,
 } from './dashboard-data.js';
+import { donutSlices, arcPath } from './donut.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const r1 = v => Math.round(v * 10) / 10;
@@ -28,6 +30,7 @@ export function initDashboard() {
   onStateChange(({ state, changed }) => {
     if (state.view !== 'dashboard') { hideTip(); return; }
     if (changed.some(k => k === 'view' || k === 'scope' || k === 'dataset')) render();
+    else if (changed.includes('area') && areas && root.querySelector('[data-donuts]')) { renderDonuts(); drawCharts(); }
   });
 
   root.addEventListener('click', onActivate);
@@ -155,12 +158,113 @@ async function render() {
       <p>${wijken.length} wijken vergeleken · CBS kerncijfers 2024, misdrijven politie 2025${areas.dataOk ? '' : ' · <strong>CBS-cijfers niet beschikbaar</strong>'}</p>
     </header>
     <ul class="dash-kpis" aria-label="Rotterdam totaal en gemiddelden">${kpis}</ul>
+    <section class="dash-donuts" data-donuts aria-label="Samenstelling van Rotterdam"></section>
     <div class="dash-grid">
       ${barCard(order[0])}
       ${scatterCard}
       ${order.slice(1).map(barCard).join('')}
     </div>`;
+  renderDonuts();
   drawCharts();
+}
+
+// ── Donuts ───────────────────────────────────────────────────────────────────
+
+const pctText = p => `${formatNumber(p, 1)}%`;
+
+/**
+ * One donut: slices from donutSlices(), each with a hover/focus tooltip
+ * "label: value (pct)". Slices with a `code` are wijk buttons (click → map).
+ */
+function donutSvg(slices, { size = 136, center = null, label, fmt, selected } = {}) {
+  const c = size / 2, rO = c - 2, rI = Math.round(rO * 0.6);
+  const paths = slices.map(sl => {
+    const text = `${sl.label}: ${fmt(sl)}${fmt.showPct === false ? '' : ` (${pctText(sl.pct)})`}`;
+    const attrs = sl.code
+      ? `class="dash-slice is-link${sl.code === selected ? ' is-selected' : ''}" data-code="${esc(sl.code)}" role="button" aria-label="${esc(text)}. Toon op kaart"`
+      : `class="dash-slice" role="img" aria-label="${esc(text)}"`;
+    return `<path ${attrs} d="${arcPath(c, c, rO, rI, sl.a0, sl.a1)}" fill="${sl.color}" fill-rule="evenodd" data-tip="${esc(text)}" tabindex="0"/>`;
+  }).join('');
+  const mid = center ? `
+    <text class="dash-donut-value" x="${c}" y="${c + 2}" text-anchor="middle">${esc(center.value)}</text>
+    <text class="dash-donut-label" x="${c}" y="${c + 16}" text-anchor="middle">${esc(center.label)}</text>` : '';
+  return `<svg class="dash-svg dash-donut" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="group" aria-label="${esc(label)}">
+    <title>${esc(label)}</title>${paths}${mid}</svg>`;
+}
+
+function legendHtml(slices, fmt, extra = null) {
+  return `<ul class="dash-legend">${slices.map((sl, i) => {
+    const text = `${sl.label}: ${fmt(sl)}${fmt.showPct === false ? '' : ` (${pctText(sl.pct)})`}`;
+    const link = sl.code ? ` data-code="${esc(sl.code)}" tabindex="0" role="button" aria-label="${esc(text)}. Toon op kaart"` : '';
+    return `<li class="dash-legend-item${sl.code ? ' is-link' : ''}"${link} data-tip="${esc(text)}">
+      <span class="dash-swatch" style="background:${sl.color}" aria-hidden="true"></span>
+      <span class="dash-legend-label">${esc(sl.short ?? sl.label)}</span>
+      <span class="dash-legend-pct">${extra ? extra(sl, i) : pctText(sl.pct)}</span></li>`;
+  }).join('')}</ul>`;
+}
+
+function donutCard({ id, title, sub, items, opts = {}, fmt, center }) {
+  const body = items ? donutSlices(items, opts) : { slices: [] };
+  const selected = getState().area;
+  const chart = body.slices.length
+    ? `<div class="dash-donut-wrap">${donutSvg(body.slices, { center: center?.(body), label: title, fmt, selected })}${legendHtml(body.slices, fmt)}</div>`
+    : '<p class="dash-card-sub">geen data</p>';
+  return `
+      <article class="dash-card dash-donut-card" aria-labelledby="dash-h-${id}">
+        <header class="dash-card-head"><h3 id="dash-h-${id}">${esc(title)}</h3></header>
+        <p class="dash-card-sub">${esc(sub)}</p>
+        ${chart}
+      </article>`;
+}
+
+function compareCard(wijk, city) {
+  const own = areaEducationMix(wijk);
+  const title = `${wijk.name} vs Rotterdam`;
+  const fmt = sl => pctText(sl.value);
+  fmt.showPct = false;
+  if (!own || !city) {
+    return `
+      <article class="dash-card dash-donut-card is-compare" aria-labelledby="dash-h-compare">
+        <header class="dash-card-head"><h3 id="dash-h-compare">${esc(title)}</h3></header>
+        <p class="dash-card-sub">Opleidingsniveau · geen data voor ${esc(wijk.name)}</p>
+      </article>`;
+  }
+  const a = donutSlices(own).slices, b = donutSlices(city).slices;
+  const top = sl => ({ value: pctText(sl.find(x => x.key === 'highEdu')?.pct ?? 0), label: 'hoog' });
+  return `
+      <article class="dash-card dash-donut-card is-compare" aria-labelledby="dash-h-compare">
+        <header class="dash-card-head"><h3 id="dash-h-compare">${esc(title)}</h3></header>
+        <p class="dash-card-sub">Opleidingsniveau, hoogst behaald · aandeel per niveau</p>
+        <div class="dash-donut-wrap is-pair">
+          <figure class="dash-donut-fig">${donutSvg(a, { size: 112, center: top(a), label: `Opleidingsniveau ${wijk.name}`, fmt })}<figcaption>${esc(wijk.name)}</figcaption></figure>
+          <figure class="dash-donut-fig">${donutSvg(b, { size: 112, center: top(b), label: 'Opleidingsniveau Rotterdam', fmt })}<figcaption>Rotterdam</figcaption></figure>
+          ${legendHtml(a, fmt, (sl, i) => `${pctText(sl.pct)} <span class="dash-legend-vs">· ${pctText(b[i]?.pct ?? 0)}</span>`)}
+        </div>
+      </article>`;
+}
+
+function renderDonuts() {
+  const box = root?.querySelector('[data-donuts]');
+  if (!box || !areas) return;
+  const wijken = areas.wijken;
+  const city = educationMix(wijken);
+  const sel = getState().area;
+  const wijk = sel ? wijken.find(a => a.code === sel) : null;
+  const share = sl => pctText(sl.value);
+  share.showPct = false;
+  const inw = sl => formatValue(sl.value, 'population');
+  const highOf = ({ slices }) => ({ value: pctText(slices.find(s => s.key === 'highEdu')?.pct ?? 0), label: 'hoog' });
+  const firstOf = label => ({ slices }) => ({ value: pctText(slices[0]?.pct ?? 0), label });
+
+  box.innerHTML = (wijk ? compareCard(wijk, city) : '')
+    + donutCard({ id: 'edu', title: 'Opleidingsniveau', sub: 'Hoogst behaald, gewogen naar inwoners', items: city, fmt: share, center: highOf })
+    + donutCard({ id: 'age', title: 'Leeftijd', sub: 'Aandeel 65-plussers', fmt: share, center: firstOf('65+'),
+      items: shareSplit(wijken, 'pop65plus', '65 jaar en ouder', 'Jonger dan 65') })
+    + donutCard({ id: 'origin', title: 'Herkomst', sub: 'Aandeel met herkomst buiten Europa', fmt: share, center: firstOf('buiten Eur.'),
+      items: shareSplit(wijken, 'nonWesternPct', 'Buiten Europa', 'Nederland en rest van Europa') })
+    + donutCard({ id: 'pop', title: 'Inwoners per wijk', sub: 'Top 8 wijken, de rest als overig · klik een wijk voor de kaart', fmt: inw,
+      items: populationItems(wijken), opts: { top: 8, sort: true },
+      center: ({ total }) => ({ value: formatNumber(total), label: 'inwoners' }) });
 }
 
 function drawCharts() {

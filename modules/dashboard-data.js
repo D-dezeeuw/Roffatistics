@@ -155,3 +155,50 @@ export function formatShort(v, key) {
   if (unit === 'per 1.000' || key === 'population') return formatNumber(n, unit === 'per 1.000' ? 1 : 0);
   return formatValue(n, key);
 }
+
+// ── Compositions for the donut charts ────────────────────────────────────────
+
+export const EDU_LEVELS = Object.freeze([
+  { key: 'lowEdu',  label: 'Laag (basis, vmbo, mbo 1)', short: 'Laag',   color: '#8b5cf6' },
+  { key: 'medEdu',  label: 'Middelbaar (havo, vwo, mbo 2–4)', short: 'Middel', color: '#d946ef' },
+  { key: 'highEdu', label: 'Hoog (hbo, wo)',            short: 'Hoog',   color: '#f97316' },
+]);
+
+/** One area's education mix as donut items, or null when a level is missing. */
+export function areaEducationMix(area) {
+  const vals = EDU_LEVELS.map(l => num(area?.values?.[l.key]));
+  if (vals.some(v => v == null)) return null;
+  return EDU_LEVELS.map((l, i) => ({ key: l.key, label: l.label, short: l.short, color: l.color, value: vals[i] }));
+}
+
+/**
+ * City-wide education mix: each level's share averaged over the areas that have
+ * all three, weighted by population. Null when no area qualifies.
+ */
+export function educationMix(areas) {
+  const full = (areas ?? []).filter(a => areaEducationMix(a));
+  const vals = EDU_LEVELS.map(l => weightedMean(full, l.key));
+  if (vals.some(v => v == null)) return null;
+  return EDU_LEVELS.map((l, i) => ({ key: l.key, label: l.label, short: l.short, color: l.color, value: vals[i] }));
+}
+
+/**
+ * Two-slice split of a percentage dataset (population-weighted city value):
+ * [{ key, label, value }, { key: 'rest', label: restLabel, value: 100 − value }], or null.
+ */
+export function shareSplit(areas, key, label, restLabel) {
+  const v = weightedMean(areas, key);
+  if (v == null) return null;
+  const pct = Math.min(100, Math.max(0, v));
+  return [
+    { key, label, value: pct, color: '#f97316' },
+    { key: 'rest', label: restLabel, value: 100 - pct, color: '#5b3fa8' },
+  ];
+}
+
+/** Inhabitants per area as donut items ({ key: code, code, label: name, value }). */
+export function populationItems(areas) {
+  return (areas ?? [])
+    .map(a => ({ key: a.code, code: a.code, label: a.name, value: num(a.values?.population) }))
+    .filter(i => i.value != null && i.value > 0);
+}
