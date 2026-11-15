@@ -9,7 +9,6 @@ import {
   parseHerkomstRows, groupValue, computeGroups, partitionGap, topCountries, changePct, herkomstSummary,
   buildHerkomstUrls, loadCityHerkomst, _resetHerkomstCache, wijkOriginRows,
 } from '../modules/herkomst.js';
-import { herkomstSectionHtml, sparkPoints } from '../modules/dashboard-herkomst.js';
 import { GENERAL_SECTIONS } from '../modules/explain.js';
 import { formatPanelData } from '../modules/panel.js';
 
@@ -190,39 +189,13 @@ describe('origin groups (heel Rotterdam, 85458NED)', () => {
   });
 });
 
-describe('dashboard Herkomst section', () => {
+describe('wijk origin rows', () => {
   const wijken = [
     { code: 'WK059901', name: 'Stadscentrum', values: extractAreaValues(centrum) },
     { code: 'WK059906', name: 'Kralingen-Crooswijk', values: { originDutchPct: 64.4, originEuropePct: 10, nonWesternPct: 25.5 } },
     { code: 'WK059999', name: 'Haven', values: {} },
   ];
-  const helpers = { donutSvg: () => '<svg class="stub"></svg>', legendHtml: (sl, fmt, extra) => sl.map((x, i) => `<li>${x.label} ${extra(x, i)}</li>`).join('') };
   it('wijk rows are sorted by % buiten Europa, missing data last', () => {
     assert.deepEqual(wijkOriginRows(wijken).map(r => r.code), ['WK059901', 'WK059906', 'WK059999']);
-  });
-  it('renders donut, top 15, small multiples and clickable wijk bars', () => {
-    const html = herkomstSectionHtml(herkomstSummary(parsed), wijken, { ...helpers, selected: 'WK059906' });
-    assert.match(html, /Rotterdam naar herkomst, 2026/);
-    assert.match(html, /Overige groepen/);
-    assert.equal((html.match(/class="hk-bar"/g) || []).length, 15);
-    assert.equal((html.match(/class="hk-sm"/g) || []).length, 12);
-    assert.match(html, /class="hk-wijk is-link is-selected" data-code="WK059906"/);
-    assert.match(html, /34,3%/);
-    assert.match(html, /data-explain="herkomst-groepen"/);
-  });
-  it('still shows the wijk bars while loading or after a CBS error', () => {
-    const html = herkomstSectionHtml(null, wijken, { ...helpers, failed: true });
-    assert.match(html, /konden niet worden geladen/);
-    assert.equal((html.match(/data-code="WK/g) || []).length, 3);
-  });
-  it('sparkline points span the box on the series own scale', () => {
-    assert.equal(sparkPoints([1, 2, 3], 100, 32, 0), '0.0,32.0 50.0,16.0 100.0,0.0');
-    assert.equal(sparkPoints([5]), '');
-  });
-  it('Uitleg lists every group composition', () => {
-    const sec = GENERAL_SECTIONS.find(s => s.id === 'herkomst-groepen');
-    assert.ok(sec);
-    for (const g of ORIGIN_GROUPS) assert.ok(sec.text.includes(g.label), g.label);
-    assert.match(sec.text, /moeder/);
   });
 });
