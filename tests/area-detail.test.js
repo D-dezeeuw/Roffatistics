@@ -208,3 +208,75 @@ describe('Personalised Woonscore in the area modal (W3, v0.22.0)', async () => {
     assert.equal(themeBarHtml([]), '');
   });
 });
+
+describe('area modal for national gemeenten and provincies (15 Nov 2026)', async () => {
+  const { isModalCode, isNationalCode, nationalAreaSet, openAreaModal } = await import('../modules/area-modal.js');
+  const rows = [
+    { regionCode: 'GM0363', population: 930000, avgIncome: 40, crimeRate: 80, woonscore: 60 },
+    { regionCode: 'GM0518', population: 560000, avgIncome: 38, crimeRate: 70, woonscore: 55 },
+    { regionCode: 'GM0344', population: 360000, avgIncome: 45, crimeRate: 50, woonscore: 70 },
+    { regionCode: 'GM0014', population: 240000, avgIncome: 36, crimeRate: 60, woonscore: 50 },
+    { regionCode: 'GM0034', population: 220000, avgIncome: 37, crimeRate: 40, woonscore: 65 },
+  ];
+  const names = new Map([['GM0363', 'Amsterdam'], ['GM0518', "'s-Gravenhage"]]);
+
+  it('opens WK/BU/GM/PV codes, nothing else', () => {
+    for (const c of ['WK059901', 'BU05990110', 'GM0363', 'PV27']) assert.equal(isModalCode(c), true, c);
+    for (const c of ['', null, 'XX12', 'NL01']) assert.equal(isModalCode(c), false, String(c));
+    assert.equal(isNationalCode('GM0363'), true);
+    assert.equal(isNationalCode('PV27'), true);
+    assert.equal(isNationalCode('WK036300'), false);
+  });
+
+  it('openAreaModal accepts GM/PV codes (no early refusal)', async () => {
+    // No DOM in node: initAreaModal bails out, so the call fails later; a refused code returns false at once.
+    assert.equal(await openAreaModal('XX12'), false);
+    await assert.rejects(() => openAreaModal('GM0363'));
+    await assert.rejects(() => openAreaModal('PV27'));
+  });
+
+  it('nationalAreaSet: the gemeente and every gemeente as peer, names from the index', () => {
+    const { area, areas } = nationalAreaSet('GM0363', rows, { names, result: () => null });
+    assert.equal(area.name, 'Amsterdam');
+    assert.equal(area.level, 'gemeente');
+    assert.equal(areas.wijken.length, 5);
+    assert.deepEqual(areas.buurten, []);
+    assert.equal(areas.wijken.find(a => a.code === 'GM0344').name, 'GM0344');
+    assert.equal(nationalAreaSet('GM9999', rows).area, null);
+    assert.equal(nationalAreaSet('PV27', [{ regionCode: 'PV27' }], { result: () => null }).area.level, 'provincie');
+  });
+
+  it('builds a gemeente detail: ranks among gemeenten, no children, drill action, no empty sections', () => {
+    const { area, areas } = nationalAreaSet('GM0363', rows, { names, result: () => null });
+    const d = buildAreaDetail(area, areas);
+    assert.equal(d.level, 'gemeente');
+    assert.equal(d.peers, 5);
+    assert.deepEqual(d.children, []);
+    assert.equal(d.parent, null);
+    const crime = d.entries.find(e => e.key === 'crimeRate');
+    assert.equal(crime.of, 5);
+    const html = areaModalHtml(d, { peers: 'nederland' });
+    assert.match(html, /Gemeente/);
+    assert.match(html, /Nederlandse gemeenten/);
+    assert.match(html, /data-area-action="drill"/);
+    assert.match(html, /data-area-action="map"/);
+    assert.doesNotMatch(html, /data-area-action="compare"/);
+    assert.doesNotMatch(html, /Buurten in/);
+    assert.doesNotMatch(html, /area-woonscore/);   // no score result: no Woonscore block
+  });
+
+  it('shows the Woonscore block when the gemeente has a score result', () => {
+    const res = { score: 72, coverage: 1, parts: [] };
+    const { area, areas } = nationalAreaSet('GM0363', rows, { names, result: (k, c) => (c === 'GM0363' ? res : { score: 50, coverage: 1, parts: [] }) });
+    const html = areaModalHtml(buildAreaDetail(area, areas), { peers: 'nederland' });
+    assert.match(html, /area-woonscore/);
+    assert.match(html, /van 5 gemeenten/);
+  });
+
+  it('a provincie has no drill action', () => {
+    const { area, areas } = nationalAreaSet('PV27', [{ regionCode: 'PV27', avgIncome: 40 }, { regionCode: 'PV28', avgIncome: 30 }], { result: () => null });
+    const html = areaModalHtml(buildAreaDetail(area, areas), { peers: 'nederland' });
+    assert.match(html, /Provincie/);
+    assert.doesNotMatch(html, /data-area-action="drill"/);
+  });
+});

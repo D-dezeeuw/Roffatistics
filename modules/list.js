@@ -216,10 +216,11 @@ function onTableClick(e) {
   activateRow(tr.dataset.code, tr);
 }
 
-// A wijk/buurt row opens the area modal (focus returns to the row); Nederland rows only select.
+// Every row opens the area modal (focus returns to the row): wijk/buurt in Rotterdam,
+// gemeente/provincie in Nederland (15 Nov 2026; Nederland rows used to only select).
 function activateRow(code, tr) {
   selectRow(code);
-  if (getState().scope === 'rotterdam') openAreaModal(code, tr);
+  openAreaModal(code, tr);
 }
 
 function selectRow(code) {
