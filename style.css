@@ -1609,3 +1609,10 @@ footer {
   .area-extras { grid-template-columns: 1fr; }
   .area-head h2 { font-size: 1.15rem; }
 }
+
+/* Hold Space to pan (modules/space-pan.js): features ignore the pointer so
+   a drag always moves the map. */
+#map.space-pan, #map.space-pan .leaflet-interactive { cursor: grab !important; }
+#map.space-pan:active { cursor: grabbing !important; }
+#map.space-pan .leaflet-interactive { pointer-events: none !important; }
+#map.space-pan .leaflet-tooltip, #map.space-pan .leaflet-popup { display: none; }

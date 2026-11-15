@@ -13,6 +13,7 @@ import { initDashboard }                  from './modules/dashboard.js';
 import { initExplain }                    from './modules/explain.js';
 import { initCrimeToggles }               from './modules/crime-mode.js';
 import { initAreaModal, openAreaModal, COMPARE_EVENT } from './modules/area-modal.js';
+import { initSpacePan }                   from './modules/space-pan.js';
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -29,6 +30,7 @@ run();
 initSplash();
 const initialState = initState();
 initMap();
+initSpacePan(document.getElementById('map'));   // hold Space: drag the map, never click a feature
 await initOverlays({ enabled: initialState.scope === 'nederland' });
 
 const CBS_FILTER   = `startswith(RegioS,'PV') and Perioden eq '${CBS_PERIOD}'`;
