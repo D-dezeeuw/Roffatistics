@@ -130,6 +130,13 @@ function onBuurtCta() {
   document.getElementById('view-list')?.querySelector('button, [tabindex]')?.focus();
 }
 
+/** "Bekijk heel Nederland": close the splash and switch to the Nederland scope (gemeenten). */
+function openNederlandFromSplash() {
+  closeSplash({ restoreFocus: false });
+  setState({ scope: 'nederland', area: null }, { source: 'scope' });
+  document.querySelector('.scope-select, #scope-select')?.focus?.();
+}
+
 async function openWizardFromSplash() {
   closeSplash({ restoreFocus: false });
   const { openWizard } = await import('./wizard.js');
@@ -189,6 +196,7 @@ export function initSplash() {
   primaryBtn.addEventListener('click', openWizardFromSplash);
   splashEl.querySelector('[data-splash="dashboard"]').addEventListener('click', openDashboardFromSplash);
   splashEl.querySelector('[data-splash="explain"]').addEventListener('click', openExplainFromSplash);
+  splashEl.querySelector('[data-splash="nederland"]')?.addEventListener('click', openNederlandFromSplash);
   splashEl.querySelector('.splash-start').addEventListener('click', () => closeSplash());
   document.querySelector('.about-btn')?.addEventListener('click', openSplash);
   document.querySelector('.nav-title')?.addEventListener('click', openSplash);   // logo = home: the title screen
