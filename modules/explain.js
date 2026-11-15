@@ -7,8 +7,10 @@
 // scrolled to that entry ('score', 'crime-mode', 'nodata' for the general parts).
 import { DATASETS, groupDatasets, datasetFor } from './datasets.js';
 import { ORIGIN_GROUPS, HERKOMST_TABLE, HERKOMST_FIRST_YEAR, HERKOMST_YEAR } from './herkomst.js';
-import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION } from './herkomst-pc4.js';
+import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, PC4_VALIDATION, pc4RegionComposition } from './herkomst-pc4.js';
+import { REGIONS, regionComposition } from './herkomst-regio.js';
 
+const pc = v => `${Math.round(v * 1000) / 10}`.replace('.', ',') + '%';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /** Lower case without diacritics, for the filter. */
@@ -126,6 +128,17 @@ export const GENERAL_SECTIONS = Object.freeze([
       `CBS publiceert landengroepen niet per wijk of buurt, wel per viercijferige postcode (CBS ${PC4_HERKOMST_TABLE}, 1 januari ${PC4_YEAR}). De lagen ${PC4_GROUPS.map(g => g.label).join(', ')} in de groep Herkomst schatten het aandeel per wijk en buurt: de inwoners van elk postcodegebied worden verdeeld over de buurten erin naar het aantal adressen per buurt (CBS-bestand postcode en huisnummer met buurt, wijk en gemeente ${PC4_YEAR}), en buurten tellen op tot wijken. Het detailblok in een gebied en de wizardstap Gemeenschap gebruiken dezelfde schatting.`,
       `Grenzen van de methode: binnen één postcodegebied wordt overal dezelfde mix aangenomen, dus verschillen tussen buurten met dezelfde postcode vallen weg. Adressen zijn geen inwoners: kantoren en bedrijfspanden tellen bij de verdeling mee. CBS rondt elk aantal per postcode af op 5 en laat kleine aantallen weg (hier als 0 geteld); onder ${PC4_MIN_POPULATION} geschatte inwoners toont de kaart geen waarde. De indeling is die van ${PC4_YEAR}: wijken en buurten van 2025 zonder dezelfde code in ${PC4_YEAR} (nieuw of opnieuw ingedeeld) krijgen geen gegevens, er wordt niets bijgeschat.`,
       `De tabel gebruikt de oude CBS-indeling "migratieachtergrond", met dezelfde basis als herkomst (eigen geboorteland, anders dat van de ouders). Turkije valt daarin onder Europa; "Europa buiten de EU" is hier daarom Europa min EU min Turkije. De cijfers zijn een schatting en niet één op één gelijk aan de nieuwere herkomstcijfers per gemeente.`,
+      `Controle: de schatting per buurt, opgeteld per gemeente, tegen de officiële herkomstcijfers per gemeente (CBS 85458NED, 1 januari ${PC4_YEAR}, ${PC4_VALIDATION.gemeenten} gemeenten). Verhouding schatting / CBS voor heel Nederland: totaal ${pc(PC4_VALIDATION.ratios.total)}, Suriname ${pc(PC4_VALIDATION.ratios.suriname)}, Turkije ${pc(PC4_VALIDATION.ratios.turkije)}, Marokko ${pc(PC4_VALIDATION.ratios.marokko)}, Polen ${pc(PC4_VALIDATION.ratios.polen)}, Nederlandse Cariben ${pc(PC4_VALIDATION.ratios.cariben)}, Indonesië ${pc(PC4_VALIDATION.ratios.indonesie)}, Duitsland ${pc(PC4_VALIDATION.ratios.duitsland)}, België ${pc(PC4_VALIDATION.ratios.belgie)}, Europa excl. Turkije, Polen, Duitsland en België ${pc(PC4_VALIDATION.ratios.europaRest)}, Afrika excl. Marokko ${pc(PC4_VALIDATION.ratios.afrikaRest)}, Amerika excl. Suriname en Cariben ${pc(PC4_VALIDATION.ratios.amerikaRest)}, Azië excl. Indonesië en Turkije ${pc(PC4_VALIDATION.ratios.azieRest)}, Europa buiten de EU ${pc(PC4_VALIDATION.ratios.euNietEu)}, Oceanië ${pc(PC4_VALIDATION.ratios.oceanie)}. De correlatie over de gemeenten is overal minstens ${PC4_VALIDATION.minCorr.toLocaleString('nl-NL')}. Het tekort komt vooral door de afronding op 5 en weggelaten kleine aantallen per postcode (als 0 geteld), en weegt dus zwaarder bij kleine groepen; Europa buiten de EU ligt hoger omdat de oude en de nieuwe CBS-indeling daar verschillen.`,
+    ],
+  },
+  {
+    id: 'herkomst-regio',
+    title: 'Herkomst per wereldregio',
+    paragraphs: [
+      `De lagen in "Herkomst per regio" en het regioblok in een gebied delen landen in naar de deelregio's van de VN (indeling M49), met één vaste tabel land → regio voor elk niveau. Een regio telt alleen de landen die CBS apart levert; wat een werelddeel verder heeft, staat onder "Overig" en wordt nooit over de regio's verdeeld. Per gemeente (CBS ${HERKOMST_TABLE}, 1 januari ${HERKOMST_YEAR}) zijn dat 45 landen en de Nederlandse Cariben; Nederland, de regio's en "onbekend" tellen daar precies op tot het totaal.`,
+      `Per wijk en buurt (geschat via postcode, CBS ${PC4_HERKOMST_TABLE}, ${PC4_YEAR}) kent CBS maar acht landen. Een regio bevat daar dus minder landen dan per gemeente, en "Overig" meer. Regio's zonder een van die acht landen hebben per wijk en buurt geen waarde: hun inwoners zitten daar in "Overig". Een gemeentemix wordt nooit naar buurten doorgerekend.`,
+      'Welke landen erin zitten, per niveau: ' + REGIONS.map(r => { const b = pc4RegionComposition(r.key); return `${r.label} (gemeente): ${regionComposition(r.key)}; (wijk/buurt): ${b || 'niet beschikbaar'}`; }).join('. ') + '.',
+      'Kanttekeningen: Turkije, Syrië en Irak vallen in West-Azië (Midden-Oosten), Iran en Afghanistan volgens de VN in Zuid-Azië. Turkije telt ook per wijk/buurt bij West-Azië, hoewel de oude postcodetabel het onder Europa zet. Algerije, Tunesië, Libië en Soedan horen bij Noord-Afrika maar CBS levert ze niet apart; ze zitten in "Overig Afrika". Verzamelposten als "voormalig Joegoslavië" en "voormalige Sovjet-Unie" overlappen hun opvolgers en tellen niet mee.',
     ],
   },
   {

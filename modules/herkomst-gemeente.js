@@ -8,7 +8,8 @@
 // so at wijk/buurt level the factor has no data and is skipped (score.js /
 // presets.js drop factors without data); nothing substitutes a broad group.
 import { ORIGIN_GROUPS, HK, HERKOMST_TABLE, HERKOMST_YEAR, HERKOMST_TOTALS } from './herkomst.js';
-import { PC4_GROUP_KEYS } from './herkomst-pc4.js';
+import { PC4_GROUP_KEYS, regionAtBuurt } from './herkomst-pc4.js';
+import { REGIONS, regionPlusMinus, regionComposition, loadGemeenteRegio, regionShareMap, REGION_METRICS } from './herkomst-regio.js';
 
 /** Two-letter hash code per detailed group (Nederland: see NEDERLAND below). */
 const CODES = Object.freeze({
@@ -16,6 +17,11 @@ const CODES = Object.freeze({
   subSahara: 'ss', suriname: 'sr', cariben: 'ca', noordAmerika: 'na', latAmerika: 'la', indonesie: 'id',
   middenOosten: 'mo', zuidAzie: 'za', oostAzie: 'oa', azieOverig: 'ao', oceanie: 'oc',
   polen: 'pl', duitsland: 'de', belgie: 'be',
+  // v0.28.0: werelddeel rests that also exist per postcode, and the world regions (gemeente only).
+  noordEuropa: 'ne', westEuropa: 'we', zuidEuropa: 'ze', oostEuropa: 'oe', overigEuropa: 'ue',
+  noordAfrika: 'nf', westAfrika: 'wf', oostAfrika: 'of', zuidelijkAfrika: 'zf', overigAfrika: 'uf',
+  zuidAmerika: 'zm', overigAmerika: 'um',
+  westAzie: 'wz', zuidelijkAzie: 'zs', oostelijkAzie: 'os', zuidoostAzie: 'zo', overigAzie: 'ua',
 });
 
 // v0.25.0: three single countries 83503NED has per postcode, also published
@@ -25,6 +31,12 @@ const EXTRA_GROUPS = Object.freeze([
   Object.freeze({ key: 'duitsland', label: 'Duitsland', plus: Object.freeze(['H008592']), minus: Object.freeze([]) }),
   Object.freeze({ key: 'belgie', label: 'België', plus: Object.freeze(['H008552']), minus: Object.freeze([]) }),
 ]);
+
+// v0.28.0: world regions (herkomst-regio.js) as detailed groups: per gemeente from the static region
+// file, per wijk/buurt (where the region has a postcode source) estimated via postcode. A region with exactly the definition of an existing group (`same`) is not offered twice.
+const REGION_GROUPS = Object.freeze(REGIONS.filter(r => !r.same).map(r => Object.freeze({
+  key: r.key, label: r.label, region: r.key, ...regionPlusMinus(r.key), composition: regionComposition(r.key),
+})));
 
 /**
  * Detailed groups: key → { label, code, key: metric key, group: the herkomst.js group,
@@ -36,9 +48,13 @@ export const DETAIL_GROUPS = Object.freeze(Object.fromEntries([
   ['nederland', Object.freeze({ label: 'Nederland', long: 'Nederland (Nederlandse achtergrond)', code: 'nl', key: 'originDutchPct', group: null, wijk: true, direct: true })],
   ...[...ORIGIN_GROUPS, ...EXTRA_GROUPS].filter(g => CODES[g.key]).map(g =>
     [g.key, Object.freeze({ label: g.label, code: CODES[g.key], key: `hk_${g.key}`, group: g, wijk: PC4_GROUP_KEYS.includes(g.key) })]),
+  ...REGION_GROUPS.map(g =>
+    [g.key, Object.freeze({ label: g.label, long: `${g.label} (regio)`, code: CODES[g.key], key: `hr_${g.key}`, group: g, wijk: regionAtBuurt(g.region), region: g.region })]),
 ]));
 /** Every fetched/estimated detailed metric key (`hk_<group>`): origin metrics, under the same positive-only guard. */
 export const DETAIL_KEYS = Object.freeze(Object.values(DETAIL_GROUPS).filter(d => !d.direct).map(d => d.key));
+/** Every origin metric of this module and the region layers: `hk_*` groups plus all `hr_*` regions (also those not offered as a group). */
+export const ALL_DETAIL_KEYS = Object.freeze([...new Set([...DETAIL_KEYS, ...REGION_METRICS])]);
 
 const ODATA = 'https://opendata.cbs.nl/ODataApi/odata';
 
@@ -88,6 +104,13 @@ export function loadGemeenteGroup(groupKey, { fetcher = globalThis.fetch?.bind(g
   if (loaded.has(groupKey)) return Promise.resolve(loaded.get(groupKey));
   if (DETAIL_GROUPS[groupKey]?.direct) return Promise.resolve(new Map());   // Nederland: already in the area values
   if (pending.has(groupKey)) return pending.get(groupKey);
+  const region = DETAIL_GROUPS[groupKey]?.region;
+  if (region) {   // world region: the static file (herkomst-regio.js), no CBS call
+    const p = loadGemeenteRegio({ fetcher }).then(() => { const m = regionShareMap(region); loaded.set(groupKey, m); return m; })
+      .finally(() => pending.delete(groupKey));
+    pending.set(groupKey, p);
+    return p;
+  }
   const url = buildGemeenteGroupUrl(groupKey);
   if (!url) return Promise.reject(new Error(`onbekende groep ${groupKey}`));
   const p = Promise.resolve().then(() => fetcher(url))

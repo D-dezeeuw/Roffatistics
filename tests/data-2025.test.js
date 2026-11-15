@@ -192,9 +192,12 @@ describe('new layers and dropdown groups', () => {
     assert.ok(datasetInScope('density', 'nederland'), 'Nederland rows have density');
     assert.ok(!datasetInScope('nope', 'rotterdam'));
   });
-  it('groups every dataset into the six sections, in order', () => {
+  it('groups every dataset into the seven sections, in order', () => {
     const groups = groupDatasets();
-    assert.deepEqual(groups.map(g => g.label), ['Score', 'Bevolking', 'Herkomst', 'Welvaart & wonen', 'Veiligheid', 'Voorzieningen']);
+    assert.deepEqual(groups.map(g => g.label), ['Score', 'Bevolking', 'Herkomst', 'Herkomst per regio', 'Welvaart & wonen', 'Veiligheid', 'Voorzieningen']);
+    assert.equal(groups.find(g => g.key === 'herkomstRegio').scope, 'all', 'v0.28.0 regions: every level');
+    assert.ok(datasetInScope('hr_noordAfrika', 'nederland') && datasetInScope('hr_noordAfrika', 'rotterdam'), 'Noord-Afrika: Marokko per wijk/buurt');
+    assert.ok(datasetInScope('hr_oostAfrika', 'nederland') && !datasetInScope('hr_oostAfrika', 'rotterdam'), 'Oost-Afrika: gemeente only');
     assert.deepEqual(groups.find(g => g.key === 'score').datasets.map(d => d.key), ['woonscore']);
     assert.deepEqual(groups.flatMap(g => g.datasets.map(d => d.key)).sort(), [...DATASET_KEYS].sort());
     assert.deepEqual(groups.find(g => g.key === 'veiligheid').datasets.map(d => d.key), ['crimeRate', 'crimeBurglary', 'crimeBike', 'crimePickpocket', 'crimeViolence',

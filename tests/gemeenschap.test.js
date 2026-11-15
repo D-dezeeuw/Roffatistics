@@ -295,3 +295,49 @@ describe('Gemeenschap: postcode-estimated groups keep every §5 guard', () => {
     }
   });
 });
+
+// v0.28.0: world regions as groups, under the same §5 rules.
+import { REGIONS } from '../modules/herkomst-regio.js';
+import { PC4_REGION_METRICS } from '../modules/herkomst-pc4.js';
+import { gemeenschapOptgroups } from '../modules/wizard-model.js';
+
+describe('Gemeenschap: world regions keep every §5 guard', () => {
+  const regionDetails = Object.entries(DETAIL_GROUPS).filter(([, d]) => d.region);
+  it('every region metric (also those not offered) is an origin key; a region group is one positive factor', () => {
+    for (const r of REGIONS) assert.ok(ORIGIN_KEYS.includes(r.metric), r.metric);
+    assert.equal(regionDetails.length, REGIONS.filter(r => !r.same).length);
+    for (const [k, d] of regionDetails) {
+      const p = answersToPreset({ gemeenschap: { detail: k, pct: 20 } });
+      assert.deepEqual(originMetrics(p).map(m => [m.key, m.pref]), [[d.key, 'higher']], k);
+      assertPositiveOnly(p, k);
+      assert.equal(d.wijk, PC4_REGION_METRICS.includes(d.key), k);
+    }
+    for (const p of [STANDAARD, GELIJK, ...Object.values(PRESETS)]) assert.equal(originMetrics(p).length, 0);
+  });
+  it('guards strip lower / target / filter on a region key; a low share never costs points', () => {
+    const evil = { themes: [{ key: 'x', weight: 5, metrics: [{ key: 'hr_noordAfrika', pref: 'lower' }, { key: 'hr_westAzie', pref: 'target' }] }],
+      targets: { hr_westAzie: { ideal: 0, tolerance: 1 } }, filters: [{ key: 'hr_zuidAmerika', max: 1 }] };
+    assert.equal(originMetrics(guardOrigin(evil)).length, 0);
+    const f = resolvePreset(evil, new Set([...ALL]));
+    assert.ok(!f.some(x => x.key.startsWith('hr_')), JSON.stringify(f));
+    const wk = (code, v) => ({ code, values: { hr_noordAfrika: v, crimeRate: 50, avgIncome: 30, highEdu: 30 } });
+    const { results } = scoreWithPreset([wk('WK1', 20), wk('WK2', 1)], answersToPreset({ gemeenschap: { detail: 'noordAfrika', pct: 30 } }));
+    assert.ok(!explain(results.find(r => r.code === 'WK2')).minus.some(r => r.theme === 'gemeenschap'));
+  });
+  it('region codes round-trip, stay private by default, old hashes unchanged; default stays "no group"', () => {
+    for (const [k] of regionDetails) {
+      const a = normalizeAnswers({ gemeenschap: { detail: k, pct: 15 } });
+      assert.deepEqual(decodeAnswers(encodeAnswers(a)).gemeenschap, a.gemeenschap, k);
+    }
+    assert.equal(encodeAnswers({ gemeenschap: { detail: 'noordAfrika', pct: 10 } }), 'ghnf10');
+    assert.equal(shareableScore('s30.ghnf10'), 's30');
+    assert.equal(shareableScore('s30.ghnf10', { origin: true }), 's30.ghnf10');
+    assert.deepEqual(decodeAnswers('ghsr10').gemeenschap, { detail: 'suriname', pct: 10 });
+    assert.deepEqual(decodeAnswers('ghao10').gemeenschap, { detail: 'azieOverig', pct: 10 });
+    assert.equal(normalizeAnswers({}).gemeenschap, null);
+    const sections = gemeenschapOptgroups();
+    assert.equal(sections.length, 2);
+    assert.ok(sections[1][1].every(([, d]) => d.region));
+  });
+});
+

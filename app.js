@@ -23,6 +23,7 @@ import { initWizard }                     from './modules/wizard.js';
 import { peekRotterdamAreas }             from './modules/areas.js';
 import { peekNlAreas }                    from './modules/nl-areas.js';
 import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, presetUsesPc4 } from './modules/herkomst-pc4.js';
+import { loadGemeenteRegio, isRegioLoaded, isRegionMetric, withRegionShares } from './modules/herkomst-regio.js';
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -103,7 +104,7 @@ function refreshMunicipalityView() {
 
 fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
   .then(rawGM => {
-    gemeenteRows = rowsWithWoonscore(normalizeProvinces(rawGM).filter(r => r.regionCode));
+    gemeenteRows = rowsWithWoonscore(withRegionShares(normalizeProvinces(rawGM).filter(r => r.regionCode)));   // regions: once loaded
     setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows);
     refreshMunicipalityView();
     // Merge municipality crime in the background.
@@ -210,10 +211,10 @@ const escHtml = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&l
 layersDropdown.innerHTML = groupDatasets().map(g => {
   const rtmOnly = g.scope === 'all' ? g.datasets.filter(d => d.scope === 'rotterdam').length : 0;
   return `
-  <li class="layer-group" role="group" aria-labelledby="layer-group-${g.key}"${g.scope === 'rotterdam' ? ' data-scope="rotterdam"' : ''}>
+  <li class="layer-group" role="group" aria-labelledby="layer-group-${g.key}"${g.scope !== 'all' ? ` data-scope="${g.scope}"` : ''}>
     <span class="layer-group-title" id="layer-group-${g.key}">${escHtml(g.label)}</span>
     <ul class="layer-group-list" role="none">${g.datasets.map(d => `
-      <li role="none"><button class="layer-opt" type="button" data-dataset="${d.key}" role="option"${d.scope === 'rotterdam' ? ' data-scope="rotterdam"' : ''}>${escHtml(d.label)}</button></li>`).join('')}${rtmOnly ? `
+      <li role="none"><button class="layer-opt" type="button" data-dataset="${d.key}" role="option"${d.scope ? ` data-scope="${d.scope}"` : ''}>${escHtml(d.label)}</button></li>`).join('')}${rtmOnly ? `
       <li role="none" class="layer-hint" data-scope="nederland">+${rtmOnly} lagen per wijk/buurt in de Rotterdam-weergave</li>` : ''}
     </ul>
   </li>`;
@@ -267,6 +268,12 @@ async function activateDataset(key) {
   // Postcode-estimated herkomst (v0.25.0): the file loads on first use only.
   if (isPc4Key(key) && !isPc4Loaded()) {
     await loadPc4Herkomst().catch(err => console.warn('herkomst per postcode:', err));
+    if (getState().dataset !== key) return;
+  }
+  // World regions per gemeente (v0.28.0): the static file loads on first use, then joins the gemeente rows.
+  if (isRegionMetric(key) && !isRegioLoaded()) {
+    await loadGemeenteRegio().catch(err => console.warn('herkomst per regio:', err));
+    if (isRegioLoaded() && gemeenteRows.length) { gemeenteRows = withRegionShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); }
     if (getState().dataset !== key) return;
   }
   const mode = getState().crime;

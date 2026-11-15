@@ -5,11 +5,12 @@
 
 import { getState, setState, onStateChange, serializeHash } from './state.js';
 import { loadRotterdamAreas, areaPanelData } from './areas.js';
-import { loadNlAreas } from './nl-areas.js';
+import { loadNlAreas, gemeenteOf } from './nl-areas.js';
 import { buildAreaDetail } from './area-detail.js';
 import { formatValue } from './dashboard-data.js';
 import { originBarHtml } from './herkomst.js';
-import { loadPc4Herkomst, pc4OriginHtml } from './herkomst-pc4.js';
+import { loadPc4Herkomst, pc4OriginHtml, pc4RegionHtml } from './herkomst-pc4.js';
+import { loadGemeenteRegio, regionHtml } from './herkomst-regio.js';
 import { donutSlices, arcPath } from './donut.js';
 import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
@@ -144,6 +145,12 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
   if (origin) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst</span>${origin}</div>`);
   const pc4 = d.code ? pc4OriginHtml(d.code) : '';
   if (pc4) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst per land (geschat)</span>${pc4}</div>`);
+  // v0.28.0: world regions of this area (postcode estimate, eight countries), then the gemeente's own figures.
+  const pc4reg = d.code ? pc4RegionHtml(d.code) : '';
+  if (pc4reg) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst per regio (geschat)</span>${pc4reg}</div>`);
+  const gm = d.code ? gemeenteOf(d.code) : null;
+  const reg = gm ? regionHtml(gm) : '';
+  if (reg) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst per regio · hele gemeente</span>${reg}</div>`);
   if (d.education) extras.push(`<div class="area-extra"><span class="area-extra-label">Opleiding</span>${eduDonutHtml(d.education)}</div>`);
   if (d.outliers.length) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Uitschieter</span><p>${d.outliers.map(e => `${esc(e.label)}: ${outlierLabel(e.outlier)}`).join(' · ')}</p></div>`);
   if (dataYears) extras.push(`<div class="area-extra"><span class="area-extra-label">Peiljaar</span><p>${esc(dataYears)} · misdrijven 2025</p></div>`);
@@ -203,7 +210,7 @@ async function render(code) {
   const peers = peersFor(code);
   let areas;
   try {
-    [areas] = await Promise.all([peers === 'nederland' ? loadNlAreas() : loadRotterdamAreas(), loadPc4Herkomst().catch(() => null)]);
+    [areas] = await Promise.all([peers === 'nederland' ? loadNlAreas() : loadRotterdamAreas(), loadPc4Herkomst().catch(() => null), loadGemeenteRegio().catch(() => null)]);
   } catch {
     areas = { wijken: [], buurten: [] };
   }

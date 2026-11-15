@@ -17,7 +17,7 @@ import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { execFileSync } from 'node:child_process';
 import { createCrosswalk, addAddresses, crosswalkToJson, allocate, rollUp, pc4ToArea, PC4_YEAR } from '../modules/postcode.js';
-import { MA, PC4_HERKOMST_TABLE, PC4_HERKOMST_FORMAT, PC4_GROUP_KEYS, pc4CountsFromRows, encodePc4Level } from '../modules/herkomst-pc4.js';
+import { MA, PC4_HERKOMST_TABLE, PC4_HERKOMST_FORMAT, PC4_COLUMN_KEYS, pc4CountsFromRows, encodePc4Level, validatePc4, GM_EQUIV_KEYS } from '../modules/herkomst-pc4.js';
 
 const FEED = 'https://opendata.cbs.nl/ODataFeed/odata';
 const ZIP_URL = `https://download.cbs.nl/postcode/${PC4_YEAR}-cbs_pc6huisnr.zip`;
@@ -113,8 +113,22 @@ const sources = {
   indeling: `CBS pc6huisnr ${PC4_YEAR} (adressen per postcode en buurt ${PC4_YEAR})`,
   method: 'verdeeld naar adressen per postcode; codes in 2025-notatie, alleen gebieden die ook in de indeling 2025 bestaan',
 };
+// Validation (v0.28.0): the estimate summed per gemeente vs the official 85458NED counts of the same year.
+async function officialGemeente() {
+  const f = `startswith(RegioS,'GM') and Geslacht eq 'T001038' and Leeftijd eq '10000' and Geboorteland eq 'T001638' and Perioden eq '${PC4_YEAR}JJ00'`;
+  let url = `${FEED}/85458NED/TypedDataSet?${new URLSearchParams({ $filter: f, $select: 'RegioS,Herkomstland,Bevolking_1', $format: 'json' })}`;
+  const by = {};
+  while (url) {
+    const page = await getWithRetry(url);
+    for (const r of page.value ?? []) { const k = String(r.Herkomstland).trim(); if (GM_EQUIV_KEYS.includes(k)) (by[String(r.RegioS).trim()] ??= {})[k] = r.Bevolking_1; }
+    url = page['odata.nextLink'] ?? null;
+  }
+  return by;
+}
+sources.validation = validatePc4(levels.gemeente, await officialGemeente());
+for (const [g, v] of Object.entries(sources.validation.groups)) console.log(`validation ${g.padEnd(12)} est ${v.est} / CBS 85458NED ${v.cbs} = ${v.ratio}, corr ${v.corr}`);
 const built = new Date().toISOString().slice(0, 10);
-const herkomst = { format: PC4_HERKOMST_FORMAT, year: PC4_YEAR, built, sources, groups: PC4_GROUP_KEYS, levels };
+const herkomst = { format: PC4_HERKOMST_FORMAT, year: PC4_YEAR, built, sources, groups: PC4_COLUMN_KEYS, levels };
 
 // ── Crosswalk file: names only for the areas a postcode search lands on ──────
 const xw = crosswalkToJson(cw, { built, sources: { indeling: sources.indeling } });

@@ -1,4 +1,5 @@
-import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION } from './herkomst-pc4.js';
+import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, pc4RegionComposition, regionAtBuurt } from './herkomst-pc4.js';
+import { REGIONS, REGIO_TABLE, REGIO_YEAR, regionComposition } from './herkomst-regio.js';
 
 const CBS_BASE = 'https://opendata.cbs.nl/ODataApi/odata';
 
@@ -144,6 +145,7 @@ const SRC = Object.freeze({
   geo:     Object.freeze({ id: 'PDOK', name: 'CBS wijk- en buurtkaart (gebiedsgrenzen, via PDOK)', publisher: 'CBS / PDOK', url: 'https://www.pdok.nl/introductie/-/article/cbs-wijken-en-buurten', scope: 'Rotterdam' }),
   pc4:     Object.freeze({ id: PC4_HERKOMST_TABLE, name: 'Bevolking; geslacht, migratieachtergrond, viercijferige postcode, 1 januari', publisher: 'CBS', url: statline(PC4_HERKOMST_TABLE), scope: 'postcode' }),
   pc6:     Object.freeze({ id: 'pc6huisnr', name: `Buurt, wijk en gemeente per postcode en huisnummer ${PC4_YEAR}`, publisher: 'CBS', url: `https://download.cbs.nl/postcode/${PC4_YEAR}-cbs_pc6huisnr.zip`, scope: 'postcode' }),
+  herkomst: Object.freeze({ id: REGIO_TABLE, name: 'Bevolking; herkomstland, geboorteland, leeftijd, regio, 1 januari', publisher: 'CBS', url: statline(REGIO_TABLE), scope: 'Nederland (gemeenten)' }),
   crimeNl: Object.freeze({ id: '83648NED', name: 'Geregistreerde criminaliteit; soort misdrijf, regio', publisher: 'CBS', url: statline('83648NED'), scope: 'Nederland' }),
 });
 
@@ -507,11 +509,31 @@ export const PC4_NOTES = Object.freeze([
 ]);
 for (const g of PC4_GROUPS) {
   INFO[g.metric] = {
-    description: `Geschat aandeel inwoners met herkomst ${g.label}${g.minus.length ? ' (Europa zonder Nederland, de EU en Turkije: onder meer Verenigd Koninkrijk, Oekraïne, Rusland, voormalig Joegoslavië buiten de EU)' : ''}. ${PC4_DEF} Beschrijvend: er zit geen oordeel in.`,
+    description: `Geschat aandeel inwoners met herkomst ${g.label}${g.about ? ` (${g.about})` : ''}. ${PC4_DEF} Beschrijvend: er zit geen oordeel in.`,
     formula: `inwoners met herkomst ${g.label} / inwoners × 100, per postcode verdeeld naar adressen per buurt`,
     source: [SRC.pc4, SRC.pc6],
     year: `${PC4_YEAR} (geschat via postcode)`,
     caveats: [...PC4_NOTES],
+  };
+}
+
+// World regions (v0.28.0, herkomst-regio.js): one country → region table for every level.
+// Per gemeente CBS 85458NED (45 named countries); per wijk/buurt the postcode estimate
+// (eight named countries), so a region holds fewer countries there.
+export const REGIO_NOTES = Object.freeze([
+  'Een regio telt alleen landen die CBS apart levert; de rest van een werelddeel staat onder "Overig" en wordt nooit over de regio\'s verdeeld.',
+  'Per wijk en buurt kent CBS alleen werelddelen en acht landen (Suriname, Turkije, Marokko, Nederlandse Cariben, Indonesië, Polen, Duitsland, België), geschat via postcode. Een regio bevat daar dus minder landen dan per gemeente, en "Overig" meer. Regio\'s zonder een van die acht landen hebben per wijk en buurt geen waarde; er wordt geen gemeentemix naar buurten doorgerekend.',
+  'Verzamelposten als "voormalig Joegoslavië" en "voormalige Sovjet-Unie" overlappen hun opvolgers en tellen niet mee in een regio.',
+  'Turkije hoort volgens CBS en de VN bij Azië (West-Azië); ook per wijk/buurt telt Turkije bij West-Azië en niet bij Europa.',
+]);
+for (const r of REGIONS) {
+  const buurt = pc4RegionComposition(r.key);
+  INFO[r.metric] = {
+    description: `Aandeel inwoners met herkomst ${r.label}. Per gemeente telt: ${regionComposition(r.key)}. ${buurt ? `Per wijk en buurt (geschat via postcode ${PC4_YEAR}) telt: ${buurt}.` : 'Per wijk en buurt niet beschikbaar: geen van de landen in deze regio staat apart in de postcodecijfers.'} Herkomst volgt de CBS-definitie: het eigen geboorteland, of bij geboorte in Nederland dat van de moeder (anders de vader). Beschrijvend: er zit geen oordeel in.`,
+    formula: `inwoners met herkomst in ${r.label} / inwoners × 100; per wijk/buurt per postcode verdeeld naar adressen`,
+    source: buurt ? [SRC.herkomst, SRC.pc4, SRC.pc6] : [SRC.herkomst],
+    year: `gemeente ${REGIO_YEAR}${buurt ? `, wijk/buurt ${PC4_YEAR} (geschat via postcode)` : ''}`,
+    caveats: [...REGIO_NOTES, ...(buurt ? PC4_NOTES : [])],
   };
 }
 
@@ -533,6 +555,7 @@ export const DATASETS = Object.freeze({
   originEuropePct:  ds('originEuropePct',  'Europa excl. NL (%)',  'Herkomst Europa excl. NL (%)',    '%',         null,  'herkomst', { inOverall: false }),
   nonWesternPct:    ds('nonWesternPct',    'Buiten Europa (%)',    'Herkomst buiten Europa (%)',      '%',         null,  'herkomst', { inOverall: false }),
   bornAbroadPct:    ds('bornAbroadPct',    'Buitenland geboren (%)', 'In het buitenland geboren (%)', '%',         null,  'herkomst', { ...RTM, inOverall: false }),
+  ...Object.fromEntries(REGIONS.map(r => [r.metric, ds(r.metric, `${r.label} (%)`, `Herkomst ${r.label} (%${regionAtBuurt(r.key) ? '' : ', alleen per gemeente'})`, '%', null, 'herkomstRegio', regionAtBuurt(r.key) ? { inOverall: false } : { scope: 'nederland', inOverall: false })])),
   ...Object.fromEntries(PC4_GROUPS.map(g => [g.metric, ds(g.metric, `${g.label} (%)`, `Herkomst ${g.label} (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'herkomst', { ...RTM, inOverall: false, estimated: true })])),
   highEdu:          ds('highEdu',          'Opleiding',            'Hoog opgeleid (%)',               '%',         true,  'bevolking'),
   avgIncome:        ds('avgIncome',        'Inkomen',              'Gem. inkomen (×€1k)',             '×€1.000',   true,  'welvaart'),
@@ -570,6 +593,7 @@ export const DATASET_GROUPS = Object.freeze([
   Object.freeze({ key: 'score',         label: 'Score' }),
   Object.freeze({ key: 'bevolking',     label: 'Bevolking' }),
   Object.freeze({ key: 'herkomst',      label: 'Herkomst' }),
+  Object.freeze({ key: 'herkomstRegio', label: 'Herkomst per regio' }),
   Object.freeze({ key: 'welvaart',      label: 'Welvaart & wonen' }),
   Object.freeze({ key: 'veiligheid',    label: 'Veiligheid' }),
   Object.freeze({ key: 'voorzieningen', label: 'Voorzieningen' }),
@@ -579,21 +603,23 @@ export const DATASET_GROUPS = Object.freeze([
  * Datasets per dropdown section, in DATASET_GROUPS order, each section in
  * DATASET_KEYS order: [{ key, label, scope, datasets: [dataset…] }]. Empty
  * sections are dropped; a dataset with an unknown group lands in the last one.
- * `scope` is 'rotterdam' when every dataset in the section is Rotterdam-only.
+ * `scope` is 'rotterdam' ('nederland') when every dataset in the section is Rotterdam-only (gemeente-only).
  */
 export function groupDatasets(datasets = DATASETS, groups = DATASET_GROUPS) {
   const known = new Set(groups.map(g => g.key));
   const last = groups[groups.length - 1]?.key;
   return groups.map(g => {
     const list = Object.values(datasets).filter(d => (known.has(d.group) ? d.group : last) === g.key);
-    return { key: g.key, label: g.label, scope: list.length && list.every(d => d.scope === 'rotterdam') ? 'rotterdam' : 'all', datasets: list };
+    const only = ['rotterdam', 'nederland'].find(sc => list.length && list.every(d => d.scope === sc));
+    return { key: g.key, label: g.label, scope: only ?? 'all', datasets: list };
   }).filter(g => g.datasets.length);
 }
 
 /** True when `key` has data in the given scope ('rotterdam' | 'nederland'). */
 export function datasetInScope(key, scope) {
   const d = DATASETS[key];
-  return !!d && (scope === 'rotterdam' || d.scope !== 'rotterdam');
+  // 'rotterdam' = wijk/buurt only (hidden in the Nederland view); 'nederland' = gemeente only (v0.28.0 regions).
+  return !!d && (scope === 'rotterdam' ? d.scope !== 'nederland' : d.scope !== 'rotterdam');
 }
 
 // ── Crime normalisation: "Per 1000 inwoners" (rate) | "Absoluut" (abs) ────────
