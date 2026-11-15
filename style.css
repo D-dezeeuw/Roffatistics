@@ -1966,7 +1966,8 @@ footer {
 .wiz-share-url { flex: 1; min-width: 0; font: inherit; font-size: 0.78rem; padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid rgba(127,127,127,0.35); background: transparent; color: inherit; }
 .wiz-share-status:empty { display: none; }
 .wiz-range input, .wiz-slider input { width: 100%; accent-color: var(--accent-2); }
-.wiz-range-ends { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); }
+.wiz-range-ends { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.75rem; color: var(--text-muted); }
+.wiz-range-ends > :last-child { text-align: right; }
 .wiz-foot {
   display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;
   padding: 0.7rem 1.1rem; border-top: 1px solid rgba(var(--accent-rgb), 0.25);
@@ -1988,9 +1989,16 @@ footer {
 .wiz-top-score small { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; }
 .wiz-tune { margin-top: 0.7rem; }
 .wiz-tune summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; }
-.wiz-sliders { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem; }
-.wiz-slider { display: grid; grid-template-columns: 7.5rem 1fr 2.2rem; gap: 0.5rem; align-items: center; font-size: 0.8rem; }
-.wiz-slider output { font-family: var(--font-data); text-align: right; }
+.wiz-sliders { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; }
+/* Shared slider (W23, wizard.js sliderHtml): name + value on top, the range full
+   width, the end labels under its two ends. Grid placement by element, so a
+   <label class="wiz-slider"><span>…</span><input type="range"><output> also fits. */
+.wiz-slider { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.1rem 0.75rem; align-items: baseline; font-size: 0.8rem; }
+.wiz-slider > span:first-child { grid-column: 1; grid-row: 1; min-width: 0; }
+.wiz-slider > output { grid-column: 2; grid-row: 1; font-family: var(--font-data); text-align: right; color: var(--text-primary); }
+.wiz-slider > input[type="range"] { grid-column: 1 / -1; grid-row: 2; margin: 0.15rem 0 0; }
+.wiz-slider > .wiz-range-ends { grid-column: 1 / -1; grid-row: 3; }
+.wiz-slider + .wiz-range-ends { margin-top: 0.1rem; }
 .legend-score { display: none; margin-top: 0.5rem; }
 #legend.legend-has-score .legend-score { display: block; }
 .score-switch .seg-opt { font-size: 0.7rem; }
@@ -2021,7 +2029,6 @@ footer {
   .wizard-modal { padding: 0; }
   .wizard-dialog { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; border: 0; }
   .wiz-fields { grid-template-columns: 1fr; }
-  .wiz-slider { grid-template-columns: 6rem 1fr 2rem; }
   .wiz-foot { padding-bottom: max(0.7rem, env(safe-area-inset-bottom)); }
 }
 

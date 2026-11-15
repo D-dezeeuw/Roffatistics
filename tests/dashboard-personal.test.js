@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   personalDashboardSpec, personalLayout, personalContext, themeShares, scoreShift, topMatches, goodness, ROWS, PANELS_PER_ROW, PERSONAL_PANELS,
+  shortLabel, compactFormat, unitNote,
 } from '../modules/dashboard-personal.js';
 import { buildContext, boardHtml, PANEL_BUILDERS, NA_TEXT } from '../modules/dashboard-panels.js';
 import { answersToPreset, decodeAnswers, encodeAnswers } from '../modules/wizard-model.js';
@@ -117,6 +118,41 @@ describe('personal panels', () => {
     assert.match(html, /binnen jouw budget/);
     assert.ok(html.includes(NA_TEXT), 'panels without data show the NA text');
     assert.equal((html.match(/<article /g) ?? []).length, 18);
+  });
+  it('Veiligheid row: short labels, unit once in the caption (W23)', () => {
+    assert.equal(shortLabel('crimeBurglary'), 'Inbraak');
+    assert.equal(shortLabel('crimeViolence'), 'Geweld');
+    assert.equal(shortLabel('crimeBike'), 'Fietsdiefstal');
+    assert.equal(shortLabel('crimeStreetRobbery'), 'Straatroof');
+    assert.equal(shortLabel('waterPct'), 'Water');
+    assert.equal(compactFormat('crimeBurglary')(2.25), '2,3');
+    assert.equal(compactFormat('crimeBurglary')(null), 'geen data');
+    assert.match(compactFormat('distSchool')(0.4), /km/);
+    assert.equal(unitNote(['crimeBurglary', 'crimeBike', 'distSchool']), 'per 1.000 inwoners');
+    assert.equal(unitNote(['distSchool']), '');
+    const rows = personalLayout(ctx, s, personalContext(ctx, { answers, std, weights: s.weights }));
+    const html = boardHtml(rows, { personal: true });
+    const v = rows.find(r => r.key === 'jouw-veiligheid');
+    assert.ok(v, 'veiligheid row present');
+    assert.doesNotMatch(v.panels.map(p => p.body ?? '').join(''), /per 1\.000 inw/);
+    assert.match(v.panels[0].caption, /^per 1\.000 inwoners · /);
+    assert.match(html, /Inbraak/);
+  });
+  it("Veiligheid's third panel compares all crimes of jouw top 10 with the city, not the city alone (W23)", () => {
+    assert.equal(spec(answers).rows.find(r => r.key === 'veiligheid').panels[2], 'pv-total');
+    const cu = units.map(u => ({ ...u, values: { ...u.values, totalCrimes: 300, crimeTrend: -5 } }));
+    for (const scope of ['rotterdam', 'nederland']) {
+      const c = buildContext({ scope, units: cu, scored: cu });
+      const p = PERSONAL_PANELS['pv-total'](c, {}, personalContext(c, { answers }));
+      assert.match(p.body, /Jouw top 10/);
+      assert.match(p.body, new RegExp(c.refName));
+      assert.match(p.caption, /^per 1\.000 inwoners/);
+      assert.equal((p.body.match(/dp-bar-row/g) ?? []).length, 2);
+      const sel = buildContext({ scope, units: cu, scored: cu, selected: { ...cu[2], values: { ...cu[2].values, totalCrimes: 900, crimeRate: 180 } } });
+      const ps = PERSONAL_PANELS['pv-total'](sel, {}, personalContext(sel, { answers }));
+      assert.equal((ps.body.match(/dp-bar-row/g) ?? []).length, 3, 'top 10, selected area, reference');
+    }
+    assert.equal(PERSONAL_PANELS['pv-total'](ctx, {}, { top: [] }).body, null, 'one row only: no panel');
   });
   it('goodness: lower, target, budget max', () => {
     assert.ok(goodness({ pref: 'lower' }, 1) > goodness({ pref: 'lower' }, 2));

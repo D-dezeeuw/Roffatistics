@@ -45,11 +45,25 @@ const isOpen = () => !!els && !els.modal.hidden;
 
 const optBtn = (set, value, label, on) =>
   `<button type="button" class="wiz-opt${on ? ' active' : ''}" data-set="${set}" data-value="${esc(value)}" aria-pressed="${on}">${esc(label)}</button>`;
+/**
+ * Shared slider markup (W23): name and current value on one line, the range
+ * full width under it, the two end labels under its left and right end.
+ * `input` is the <input type="range"> HTML; it must carry aria-labelledby=id
+ * and aria-valuetext. Any slider built with this (or with the same classes)
+ * gets the layout from style.css `.wiz-slider`.
+ */
+export const sliderHtml = ({ cls = '', id, label, input, value, ends }) => `
+    <label class="wiz-slider${cls ? ` ${cls}` : ''}"><span class="wiz-slider-name" id="${id}">${esc(label)}</span><output>${esc(value)}</output>
+      ${input}
+      <span class="wiz-range-ends"><span>${esc(ends[0])}</span><span>${esc(ends[1])}</span></span></label>`;
 /** 5-step importance slider (Niet belangrijk … Heel belangrijk); `attr` names what it sets. */
-const impSlider = (attr, level, label, min = 0) => `
-    <label class="wiz-slider wiz-imp"><span>${esc(label)}</span>
-      <input type="range" min="${min}" max="${IMPORTANCE.length - 1}" step="1" value="${level}" ${attr} aria-valuetext="${esc(IMPORTANCE[level].label)}">
-      <output>${esc(IMPORTANCE[level].label)}</output></label>`;
+const impSlider = (attr, level, label, min = 0) => {
+  const id = `wiz-imp-${attr.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}`;
+  return sliderHtml({
+    cls: 'wiz-imp', id, label, value: IMPORTANCE[level].label, ends: [IMPORTANCE[min].label, IMPORTANCE.at(-1).label],
+    input: `<input type="range" min="${min}" max="${IMPORTANCE.length - 1}" step="1" value="${level}" ${attr} aria-labelledby="${id}" aria-valuetext="${esc(IMPORTANCE[level].label)}">`,
+  });
+};
 const chip = (set, value, label, on) =>
   `<button type="button" class="wiz-chip${on ? ' active' : ''}" data-toggle="${set}" data-value="${esc(value)}" aria-pressed="${on}">${esc(label)}</button>`;
 
@@ -57,11 +71,12 @@ const chip = (set, value, label, on) =>
 const situatiePos = (opts, key) => (key ? Object.keys(opts).indexOf(key) + 1 : 0);
 const situatieText = (opts, pos) => (pos > 0 ? Object.values(opts)[pos - 1]?.label ?? '' : 'Niet invullen');
 /** "Jouw situatie" slider: position 0 = Niet invullen, then the options; the label updates on input. */
-const sitSlider = (field, id, label, opts, pos) => `
-    <label class="wiz-slider wiz-sit"><span id="${id}">${esc(label)}</span>
-      <input type="range" min="0" max="${Object.keys(opts).length}" step="1" value="${pos}" data-field="${field}" aria-labelledby="${id}" aria-valuetext="${esc(situatieText(opts, pos))}">
-      <output>${esc(situatieText(opts, pos))}</output></label>
-    <div class="wiz-range-ends"><span>Niet invullen</span><span>${esc(Object.values(opts).at(-1).label)}</span></div>`;
+const sitSlider = (field, id, label, opts, pos) => sliderHtml({
+  cls: 'wiz-sit', id, label, value: situatieText(opts, pos), ends: ['Niet invullen', Object.values(opts).at(-1).label],
+  input: `<input type="range" min="0" max="${Object.keys(opts).length}" step="1" value="${pos}" data-field="${field}" aria-labelledby="${id}" aria-valuetext="${esc(situatieText(opts, pos))}">`,
+});
+/** The value <output> of a slider: inside its .wiz-slider, or (older markup) right after the input. */
+const outputOf = t => t.closest('.wiz-slider')?.querySelector('output') ?? t.nextElementSibling;
 
 function stepBody(key) {
   const a = answers;
@@ -355,11 +370,13 @@ function onInput(e) {
     if (now) now.textContent = sfeerText(+t.value);
   } else if (t.dataset.field === 'sitEdu' || t.dataset.field === 'sitIncome') {
     const label = situatieText(t.dataset.field === 'sitEdu' ? SITUATIE_EDU : SITUATIE_INCOME, +t.value);
-    t.nextElementSibling.textContent = label;
+    const out = outputOf(t);
+    if (out) out.textContent = label;
     t.setAttribute('aria-valuetext', label);
   } else if (t.dataset.field === 'gemLevel' || t.dataset.theme) {
     const label = IMPORTANCE[+t.value]?.label ?? '';
-    t.nextElementSibling.textContent = label;
+    const out = outputOf(t);
+    if (out) out.textContent = label;
     t.setAttribute('aria-valuetext', label);
   }
 }

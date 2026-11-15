@@ -16,7 +16,7 @@ import {
 } from './wizard-model.js';
 import {
   CATEGORIES, PANEL_BUILDERS, listEligible, histogram, niceHistogram, aggregateAreas, bouwParts, gemeenteCodeOf,
-  kpiHtml, pairListHtml, barRowsHtml, stackRowsHtml, histHtml, KERN,
+  kpiHtml, pairListHtml, barRowsHtml, stackRowsHtml, histHtml, KERN, CRIME_SRC,
 } from './dashboard-panels.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
@@ -62,7 +62,7 @@ function personalRows(a) {
   const out = {};
   const vv = new Set(a.vervoer);
   const crimes = [...a.veiligheid.map(c => CRIMES[c].key), ...(vv.has('fiets') ? ['crimeBike'] : []), ...(vv.has('auto') ? ['crimeVehicle'] : [])];
-  if (crimes.length) out.veiligheid = { panels: ['pf-match', 'pf-rank', 'crime-rate'], focus: { metrics: uniqMetrics(crimes.map(k => m(k, 'lower'))) } };
+  if (crimes.length) out.veiligheid = { panels: ['pf-match', 'pf-rank', 'pv-total'], focus: { metrics: uniqMetrics(crimes.map(k => m(k, 'lower'))) } };
   if (a.levensfase) {
     const f = LIFE_FOCUS[a.levensfase];
     out.levenstype = { panels: ['pf-match', 'pf-rank', f.third], focus: { metrics: f.metrics, levenstype: a.levensfase } };
@@ -198,8 +198,29 @@ export function goodness(metric, v, ref = null) {
 // ── Panels ───────────────────────────────────────────────────────────────────
 // (ctx, focus, pc) → { title, caption, body }; pc = { top, std, answers }.
 
-const labelOf = key => DATASETS[key]?.label ?? key;
-const fmtOf = key => v => formatValue(v, key);
+// W23: rows state the unit once (caption), not after every value, so they fit.
+/** Units dropped from each value and named once in the caption. */
+const CAPTION_UNITS = Object.freeze({ 'per 1.000': 'per 1.000 inwoners', 'per km²': 'per km²' });
+/** Shorter row labels where the dataset label is long. */
+const SHORT_LABELS = Object.freeze({ crimeBurglary: 'Inbraak', crimeViolence: 'Geweld', crimeBike: 'Fietsdiefstal' });
+/** Short row label for a metric: no unit suffix ("per 1.000 inw.", "per km²", "(%)"). */
+export function shortLabel(key) {
+  const l = SHORT_LABELS[key] ?? DATASETS[key]?.label ?? key;
+  return l.replace(/\s*(per 1\.?000 inw(oners|\.)?|per km²|\(%\))\s*$/i, '').trim() || l;
+}
+/** Value formatter for a metric in a personal panel: units in CAPTION_UNITS give the bare number. */
+export function compactFormat(key) {
+  const unit = DATASETS[key]?.unit;
+  if (!CAPTION_UNITS[unit]) return v => formatValue(v, key);
+  return v => (isNum(v) ? formatNumber(v, unit === 'per 1.000' ? 1 : 0) : 'geen data');
+}
+/** The caption note for the bare-number units among these metrics ('' when none): "per 1.000 inwoners". */
+export function unitNote(keys) {
+  return [...new Set((keys ?? []).map(k => CAPTION_UNITS[DATASETS[k]?.unit]).filter(Boolean))].join(' · ');
+}
+const withUnit = (keys, text) => { const u = unitNote(keys); return u ? `${u} · ${text}` : text; };
+const labelOf = shortLabel;
+const fmtOf = compactFormat;
 const fmtPct = v => (isNum(v) ? `${formatNumber(Math.round(v))}%` : '—');
 const signed = v => (isNum(v) ? `${v > 0 ? '+' : v < 0 ? '−' : '±'}${formatNumber(Math.abs(v), 0)}` : '—');
 const mean = (areas, key) => weightedMean(areas, key, 'population');
@@ -260,7 +281,7 @@ function pfMatch(ctx, f, pc) {
   const body = parts.map(r => barRowsHtml([{ label: labelOf(r.mt.key), value: r.value, ref: r.ref }], fmtOf(r.mt.key), { max: Math.max(r.value, r.ref) * 1.15 || 1 })).join('');
   return {
     title,
-    caption: `Gemiddelde van jouw 10 beste ${ctx.unitWord} (balk) tegen heel ${ctx.refName} (streep) · ${KERN}`,
+    caption: withUnit(parts.map(r => r.mt.key), `Gemiddelde van jouw 10 beste ${ctx.unitWord} (balk) tegen heel ${ctx.refName} (streep) · ${KERN}`),
     body: `${body}<p class="dp-legend"><span class="dp-key-fill"></span>Jouw top 10 <span class="dp-key-ref"></span>${esc(ctx.refName)}</p>`,
   };
 }
@@ -278,7 +299,7 @@ function pfRank(ctx, f, pc) {
   const how = mt.pref === 'lower' ? 'laagste' : mt.pref === 'target' ? 'dichtst bij jouw wens' : 'hoogste';
   return {
     title,
-    caption: `Links de ${ctx.unitWord} met de ${how} waarde, rechts jouw 5 beste matches · gemiddeld ${fmtOf(mt.key)(ref)} · ${KERN}`,
+    caption: withUnit([mt.key], `Links de ${ctx.unitWord} met de ${how} waarde, rechts jouw 5 beste matches · gemiddeld ${fmtOf(mt.key)(ref)} · ${KERN}`),
     body: pairListHtml({ title: 'Beste 5', rows: best }, { title: 'Jouw top 5', rows: mine }, fmtOf(mt.key), ctx.selected?.code),
   };
 }
@@ -294,7 +315,7 @@ function pfHist(ctx, f, pc) {
   const fmt = fmtOf(mt.key);
   return {
     title,
-    caption: `Aantal ${ctx.unitWord} per klasse; licht = jouw top 10, donker = gemiddeld · ${KERN}`,
+    caption: withUnit([mt.key], `Aantal ${ctx.unitWord} per klasse; licht = jouw top 10, donker = gemiddeld · ${KERN}`),
     body: kpiHtml(fmt(mine), 'gemiddeld in jouw top 10', `${ctx.refName}: ${fmt(ref)}`) + histHtml(niceHistogram(vals, 8), { mark: mine, refMark: ref, fmtX: v => formatNumber(v, v < 10 ? 1 : 0), unitWord: ctx.unitWord }),
   };
 }
@@ -362,10 +383,40 @@ function pgNear(ctx, f, pc) {
   };
 }
 
+const signedPct = v => (isNum(v) ? `${v > 0 ? '+' : v < 0 ? '−' : '±'}${formatNumber(Math.abs(v), 1)}%` : '—');
+
+/**
+ * W23, replaces the Algemeen 'crime-rate' in the Veiligheid row (it showed only
+ * the city without a selection): all registered crimes per 1.000 inwoners for
+ * jouw top 10, the selected area and the city or Nederland, with the trend.
+ * Works in both scopes (totalCrimes exists per wijk, buurt and gemeente).
+ */
+function pvTotal(ctx, _f, pc) {
+  const title = 'Alle misdrijven';
+  const rows = [];
+  const top = (pc.top ?? []).map(t => t.area);
+  const mineV = top.length ? aggregateAreas(top) : null;
+  if (isNum(mineV?.crimeRate)) rows.push({ label: 'Jouw top 10', value: mineV.crimeRate, trend: mineV.crimeTrend, hl: true });
+  const sel = ctx.selected;
+  if (sel && isNum(sel.values?.crimeRate)) rows.push({ label: sel.name, value: sel.values.crimeRate, trend: sel.values.crimeTrend });
+  if (isNum(ctx.ref?.crimeRate)) rows.push({ label: ctx.refName, value: ctx.ref.crimeRate, trend: ctx.ref.crimeTrend });
+  if (rows.length < 2) return { title, caption: '', body: null };
+  const fmt = v => formatNumber(v, 1);
+  const lead = rows[0], ref = rows.at(-1);
+  const trend = rows.filter(r => isNum(r.trend)).map(r => `${r.label} ${signedPct(r.trend)}`).join(' · ');
+  return {
+    title,
+    caption: `per 1.000 inwoners · alle geregistreerde misdrijven, trend t.o.v. 2024 · ${CRIME_SRC}`,
+    body: kpiHtml(fmt(lead.value), lead.label, `${ref.label}: ${fmt(ref.value)}`) + barRowsHtml(rows, fmt)
+      + (trend ? `<p class="dp-note">Trend: ${esc(trend)}</p>` : ''),
+  };
+}
+
 export const PERSONAL_PANELS = Object.freeze({
   'jw-top': jwTop, 'jw-shift': jwShift, 'jw-weights': jwWeights,
   'pf-match': pfMatch, 'pf-rank': pfRank, 'pf-hist': pfHist,
   'pb-budget': pbBudget, 'pb-within': pbWithin, 'pw-bouw': pwBouw, 'pg-near': pgNear,
+  'pv-total': pvTotal,
 });
 
 /**
