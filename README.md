@@ -8,6 +8,9 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 
 ## Features
 
+- **Rotterdam mode (default)** — the map locks onto gemeente Rotterdam, masks everything outside it, and colours all 21 CBS wijken; from zoom 13 the 91 buurten take over. Areas without data share one neutral colour ("geen data" in the legend)
+- **Nederland mode** — pick "Nederland" in the topnav dropdown for the national view below
+- **Deep links** — `#scope=rotterdam|nederland&view=map|dashboard|list&area=<CBS code>`; the scope choice is remembered
 - **Province choropleth** — four selectable datasets color all 12 provinces
 - **Municipality drill-down** — zoom to level 10+ to see gemeente-level data
 - **Neighbourhood outlines** — zoom to level 13+ to see buurt boundaries within the active gemeente
@@ -23,6 +26,10 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 | Crime rate | CBS OData | 83648NED |
 | Province / gemeente geometry | cartomap/nl | gemeente_2023, provincie_2023 |
 | Neighbourhood geometry | cartomap/nl | buurt_2023 |
+| Rotterdam wijk + buurt figures | CBS OData — Kerncijfers wijken en buurten 2024 | 85984NED |
+| Rotterdam gemeente + wijk geometry | PDOK CBS gebiedsindelingen 2024 (`gemeente_gegeneraliseerd`, `wijk_gegeneraliseerd`), pre-cached in `data/rotterdam_*.geojson` | — |
+
+Wijk/buurt datasets: population, income (standardised household income), higher education, WOZ value, 65+ and origin outside Europe. Crime is not published per wijk in 85984NED, so it shows as "geen data" in Rotterdam mode. Regenerate the Rotterdam geometry with `node scripts/build-rotterdam-geo.mjs`.
 
 ## Run locally
 
