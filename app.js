@@ -162,13 +162,19 @@ const layersDropdown = document.querySelector('.layers-dropdown');
 // Built from DATASETS, one section per DATASET_GROUPS entry. Rotterdam-only
 // layers carry data-scope="rotterdam" and are hidden in the Nederland view (CSS).
 const escHtml = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-layersDropdown.innerHTML = groupDatasets().map(g => `
+// A mixed section (Veiligheid) names the layers it hides in the Nederland view,
+// so the shorter list there does not read as missing data.
+layersDropdown.innerHTML = groupDatasets().map(g => {
+  const rtmOnly = g.scope === 'all' ? g.datasets.filter(d => d.scope === 'rotterdam').length : 0;
+  return `
   <li class="layer-group" role="group" aria-labelledby="layer-group-${g.key}"${g.scope === 'rotterdam' ? ' data-scope="rotterdam"' : ''}>
     <span class="layer-group-title" id="layer-group-${g.key}">${escHtml(g.label)}</span>
     <ul class="layer-group-list" role="none">${g.datasets.map(d => `
-      <li role="none"><button class="layer-opt" type="button" data-dataset="${d.key}" role="option"${d.scope === 'rotterdam' ? ' data-scope="rotterdam"' : ''}>${escHtml(d.label)}</button></li>`).join('')}
+      <li role="none"><button class="layer-opt" type="button" data-dataset="${d.key}" role="option"${d.scope === 'rotterdam' ? ' data-scope="rotterdam"' : ''}>${escHtml(d.label)}</button></li>`).join('')}${rtmOnly ? `
+      <li role="none" class="layer-hint" data-scope="nederland">+${rtmOnly} lagen per wijk/buurt in de Rotterdam-weergave</li>` : ''}
     </ul>
-  </li>`).join('');
+  </li>`;
+}).join('');
 
 function closeDropdown() {
   layersDropdown.classList.remove('open');

@@ -110,8 +110,25 @@ describe('crime per wijk and buurt (47018NED)', () => {
   it('aggregates totals, sub-categories and the previous-year total', () => {
     const agg = aggregateCrime(rows);
     const a = agg.get('BU05990110');
-    assert.deepEqual(a, { total: 3000, totalPrev: 3354, crimeBurglary: 20, crimeBike: 400, crimePickpocket: 60, crimeViolence: 250 });
+    assert.deepEqual(a, { total: 3000, totalPrev: 3354, crimeBurglary: 20, crimeBike: 400, crimePickpocket: 60, crimeViolence: 250,
+      crimeStreetRobbery: null, crimeThreat: 100, crimeVehicle: null, crimeShoplifting: null, crimeVandalism: null, crimeDrugs: null });
     assert.equal(agg.get('BU05990111').crimeViolence, null, 'all parts null → null');
+    assert.equal(a.crimeThreat, 100, '1.4.4 feeds Bedreiging and Geweld');
+  });
+  it('asks every SoortMisdrijf key once, also when two layers share it', () => {
+    const f = new URL(buildBuurtCrimeUrl()).searchParams.get('$filter');
+    assert.equal(f.split("SoortMisdrijf eq '1.4.4 '").length, 2);
+    assert.equal(f.split("SoortMisdrijf eq '1.4.6 '").length, 2);
+  });
+  it('adds the v0.17 police categories with checked keys', () => {
+    const want = { crimeStreetRobbery: '1.4.6', crimeThreat: '1.4.4', crimeVehicle: '1.2.1', crimeShoplifting: '2.5.2', crimeVandalism: '2.2.1', crimeDrugs: '3.1.1' };
+    for (const [k, kind] of Object.entries(want)) {
+      assert.deepEqual(CRIME_CATEGORIES[k].map(x => x.trim()), [kind], k);
+      assert.equal(DATASETS[k].higherIsBetter, false, k);
+      assert.equal(DATASETS[k].inOverall, false, k);
+      assert.equal(DATASETS[k].scope, 'rotterdam', k);
+      assert.equal(DATASETS[k].countKey, `${k}Count`, k);
+    }
   });
   it('merges rates per 1,000, skips small buurten and computes the trend', () => {
     const areas = [
@@ -179,7 +196,8 @@ describe('new layers and dropdown groups', () => {
     const groups = groupDatasets();
     assert.deepEqual(groups.map(g => g.label), ['Bevolking', 'Herkomst', 'Welvaart & wonen', 'Veiligheid', 'Voorzieningen']);
     assert.deepEqual(groups.flatMap(g => g.datasets.map(d => d.key)).sort(), [...DATASET_KEYS].sort());
-    assert.deepEqual(groups.find(g => g.key === 'veiligheid').datasets.map(d => d.key), ['crimeRate', 'crimeBurglary', 'crimeBike', 'crimePickpocket', 'crimeViolence']);
+    assert.deepEqual(groups.find(g => g.key === 'veiligheid').datasets.map(d => d.key), ['crimeRate', 'crimeBurglary', 'crimeBike', 'crimePickpocket', 'crimeViolence',
+      'crimeStreetRobbery', 'crimeThreat', 'crimeVehicle', 'crimeShoplifting', 'crimeVandalism', 'crimeDrugs']);
     assert.equal(groups.find(g => g.key === 'voorzieningen').scope, 'rotterdam');
     assert.equal(groups.find(g => g.key === 'bevolking').scope, 'all');
   });

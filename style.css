@@ -239,6 +239,13 @@ body {
   color: var(--text-muted);
 }
 .layer-group-list { list-style: none; margin: 0; padding: 0; }
+.layer-hint { padding: 0.25rem 1rem 0.4rem; font-size: 0.68rem; font-style: italic; color: var(--text-muted); }
+/* 26 layers do not fit one column: Veiligheid fell below the fold of the
+   scrolling list. Wide screens get two columns, a section never splits. */
+@media (min-width: 720px) {
+  .layers-dropdown { columns: 2; column-gap: 0; min-width: 420px; max-height: calc(100dvh - 5rem); }
+  .layer-group { break-inside: avoid; }
+}
 
 /* Rotterdam-only layers and panel rows vanish in the Nederland view, and the
    national crime categories in the Rotterdam view. */

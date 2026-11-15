@@ -374,6 +374,14 @@ export const CRIME_CATEGORIES = Object.freeze({
   crimeBike:       Object.freeze(['1.2.3 ']),     // Diefstal van brom-, snor-, fietsen
   crimePickpocket: Object.freeze(['1.2.4 ']),     // Zakkenrollerij
   crimeViolence:   Object.freeze(['1.4.1 ', '1.4.2 ', '1.4.3 ', '1.4.4 ', '1.4.5 ', '1.4.6 ', '1.4.7 ']),
+  // v0.17.0 — keys checked against /47018NED/SoortMisdrijf on 15 Nov 2026. 1.4.4 and
+  // 1.4.6 also count in crimeViolence: a kind may feed several layers.
+  crimeStreetRobbery: Object.freeze(['1.4.6 ']),  // Straatroof
+  crimeThreat:     Object.freeze(['1.4.4 ']),     // Bedreiging
+  crimeVehicle:    Object.freeze(['1.2.1 ']),     // Diefstal uit/vanaf motorvoertuigen
+  crimeShoplifting: Object.freeze(['2.5.2 ']),    // Winkeldiefstal
+  crimeVandalism:  Object.freeze(['2.2.1 ']),     // Vernieling cq. zaakbeschadiging
+  crimeDrugs:      Object.freeze(['3.1.1 ']),     // Drugshandel
 });
 // Below this many inhabitants a per-1,000 rate is meaningless (port/industrial
 // areas with a few hundred residents and thousands of incidents): rate = null.
@@ -384,7 +392,7 @@ const crimeKey = k => String(k ?? '').trim();
 
 /** One 47018NED URL for every area under `prefix` (WK0599 / BU0599): total + categories, two years. */
 export function buildCrimeUrl(prefix = ROTTERDAM.wijkPrefix) {
-  const kinds = [CRIME_TOTAL, ...Object.values(CRIME_CATEGORIES).flat()];
+  const kinds = [...new Set([CRIME_TOTAL, ...Object.values(CRIME_CATEGORIES).flat()])];
   const params = new URLSearchParams({
     $filter: `startswith(WijkenEnBuurten,'${prefix}') and (Perioden eq '${CRIME_PERIOD}' or Perioden eq '${CRIME_PREV_PERIOD}') and (${kinds.map(k => `SoortMisdrijf eq '${k}'`).join(' or ')})`,
     $select: `WijkenEnBuurten,Perioden,SoortMisdrijf,${CRIME_COLUMN}`,
@@ -407,14 +415,17 @@ export function percentChange(cur, prev) {
 }
 
 /**
- * 47018NED rows → Map(code → { total, totalPrev, crimeBurglary, crimeBike, crimePickpocket, crimeViolence })
+ * 47018NED rows → Map(code → { total, totalPrev, [CRIME_CATEGORIES key]: count })
  * with counts for CRIME_PERIOD (totalPrev: CRIME_PREV_PERIOD). A summed category
  * is null only when all its parts are null (police suppress some small cells).
  */
 export function aggregateCrime(rows) {
   const out = new Map();
   const catOf = new Map();
-  for (const [key, kinds] of Object.entries(CRIME_CATEGORIES)) for (const k of kinds) catOf.set(crimeKey(k), key);
+  for (const [key, kinds] of Object.entries(CRIME_CATEGORIES)) for (const k of kinds) {
+    const id = crimeKey(k);
+    catOf.set(id, [...(catOf.get(id) ?? []), key]);
+  }
   const total = crimeKey(CRIME_TOTAL);
   for (const r of rows ?? []) {
     const code = normalizeAreaCode(r?.WijkenEnBuurten);
@@ -427,8 +438,7 @@ export function aggregateCrime(rows) {
     if (period === CRIME_PREV_PERIOD) { if (kind === total) agg.totalPrev = v; continue; }
     if (period !== CRIME_PERIOD) continue;
     if (kind === total) { agg.total = v; continue; }
-    const key = catOf.get(kind);
-    if (key && v != null) agg[key] = (agg[key] ?? 0) + v;
+    if (v != null) for (const key of catOf.get(kind) ?? []) agg[key] = (agg[key] ?? 0) + v;
   }
   return out;
 }

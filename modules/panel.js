@@ -61,6 +61,12 @@ export function formatPanelData(data, mode = 'rate') {
     crimeBike:           abs ? count(data?.crimeBikeCount)       : rate(data?.crimeBike),
     crimePickpocket:     abs ? count(data?.crimePickpocketCount) : rate(data?.crimePickpocket),
     crimeViolence:       abs ? count(data?.crimeViolenceCount)   : rate(data?.crimeViolence),
+    crimeStreetRobbery: abs ? count(data?.crimeStreetRobberyCount) : rate(data?.crimeStreetRobbery),
+    crimeThreat: abs ? count(data?.crimeThreatCount) : rate(data?.crimeThreat),
+    crimeVehicle: abs ? count(data?.crimeVehicleCount) : rate(data?.crimeVehicle),
+    crimeShoplifting: abs ? count(data?.crimeShopliftingCount) : rate(data?.crimeShoplifting),
+    crimeVandalism: abs ? count(data?.crimeVandalismCount) : rate(data?.crimeVandalism),
+    crimeDrugs: abs ? count(data?.crimeDrugsCount) : rate(data?.crimeDrugs),
     distGP:              km(data?.distGP),
     distSupermarket:     km(data?.distSupermarket),
   };
