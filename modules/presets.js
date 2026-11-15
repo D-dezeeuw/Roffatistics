@@ -178,7 +178,7 @@ export function scoreWithPreset(areas, preset = DEFAULT_PRESET, { parents = null
 export const THEME_LABELS = Object.freeze({
   veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding',
   woningmarkt: 'Woningmarkt', leeftijd: 'Levenstype', nieuwbouw: 'Bouwstijl', budget: 'Budget', sfeer: 'Sfeer',
-  situatie: 'Vergelijkbare situatie', gemeenschap: 'Nabijheid gemeenschap',
+  situatie: 'Vergelijkbare situatie', gemeenschap: 'Nabijheid gemeenschap', dichtbij: 'Dichtbij',
 });
 
 /** The active preset of the Woonscore (setPersonalPreset(null) = Standaard). */

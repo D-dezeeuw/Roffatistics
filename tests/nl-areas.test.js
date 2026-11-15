@@ -181,9 +181,9 @@ describe('lazy loaders', () => {
 
 describe('committed NL data files (scripts/build-nl-kwb.mjs)', () => {
   for (const [level, url, min] of [['wijk', NL_DATA_URLS.wijk, 3000], ['buurt', NL_DATA_URLS.buurt, 13000]]) {
-    it(`${url} decodes to every NL ${level}, under 3 MB`, () => {
+    it(`${url} decodes to every NL ${level}, under 3.5 MB`, () => {
       const path = new URL(`../${url.slice(2)}`, import.meta.url);
-      assert.ok(statSync(path).size < 3e6, `${url} is ${statSync(path).size} bytes`);
+      assert.ok(statSync(path).size < 3.5e6, `${url} is ${statSync(path).size} bytes`);
       const areas = decodeLevel(JSON.parse(readFileSync(path, 'utf8')));
       assert.ok(areas.length > min, `${areas.length} ${level}en`);
       assert.ok(areas.every(a => a.level === level));

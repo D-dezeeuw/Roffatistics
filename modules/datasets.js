@@ -142,6 +142,7 @@ const SRC = Object.freeze({
   regio:   Object.freeze({ id: '70072ned', name: 'Regionale kerncijfers Nederland', publisher: 'CBS', url: statline('70072ned'), scope: 'Nederland' }),
   crime:   Object.freeze({ id: '47018NED', name: 'Geregistreerde misdrijven; soort misdrijf, wijk, buurt', publisher: 'Politie (via CBS dataderden)', url: 'https://data.politie.nl/#/Politie/nl/dataset/47018NED/table', scope: 'Rotterdam' }),
   nabij2025: Object.freeze({ id: '86270NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2025', publisher: 'CBS', url: statline('86270NED'), scope: 'Rotterdam' }),
+  nabij2017: Object.freeze({ id: '84334NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2017', publisher: 'CBS', url: statline('84334NED'), scope: 'Nederland' }),
   nabij2024: Object.freeze({ id: '86134NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2024', publisher: 'CBS', url: statline('86134NED'), scope: 'Rotterdam' }),
   geo:     Object.freeze({ id: 'PDOK', name: 'CBS wijk- en buurtkaart (gebiedsgrenzen, via PDOK)', publisher: 'CBS / PDOK', url: 'https://www.pdok.nl/introductie/-/article/cbs-wijken-en-buurten', scope: 'Rotterdam' }),
   pc4:     Object.freeze({ id: PC4_HERKOMST_TABLE, name: 'Bevolking; geslacht, migratieachtergrond, viercijferige postcode, 1 januari', publisher: 'CBS', url: statline(PC4_HERKOMST_TABLE), scope: 'postcode' }),
@@ -164,6 +165,8 @@ const HERKOMST_NOTES = [
 ];
 const TASTE_NOTE = 'Beschrijvend en een kwestie van smaak: telt niet mee in de totaalscore van de Ranglijst of de Woonscore Standaard.';
 const NABIJ_NOTE = 'Ontbreekt het 2025-cijfer voor een gebied, dan wordt het 2024-cijfer (86134NED) getoond; het paneel noemt dat onder Peiljaar.';
+const DICHTBIJ_NOTE = 'Telt niet mee in de totaalscore van de Ranglijst of de Woonscore Standaard; alleen in je eigen Woonscore als je het in de wizard bij “Wat wil je dichtbij?” belangrijk vindt (dichterbij = beter).';
+const GROEN_NOTE = 'Oudere peiling: CBS vult de afstanden tot groen en natuur sinds 2018 niet meer in. Dit is het cijfer van 2017 (indeling 2017, bodemgebruik 2015). Een buurt die sindsdien een nieuwe code kreeg, krijgt het cijfer van haar wijk; zonder oude code is er geen data.';
 const ROAD_NOTE = 'Gemeten over de weg, niet hemelsbreed; de dichtstbijzijnde voorziening kan buiten het gebied liggen.';
 const ageInfo = (from, to) => ({
   description: `Het aandeel inwoners van ${from} tot en met ${to} jaar. Beschrijvend: er zit geen oordeel in. Samen met de andere leeftijdsgroepen laat het zien of een gebied jong, gemengd of vergrijsd is.`,
@@ -477,6 +480,7 @@ const INFO = {
       'Een gebied met data voor minder dan 60% van het gewicht krijgt geen score (onvoldoende data).',
       'Geen woonwijk: bedrijven-, haven- en recreatiegebieden en vrijwel onbewoonde wijken en buurten (weinig inwoners en woningen, veel niet-woningen) krijgen geen score en tellen niet mee als vergelijkingsgebied.',
       'Jouw wensen: budget en drukte zijn een doelwaarde (hoe dichter erbij, hoe hoger; 0 op twee toleranties afstand) en relatief binnen de lijst. Het budget is een ruwe vuistregel (ongeveer 4,5 × het bruto huishoudinkomen, vergeleken met de gemiddelde WOZ-waarde); "Verberg duidelijk te duur" maakt gebieden met een WOZ boven 1,2 × je budget grijs.',
+      'Wat wil je dichtbij: per onderdeel (cafés, station, winkels, cultuur, park, bos en natuur) telt een kortere afstand als plus, zwaarder naarmate je het belangrijker vindt; “Maakt niet uit” telt niet mee. De afstanden tot groen en natuur zijn CBS-cijfers uit 2017, de nieuwste die er zijn.',
       'Je antwoorden blijven in je browser (localStorage) en in de link; er wordt niets verstuurd.',
     ],
   },
@@ -528,6 +532,62 @@ const INFO = {
     source: [SRC.nabij2025, SRC.nabij2024],
     year: '2025',
     caveats: ['Cafetaria’s, snackbars en hotels tellen niet mee.', TASTE_NOTE, NABIJ_NOTE],
+  },
+  distWarenhuis: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot het dichtstbijzijnde warenhuis (een grote winkel met een breed assortiment, zoals HEMA of de Bijenkorf). Een maat voor “winkels in de buurt” naast de supermarkt.',
+    formula: 'gemiddelde wegafstand in km tot een warenhuis, gemiddeld over de inwoners (CBS nabijheid voorzieningen)',
+    source: [SRC.nabij2025, SRC.nabij2024],
+    year: '2025',
+    caveats: [ROAD_NOTE, 'Gewone winkelstraten en kleine winkels tellen niet mee: CBS meet alleen warenhuizen.', DICHTBIJ_NOTE, NABIJ_NOTE],
+  },
+  distPodium: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot het dichtstbijzijnde podium: theater, concertzaal of poppodium.',
+    formula: 'gemiddelde wegafstand in km tot podiumkunsten totaal, gemiddeld over de inwoners (CBS nabijheid voorzieningen)',
+    source: [SRC.nabij2025, SRC.nabij2024],
+    year: '2025',
+    caveats: [ROAD_NOTE, DICHTBIJ_NOTE, NABIJ_NOTE],
+  },
+  distBioscoop: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot de dichtstbijzijnde bioscoop.',
+    formula: 'gemiddelde wegafstand in km tot een bioscoop, gemiddeld over de inwoners (CBS nabijheid voorzieningen)',
+    source: [SRC.nabij2025, SRC.nabij2024],
+    year: '2025',
+    caveats: [ROAD_NOTE, DICHTBIJ_NOTE, NABIJ_NOTE],
+  },
+  distAttractie: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot de dichtstbijzijnde attractie, zoals een dierentuin, pretpark of andere publiekstrekker.',
+    formula: 'gemiddelde wegafstand in km tot een attractie, gemiddeld over de inwoners (CBS nabijheid voorzieningen)',
+    source: [SRC.nabij2025, SRC.nabij2024],
+    year: '2025',
+    caveats: [ROAD_NOTE, DICHTBIJ_NOTE, NABIJ_NOTE],
+  },
+  distGroen: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot het dichtstbijzijnde openbaar groen: park, plantsoen, recreatiegebied, bos of open natuur. Zegt hoe dichtbij het groen begint, niet hoeveel groen er is.',
+    formula: 'gemiddelde wegafstand in km tot openbaar groen totaal, gemiddeld over de inwoners (CBS nabijheid voorzieningen 2017, Bestand Bodemgebruik 2015)',
+    source: [SRC.nabij2017],
+    year: '2017',
+    caveats: [GROEN_NOTE, ROAD_NOTE, 'Klein groen (perkjes, bermen, binnentuinen) telt niet mee; CBS rekent vanaf een minimale oppervlakte.', DICHTBIJ_NOTE],
+  },
+  distRecreatie: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot het dichtstbijzijnde dagrecreatieve terrein: een recreatiegebied, speeltuin, strandbad, kinderboerderij of volkstuincomplex.',
+    formula: 'gemiddelde wegafstand in km tot een dagrecreatief terrein, gemiddeld over de inwoners (CBS nabijheid voorzieningen 2017)',
+    source: [SRC.nabij2017],
+    year: '2017',
+    caveats: [GROEN_NOTE, ROAD_NOTE, DICHTBIJ_NOTE],
+  },
+  distBos: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot het dichtstbijzijnde bos, zoals het Kralingse Bos, het Zuiderpark-bos of de Veluwe. Echte nabijheid van bos, niet het aandeel groen in het gebied zelf.',
+    formula: 'gemiddelde wegafstand in km tot bos, gemiddeld over de inwoners (CBS nabijheid voorzieningen 2017, Bestand Bodemgebruik 2015)',
+    source: [SRC.nabij2017],
+    year: '2017',
+    caveats: [GROEN_NOTE, ROAD_NOTE, 'Bos volgens het Bestand Bodemgebruik: ook kleinere stadsbossen tellen, een grote bomenrij of park zonder bosfunctie niet.', DICHTBIJ_NOTE],
+  },
+  distOpenNatuur: {
+    description: 'De gemiddelde afstand over de weg van de inwoners tot het dichtstbijzijnde open natuurgebied: heide, duinen, kwelders, moeras of rietland.',
+    formula: 'gemiddelde wegafstand in km tot open droog of nat natuurlijk terrein, gemiddeld over de inwoners (CBS nabijheid voorzieningen 2017)',
+    source: [SRC.nabij2017],
+    year: '2017',
+    caveats: [GROEN_NOTE, ROAD_NOTE, DICHTBIJ_NOTE],
   },
   distCentrum: {
     description: 'Hemelsbrede afstand van het midden van het gebied tot Rotterdam Centraal. Klein = midden in de stad; groot = aan de rand. Beschrijvend: of dat goed is, hangt af van wat je zoekt.',
@@ -627,6 +687,14 @@ export const DATASETS = Object.freeze({
   distStation:      ds('distStation',      'Afstand treinstation', 'Afstand tot treinstation (km)',   'km',        false, 'voorzieningen', RTM),
   distCafe:         ds('distCafe',         'Afstand café',         'Afstand tot café (km)',           'km',        null,  'voorzieningen', { ...RTM, inOverall: false }),
   horeca1km:        ds('horeca1km',        'Horeca binnen 1 km',   'Cafés en restaurants binnen 1 km', 'aantal',   null,  'voorzieningen', { ...RTM, inOverall: false }),
+  distWarenhuis:    ds('distWarenhuis',    'Afstand warenhuis',    'Afstand tot warenhuis (km)',      'km',        null,  'voorzieningen', { ...RTM, inOverall: false }),
+  distPodium:       ds('distPodium',       'Afstand podium',       'Afstand tot theater of podium (km)', 'km',     null,  'voorzieningen', { ...RTM, inOverall: false }),
+  distBioscoop:     ds('distBioscoop',     'Afstand bioscoop',     'Afstand tot bioscoop (km)',       'km',        null,  'voorzieningen', { ...RTM, inOverall: false }),
+  distAttractie:    ds('distAttractie',    'Afstand attractie',    'Afstand tot attractie (km)',      'km',        null,  'voorzieningen', { ...RTM, inOverall: false }),
+  distGroen:        ds('distGroen',        'Afstand groen',        'Afstand tot openbaar groen (km, 2017)', 'km',  null,  'voorzieningen', { ...RTM, inOverall: false }),
+  distRecreatie:    ds('distRecreatie',    'Afstand recreatiegebied', 'Afstand tot recreatiegebied (km, 2017)', 'km', null, 'voorzieningen', { ...RTM, inOverall: false }),
+  distBos:          ds('distBos',          'Afstand bos',          'Afstand tot bos (km, 2017)',      'km',        null,  'voorzieningen', { ...RTM, inOverall: false }),
+  distOpenNatuur:   ds('distOpenNatuur',   'Afstand open natuur',  'Afstand tot open natuur (km, 2017)', 'km',     null,  'voorzieningen', { ...RTM, inOverall: false }),
   waterPct:         ds('waterPct',         'Water (%)',            'Water in de oppervlakte (%)',     '%',         null,  'voorzieningen', { ...RTM, inOverall: false }),
   distCentrum:      ds('distCentrum',      'Afstand centrum',      'Hemelsbreed tot Rotterdam Centraal (km)', 'km', null, 'voorzieningen', { ...RTM, inOverall: false }),
 });
