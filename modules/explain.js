@@ -156,6 +156,15 @@ export const GENERAL_SECTIONS = Object.freeze([
     ],
   },
   {
+    id: 'woongebied',
+    title: 'Geen woonwijk: bedrijven-, haven- en recreatiegebieden',
+    paragraphs: [
+      'Sommige wijken en buurten zijn geen plek waar mensen wonen: bedrijventerreinen, havens (Botlek, Europoort, Maasvlakte, Waalhaven, Spaanse Polder), recreatieparken of vrijwel lege gebieden. Hun cijfers zeggen weinig over wonen en zouden de rangen van echte woonwijken scheeftrekken. CBS publiceert geen lijst van zulke gebieden; we leiden het af uit de CBS-kerncijfers 2025: inwoners, woningvoorraad, niet-woningen (panden zonder woonfunctie volgens de BAG) en bedrijfsvestigingen.',
+      'Een gebied met 200 of meer inwoners of 100 of meer woningen is altijd een woongebied. Daaronder is het "Geen woonwijk (bedrijven-/havengebied)" als er minstens 20 niet-woningen zijn, minstens drie keer zoveel als woningen, en minder dan 20 woningen (of minstens tien keer zoveel niet-woningen als woningen), met bedrijfsvestigingen voor minstens een vijfde van de niet-woningen; zijn er minder bedrijven, dan heet het "recreatie, voorzieningen of bedrijven". Minder dan 20 inwoners en minder dan 10 woningen zonder zulke panden: "vrijwel onbewoond".',
+      'Zulke gebieden zijn grijs op de kaart, krijgen geen Woonscore en geen rang, tellen niet mee als vergelijkingsgebied voor de Woonscore, de rangen in het venster en de Ranglijst, en staan niet in de toplijst van "Vind jouw ideale woonplek". In de Ranglijst staan ze onderaan, zonder rang. Gebieden met weinig inwoners die wel woongebied zijn, tellen gewoon mee met het label "weinig inwoners".',
+    ],
+  },
+  {
     id: 'nodata',
     title: 'Geen data en peiljaren',
     paragraphs: [

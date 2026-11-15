@@ -36,6 +36,9 @@ export const WIJK_COLUMNS = Object.freeze({
   householdsWithKids:  'HuishoudensMetKinderen_32',          // aantal
   density:             'Bevolkingsdichtheid_34',             // inwoners per km²
   wozValue:            'GemiddeldeWOZWaardeVanWoningen_39',  // ×€1,000
+  housingStock:        'Woningvoorraad_35',                  // aantal woningen (woongebied.js)
+  nonResidentialStock: 'NietWoningvoorraad_37',              // aantal verblijfsobjecten zonder woonfunctie
+  businesses:          'BedrijfsvestigingenTotaal_95',       // aantal bedrijfsvestigingen
   lowEdu:              'BasisonderwijsVmboMbo1_67',          // aantal, hoogst behaald
   medEdu:              'HavoVwoMbo24_68',                    // aantal
   highEdu:             'HboWo_69',                           // aantal
@@ -184,6 +187,10 @@ export function extractAreaValues(row) {
     // Panel-only extras (not choropleth datasets)
     lowEdu:        share(low, eduTotal),
     medEdu:        share(med, eduTotal),
+    // Woongebied classification (woongebied.js): counts, panel/modal only
+    housingStock:  toNumber(r[C.housingStock]),
+    nonResidentialStock: toNumber(r[C.nonResidentialStock]),
+    businesses:    toNumber(r[C.businesses]),
   };
 }
 

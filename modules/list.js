@@ -9,6 +9,7 @@ import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
 import { openAreaModal, themeBarHtml } from './area-modal.js';
 import { scoreResult, themeBreakdown } from './presets.js';
+import { splitResidential, nonResidentialLabel } from './woongebied.js';
 import { scoreKind, scoreTitle } from './wizard-model.js';
 
 /** The Woonscore follows the active preset: personalised title and a `personal` flag (header tooltip, note). */
@@ -261,8 +262,17 @@ async function doRender() {
   // A dataset without data on this level cannot rank anything: fall back to the total score.
   const wanted = ui.rankKey === 'overall' ? null : DATASETS[ui.rankKey];
   const rankKey = wanted && has(wanted.key) ? wanted.key : 'overall';
-  const ranked = rankRows(scoreAreas(areas, datasets), rankKey, datasets);
-  const rows = applyRankMode(sortRows(ranked, ui.sort.column, ui.sort.dir), { mode: ui.rankMode, column: ui.sort.column, datasets });
+  // Business/port areas (woongebied.js) are no peers: ranked and scored among
+  // the woongebieden only, listed below them without rank or score.
+  const { peers, excluded } = splitResidential(areas);
+  const ranked = rankRows(scoreAreas(peers, datasets), rankKey, datasets);
+  const unranked = scoreAreas(excluded, datasets).map(r => ({
+    ...r, pct: {}, scores: {}, overall: null, rank: null, score: null, rankKey, nonResidential: nonResidentialLabel(r),
+  }));
+  const rows = [
+    ...applyRankMode(sortRows(ranked, ui.sort.column, ui.sort.dir), { mode: ui.rankMode, column: ui.sort.column, datasets }),
+    ...sortRows(unranked, ui.sort.column, ui.sort.dir),
+  ];
   const hidden = ALL_DATASETS.filter(d => !has(d.key)).map(d => d.label);
   const rankDs = rankKey === 'overall' ? null : withScorePreset(datasetFor(rankKey, mode));
   const follows = sortDrivesRank(ui.rankMode, ui.sort.column);
@@ -275,6 +285,7 @@ async function doRender() {
 
   const notes = [];
   if (!dataOk) notes.push('CBS-cijfers niet beschikbaar.');
+  if (excluded.length) notes.push(`${excluded.length} ${excluded.length === 1 ? 'gebied' : 'gebieden'} zonder woonfunctie (bedrijven-, haven- of recreatiegebied) onderaan, zonder rang.`);
   if (wanted && !rankDs) notes.push(`${wanted.label} heeft geen data op dit niveau; gerangschikt op totaalscore.`);
   if (sortDs) notes.push(`Rang volgt de sortering: ${sortDs.title}, ${ui.sort.dir === 'desc' ? 'hoogste' : 'laagste'} waarde eerst; score = percentiel 0–100 op die kolom${sortDs.higherIsBetter == null ? ' (hoog = hoge waarde)' : ` (${sortDs.higherIsBetter ? 'hoger' : 'lager'} is beter)`}.`);
   else if (follows) notes.push(`Rang volgt de sortering op de score, ${ui.sort.dir === 'desc' ? 'hoogste' : 'laagste'} eerst.`);
@@ -376,7 +387,7 @@ function tableHtml(rows, datasets, level, rankKey, sortDs = null) {
     }).join('');
     return `<tr data-code="${esc(r.code)}" tabindex="0"${r.rank == null ? ' class="is-unranked"' : ''}>
       <td class="col-rank">${r.rank ?? '—'}</td>
-      <th scope="row" class="col-name"><span class="list-name">${esc(r.name)}</span>
+      <th scope="row" class="col-name"><span class="list-name">${esc(r.name)}</span>${r.nonResidential ? `<small class="list-nonres" title="${esc(r.nonResidential)}: telt niet mee in de ranglijst">${esc(r.nonResidential)}</small>` : ''}
         <button type="button" class="list-map-btn" title="Toon op kaart" aria-label="Toon ${esc(r.name)} op kaart">
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>
         </button></th>

@@ -10,6 +10,8 @@
 // The rows are mapped with the same pure helpers as the Rotterdam loader
 // (areas.js), so a NL area carries the same value keys. Nothing preset-specific
 // is stored: crime rates and the Woonscore are computed in the browser.
+// Woningvoorraad, niet-woningvoorraad and bedrijfsvestigingen (86165NED) are
+// stored as counts for the woongebied classification (modules/woongebied.js).
 // Run: node scripts/build-nl-kwb.mjs   (needs network; ~2–4 minutes)
 import { mkdir, writeFile } from 'node:fs/promises';
 import {

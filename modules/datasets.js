@@ -410,6 +410,7 @@ const INFO = {
       'In de Nederland-weergave zijn er minder cijfers (misdrijven totaal, inkomen, opleiding); de gewichten worden dan herverdeeld.',
       'Weinig inwoners: bij buurten worden criminaliteit en bijstand naar de wijk toe getrokken (gewicht inwoners / (inwoners + 300)), zodat een paar incidenten in een kleine buurt de score niet domineren.',
       'Een gebied met data voor minder dan 60% van het gewicht krijgt geen score (onvoldoende data).',
+      'Geen woonwijk: bedrijven-, haven- en recreatiegebieden en vrijwel onbewoonde wijken en buurten (weinig inwoners en woningen, veel niet-woningen) krijgen geen score en tellen niet mee als vergelijkingsgebied.',
       'Jouw wensen: budget en drukte zijn een doelwaarde (hoe dichter erbij, hoe hoger; 0 op twee toleranties afstand) en relatief binnen de lijst. Het budget is een ruwe vuistregel (ongeveer 4,5 × het bruto huishoudinkomen, vergeleken met de gemiddelde WOZ-waarde); "Verberg duidelijk te duur" maakt gebieden met een WOZ boven 1,2 × je budget grijs.',
       'Je antwoorden blijven in je browser (localStorage) en in de link; er wordt niets verstuurd.',
     ],
