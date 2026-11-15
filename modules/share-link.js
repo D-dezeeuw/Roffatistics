@@ -16,14 +16,15 @@
 // only when ticked: shareableScore() via serializeHash(state, shareOpts).
 import { serializeHash, parseHash, DEFAULT_STATE } from './state.js';
 import { SHARE_PARTS, decodeAnswers } from './wizard-model.js';
-import { DATASETS, DATASET_KEYS } from './datasets.js';
+import { DATASETS, DATASET_KEYS, resolveLayerKey } from './datasets.js';
 import { BASEMAPS } from './map.js';
 import { THEMES } from './theme.js';
 import { MIN_ZOOM, MAX_ZOOM } from './zoom-plan.js';
 
 /** Ranglijst levels per scope (list.js LEVELS; setListOptions checks the scope). */
 export const LIST_LEVELS = Object.freeze(['wijken', 'buurten', 'provincies', 'gemeenten']);
-const SORT_RE = /^[A-Za-z0-9]{1,40}$/;
+// Underscore allowed since 15 Nov 2026 so region columns (hr_*) can be shared; old links still match.
+const SORT_RE = /^[A-Za-z0-9_]{1,40}$/;
 const VIEW_LABEL = { map: 'Kaart', list: 'Ranglijst', dashboard: 'Dashboard' };
 
 /** The checkboxes of "Deel deze weergave", grouped; `key` is the option name. */
@@ -130,10 +131,11 @@ export function parseShareHash(hash) {
   }
   const list = {};
   const lvl = params.get('lvl'), rank = params.get('rank');
-  const sm = /^([A-Za-z0-9]{1,40})\.(asc|desc)$/.exec(params.get('sort') ?? '');
+  const sm = /^([A-Za-z0-9_]{1,40})\.(asc|desc)$/.exec(params.get('sort') ?? '');
   if (LIST_LEVELS.includes(lvl)) list.level = lvl;
-  if (rank === 'overall' || DATASET_KEYS.includes(rank)) list.rankKey = rank;
-  if (sm) list.sort = { column: sm[1], dir: sm[2] };
+  // Retired layer ids (15 Nov 2026) map to their successor; the format itself is unchanged.
+  if (rank === 'overall' || DATASET_KEYS.includes(rank)) list.rankKey = resolveLayerKey(rank);
+  if (sm) list.sort = { column: resolveLayerKey(sm[1]), dir: sm[2] };
   const basemap = params.get('basemap'), theme = params.get('theme');
   return {
     state,

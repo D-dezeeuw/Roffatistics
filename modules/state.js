@@ -2,7 +2,7 @@
 // setState() validates, persists the scope, mirrors scope/view/area into the
 // URL hash and emits a 'state-change' event: on `document` in the browser,
 // on a private EventTarget under node.
-import { DATASET_KEYS, CRIME_MODES } from './datasets.js';
+import { DATASET_KEYS, CRIME_MODES, resolveLayerKey } from './datasets.js';
 import { shareableScore, restoreLocalScore, isShareOf, SHARE_NONE } from './wizard-model.js';
 
 export const SCOPES = Object.freeze(['rotterdam', 'nederland']);
@@ -24,7 +24,8 @@ export function sanitizePatch(patch = {}) {
   const out = {};
   if (SCOPES.includes(patch.scope))         out.scope   = patch.scope;
   if (VIEWS.includes(patch.view))           out.view    = patch.view;
-  const dataset = LEGACY_DATASETS[patch.dataset] ?? patch.dataset;
+  // Retired herkomst layers (15 Nov 2026) open their nearest regio layer.
+  const dataset = resolveLayerKey(LEGACY_DATASETS[patch.dataset] ?? patch.dataset);
   if (DATASET_KEYS.includes(dataset))       out.dataset = dataset;
   if (CRIME_MODES.includes(patch.crime))    out.crime   = patch.crime;
   if ('score' in patch) {

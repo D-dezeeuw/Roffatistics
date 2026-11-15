@@ -46,13 +46,17 @@ describe('herkomst layers (wijk/buurt, 86165NED)', () => {
     for (const k of ['originDutchPct', 'originEuropePct', 'nonWesternPct', 'bornAbroadPct']) {
       assert.equal(DATASETS[k].higherIsBetter, null, k);
       assert.equal(DATASETS[k].inOverall, false, k);
-      assert.equal(DATASETS[k].group, 'herkomst', k);
+      assert.equal(DATASETS[k].group, k === 'originDutchPct' ? 'herkomst' : 'herkomstDetail', k);
       assert.ok(DATASETS[k].description.includes('moeder'), `${k} explains the CBS definition`);
     }
     assert.equal(DATASETS.bornAbroadPct.scope, 'rotterdam');
+    // 15 Nov 2026: the Herkomst category is Nederland + the world regions; the other indelingen are data only.
     const g = groupDatasets().find(x => x.key === 'herkomst');
-    assert.deepEqual(g.datasets.map(d => d.key), ['originDutchPct', 'originEuropePct', 'nonWesternPct', 'bornAbroadPct', ...PC4_KEYS]);
+    assert.equal(g.datasets[0].key, 'originDutchPct');
+    assert.ok(g.datasets.slice(1).every(d => d.key.startsWith('hr_')));
     assert.equal(g.scope, 'all');
+    const hidden = groupDatasets(undefined, undefined, { includeHidden: true }).find(x => x.key === 'herkomstDetail');
+    assert.deepEqual(hidden.datasets.map(d => d.key), ['originEuropePct', 'nonWesternPct', 'bornAbroadPct', ...PC4_KEYS]);
   });
   it('Nederland view gets NL and Europa shares from 70072ned', () => {
     assert.equal(CBS_COLUMNS.originDutch, 'Nederland_14');

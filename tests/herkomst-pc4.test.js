@@ -48,7 +48,7 @@ describe('herkomst-pc4: helpers', () => {
       assert.equal(DETAIL_GROUPS[g.key].key, g.metric);
       assert.ok(ORIGIN_KEYS.includes(g.metric), g.metric);
       const d = DATASETS[g.metric];
-      assert.equal(d.group, 'herkomst');
+      assert.equal(d.group, 'herkomstDetail', 'data only since 15 Nov 2026: no layer');
       assert.equal(d.higherIsBetter, null);
       assert.equal(d.inOverall, false);
       assert.equal(d.scope, 'rotterdam');

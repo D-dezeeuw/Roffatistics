@@ -220,7 +220,7 @@ export const GENERAL_SECTIONS = Object.freeze([
 
 /** Full body of the panel: one section per Layers group, then the general parts. */
 export function explainBodyHtml(datasets = DATASETS) {
-  const groups = groupDatasets(datasets).map(g => `
+  const groups = groupDatasets(datasets, undefined, { includeHidden: true }).map(g => `
     <section class="explain-group" aria-labelledby="explain-g-${esc(g.key)}">
       <h3 id="explain-g-${esc(g.key)}">${esc(g.label)}</h3>
       ${g.datasets.map(entryHtml).join('')}

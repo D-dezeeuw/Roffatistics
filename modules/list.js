@@ -4,7 +4,7 @@
 
 import { getState, setState, onStateChange } from './state.js';
 import { loadRotterdamAreas, getAreaIndex, DATASETS, DATASET_KEYS } from './areas.js';
-import { datasetFor, crimeAreas, crimeValues, isCrimeDataset } from './datasets.js';
+import { datasetFor, crimeAreas, crimeValues, isCrimeDataset, LAYER_KEYS, LAYER_CATEGORIES, categoryOf, categoryDatasets, categoryHeadline, rankKeyForCategory, resolveLayerKey } from './datasets.js';
 import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
 import { openAreaModal, themeBarHtml } from './area-modal.js';
@@ -25,7 +25,8 @@ const LEVELS = {
   nederland: [{ key: 'provincies', label: 'Provincies' }, { key: 'gemeenten', label: 'Gemeenten' }],
 };
 const HIGHLIGHT_MS = 2200;
-const ALL_DATASETS = DATASET_KEYS.map(k => DATASETS[k]);
+// Layer datasets only (15 Nov 2026): the retired herkomst indelingen are no columns or rank keys.
+const ALL_DATASETS = LAYER_KEYS.map(k => DATASETS[k]);
 export const RANK_MODE_STORAGE_KEY = 'roffatistics.rankMode';
 
 function storedRankMode() {
@@ -64,9 +65,32 @@ export function getListOptions() {
 export function setListOptions({ level, rankKey, sort } = {}) {
   const scope = getState().scope;
   if (level && LEVELS[scope].some(l => l.key === level)) ui.level[scope] = level;
-  if (rankKey === 'overall' || DATASET_KEYS.includes(rankKey)) ui.rankKey = rankKey;
-  if (sort && /^[A-Za-z0-9]{1,40}$/.test(sort.column ?? '') && (sort.dir === 'asc' || sort.dir === 'desc')) ui.sort = { column: sort.column, dir: sort.dir };
+  if (rankKey === 'overall' || DATASET_KEYS.includes(rankKey)) ui.rankKey = resolveLayerKey(rankKey);
+  if (sort && /^[A-Za-z0-9_]{1,40}$/.test(sort.column ?? '') && (sort.dir === 'asc' || sort.dir === 'desc')) ui.sort = { column: resolveLayerKey(sort.column), dir: sort.dir };
   if (isVisible()) render();
+}
+
+/**
+ * Fills the Categorie and Onderdeel pickers for \`scope\` from the shared
+ * category list (datasets.js DATASET_GROUPS) and selects the current rank key.
+ */
+function renderRankPickers(scope) {
+  const catSel = ui.root.querySelector('.list-cat-select'), subSel = ui.root.querySelector('.list-rank-select');
+  const cat = ui.rankKey === 'overall' ? 'overall' : (categoryOf(ui.rankKey) ?? 'overall');
+  const cats = LAYER_CATEGORIES.filter(c => categoryDatasets(c.key, scope).length);
+  catSel.innerHTML = `<option value="overall">Totaalscore (gelijk gewogen)</option>${cats.map(c => `<option value="${c.key}">${esc(c.label)}</option>`).join('')}`;
+  catSel.value = cat;
+  if (cat === 'overall') {
+    subSel.innerHTML = '<option value="">—</option>';
+    subSel.disabled = true;
+    return;
+  }
+  const head = categoryHeadline(cat, scope);
+  const list = categoryDatasets(cat, scope);
+  const extra = list.some(d => d.key === ui.rankKey) ? [] : [DATASETS[ui.rankKey]];
+  subSel.disabled = false;
+  subSel.innerHTML = [...list, ...extra].map(d => `<option value="${d.key}">${esc(d.label)}${d.key === head ? ' (totaal)' : ''}${extra.includes(d) ? ' (niet in deze weergave)' : ''}</option>`).join('');
+  subSel.value = ui.rankKey;
 }
 
 /** Mounts the view once; renders lazily when the list view is (or becomes) visible. */
@@ -80,12 +104,15 @@ export function initList(root = document.getElementById('view-list')) {
     <div class="list-toolbar">
       <h2 class="list-title">Ranglijst</h2>
       <div class="list-level" role="group" aria-label="Niveau"></div>
-      <label class="list-rank-by">Rangschik op
-        <select class="list-rank-select">
-          <option value="overall">Totaalscore (gelijk gewogen)</option>
-          ${ALL_DATASETS.map(d => `<option value="${d.key}">${esc(d.label)}</option>`).join('')}
-        </select>
-      </label>
+      <div class="list-rank-by" role="group" aria-label="Rangschik op">
+        <span class="list-rank-by-title" aria-hidden="true">Rangschik op</span>
+        <label class="list-rank-field">Categorie
+          <select class="list-cat-select" aria-label="Rangschik op: categorie"></select>
+        </label>
+        <label class="list-rank-field">Onderdeel
+          <select class="list-rank-select" aria-label="Rangschik op: onderdeel"></select>
+        </label>
+      </div>
       <div class="seg list-rankmode" role="group" aria-label="Rangnummer">
         <span class="seg-label" aria-hidden="true">Rang:</span>
         <button type="button" class="seg-opt" data-rankmode="fixed" title="Rang en score volgen 'Rangschik op'; kolommen sorteren alleen de rijen">Vast</button>
@@ -96,12 +123,21 @@ export function initList(root = document.getElementById('view-list')) {
     <p class="list-note" aria-live="polite"></p>
     <div class="list-table-wrap" tabindex="0" aria-label="Ranglijst tabel"></div>`;
 
+  // Categorie picks the category's headline metric (no Onderdeel chosen yet); Onderdeel picks one metric.
+  root.querySelector('.list-cat-select').addEventListener('change', e => {
+    applyRankKey(rankKeyForCategory(e.target.value, null, getState().scope));
+  });
   root.querySelector('.list-rank-select').addEventListener('change', e => {
-    ui.rankKey = e.target.value;
+    const cat = root.querySelector('.list-cat-select').value;
+    applyRankKey(rankKeyForCategory(cat, e.target.value || null, getState().scope));
+  });
+  function applyRankKey(key) {
+    if (!key) return;
+    ui.rankKey = key;
     ui.sort = { column: 'rank', dir: 'asc' };
     if (ui.rankKey !== 'overall') setState({ dataset: ui.rankKey }, { source: 'list' });
     render();
-  });
+  }
   root.querySelector('.list-rankmode').addEventListener('click', e => {
     const btn = e.target.closest('button[data-rankmode]');
     if (!btn || btn.dataset.rankmode === ui.rankMode) return;
@@ -263,7 +299,7 @@ async function doRender() {
   if (scope === 'nederland' && !national[ui.level.nederland].length) ui.level.nederland = 'provincies';
   const level = ui.level[scope];
   renderLevels(scope);
-  ui.root.querySelector('.list-rank-select').value = ui.rankKey;
+  renderRankPickers(scope);
 
   const mode = getState().crime;
   renderRankMode();

@@ -586,19 +586,19 @@ export const DATASETS = Object.freeze({
   woonscore:        ds('woonscore',        'Woonscore',            'Woonscore (0–100, t.o.v. gelijke gebieden)', 'score', true, 'score', { inOverall: false }),
   population:       ds('population',       'Bevolking',            'Inwoners',                        'aantal',    null,  'bevolking'),
   density:          ds('density',          'Bevolkingsdichtheid',  'Inwoners per km²',                'per km²',   null,  'bevolking'),
-  pop15to24:        ds('pop15to24',        '15–24 jaar (%)',       '15 tot 25 jaar (%)',              '%',         null,  'bevolking', { ...RTM, inOverall: false }),
-  pop25to44:        ds('pop25to44',        '25–44 jaar (%)',       '25 tot 45 jaar (%)',              '%',         null,  'bevolking', { ...RTM, inOverall: false }),
-  pop45to64:        ds('pop45to64',        '45–64 jaar (%)',       '45 tot 65 jaar (%)',              '%',         null,  'bevolking', { ...RTM, inOverall: false }),
-  pop65plus:        ds('pop65plus',        '65+ (%)',              '65+ (%)',                         '%',         null,  'bevolking'),
+  pop15to24:        ds('pop15to24',        '15–24 jaar (%)',       '15 tot 25 jaar (%)',              '%',         null,  'leeftijd', { ...RTM, inOverall: false }),
+  pop25to44:        ds('pop25to44',        '25–44 jaar (%)',       '25 tot 45 jaar (%)',              '%',         null,  'leeftijd', { ...RTM, inOverall: false }),
+  pop45to64:        ds('pop45to64',        '45–64 jaar (%)',       '45 tot 65 jaar (%)',              '%',         null,  'leeftijd', { ...RTM, inOverall: false }),
+  pop65plus:        ds('pop65plus',        '65+ (%)',              '65+ (%)',                         '%',         null,  'leeftijd'),
   hhWithKidsPct:    ds('hhWithKidsPct',    'Gezinnen (%)',         'Huishoudens met kinderen (%)',    '%',         null,  'bevolking', { ...RTM, inOverall: false }),
   singleHhPct:      ds('singleHhPct',      'Alleenwonenden (%)',   'Eenpersoonshuishoudens (%)',      '%',         null,  'bevolking', { ...RTM, inOverall: false }),
-  originDutchPct:   ds('originDutchPct',   'Nederlands (%)',       'Herkomst Nederland (%)',          '%',         null,  'herkomst', { inOverall: false }),
-  originEuropePct:  ds('originEuropePct',  'Europa excl. NL (%)',  'Herkomst Europa excl. NL (%)',    '%',         null,  'herkomst', { inOverall: false }),
-  nonWesternPct:    ds('nonWesternPct',    'Buiten Europa (%)',    'Herkomst buiten Europa (%)',      '%',         null,  'herkomst', { inOverall: false }),
-  bornAbroadPct:    ds('bornAbroadPct',    'Buitenland geboren (%)', 'In het buitenland geboren (%)', '%',         null,  'herkomst', { ...RTM, inOverall: false }),
-  ...Object.fromEntries(REGIONS.map(r => [r.metric, ds(r.metric, `${r.label} (%)`, `Herkomst ${r.label} (%${regionAtBuurt(r.key) ? '' : ', alleen per gemeente'})`, '%', null, 'herkomstRegio', regionAtBuurt(r.key) ? { inOverall: false } : { scope: 'nederland', inOverall: false })])),
-  ...Object.fromEntries(PC4_GROUPS.map(g => [g.metric, ds(g.metric, `${g.label} (%)`, `Herkomst ${g.label} (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'herkomst', { ...RTM, inOverall: false, estimated: true })])),
-  highEdu:          ds('highEdu',          'Opleiding',            'Hoog opgeleid (%)',               '%',         true,  'bevolking'),
+  originDutchPct:   ds('originDutchPct',   'Nederland (%)',         'Herkomst Nederland (%)',          '%',         null,  'herkomst', { inOverall: false }),
+  originEuropePct:  ds('originEuropePct',  'Europa excl. NL (%)',  'Herkomst Europa excl. NL (%)',    '%',         null,  'herkomstDetail', { inOverall: false }),
+  nonWesternPct:    ds('nonWesternPct',    'Buiten Europa (%)',    'Herkomst buiten Europa (%)',      '%',         null,  'herkomstDetail', { inOverall: false }),
+  bornAbroadPct:    ds('bornAbroadPct',    'Buitenland geboren (%)', 'In het buitenland geboren (%)', '%',         null,  'herkomstDetail', { ...RTM, inOverall: false }),
+  ...Object.fromEntries(REGIONS.map(r => [r.metric, ds(r.metric, `${r.label} (%)`, `Herkomst ${r.label} (%${regionAtBuurt(r.key) ? '' : ', alleen per gemeente'})`, '%', null, 'herkomst', regionAtBuurt(r.key) ? { inOverall: false } : { scope: 'nederland', inOverall: false })])),
+  ...Object.fromEntries(PC4_GROUPS.map(g => [g.metric, ds(g.metric, `${g.label} (%)`, `Herkomst ${g.label} (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'herkomstDetail', { ...RTM, inOverall: false, estimated: true })])),
+  highEdu:          ds('highEdu',          'Opleiding',            'Hoog opgeleid (%)',               '%',         true,  'opleiding'),
   avgIncome:        ds('avgIncome',        'Inkomen',              'Gem. inkomen (×€1k)',             '×€1.000',   true,  'welvaart'),
   wozValue:         ds('wozValue',         'WOZ waarde',           'Gem. WOZ waarde (×€1k)',          '×€1.000',   true,  'welvaart'),
   ownerOccupiedPct: ds('ownerOccupiedPct', 'Koopwoningen (%)',     'Koopwoningen (%)',                '%',         null,  'welvaart', RTM),
@@ -607,19 +607,19 @@ export const DATASETS = Object.freeze({
   oldBuildPct:      ds('oldBuildPct',      'Oude bouw (%)',        `Woningen van vóór ${OLD_BUILD_BEFORE} (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'welvaart', { ...RTM, inOverall: false, estimated: true }),
   modernBuildPct:   ds('modernBuildPct',   'Moderne bouw (%)',     `Woningen van ${MODERN_BUILD_FROM} of later (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'welvaart', { ...RTM, inOverall: false, estimated: true }),
   welfarePer1000:   ds('welfarePer1000',   'Bijstand',             'Bijstand per 1.000 inw.',         'per 1.000', false, 'welvaart', RTM),
-  crimeRate:        ds('crimeRate',        'Misdrijven totaal',        'Misdrijven per 1.000 inw.',       'per 1.000', false, 'veiligheid'),
-  crimeBurglary:    ds('crimeBurglary',    'Woninginbraak',        'Woninginbraak per 1.000 inw.',    'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
-  crimeBike:        ds('crimeBike',        'Fietsendiefstal',      'Fietsendiefstal per 1.000 inw.',  'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
-  crimePickpocket:  ds('crimePickpocket',  'Zakkenrollerij',       'Zakkenrollerij per 1.000 inw.',   'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
-  crimeViolence:    ds('crimeViolence',    'Geweldsmisdrijven',    'Geweld per 1.000 inw.',           'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
-  crimeStreetRobbery: ds('crimeStreetRobbery', 'Straatroof',       'Straatroof per 1.000 inw.',       'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
-  crimeThreat:      ds('crimeThreat',      'Bedreiging',           'Bedreiging per 1.000 inw.',       'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
-  crimeVehicle:     ds('crimeVehicle',     'Diefstal uit auto',    'Diefstal uit/vanaf auto per 1.000 inw.', 'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
-  crimeShoplifting: ds('crimeShoplifting', 'Winkeldiefstal',       'Winkeldiefstal per 1.000 inw.',   'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
-  crimeVandalism:   ds('crimeVandalism',   'Vernieling',           'Vernieling per 1.000 inw.',       'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
-  crimeDrugs:       ds('crimeDrugs',       'Drugshandel',          'Drugshandel per 1.000 inw.',      'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
-  crimeDensity:     ds('crimeDensity',     'Misdrijven per km²',   'Misdrijven per km² land',         'per km²',   false, 'veiligheid', { ...RTM, inOverall: false }),
-  crimeNearby:      ds('crimeNearby',      'Criminaliteit omgeving', 'Misdrijven per km² in en rond het gebied', 'per km²', false, 'veiligheid', { ...RTM, inOverall: false }),
+  crimeRate:        ds('crimeRate',        'Misdrijven totaal',        'Misdrijven per 1.000 inw.',       'per 1.000', false, 'criminaliteit'),
+  crimeBurglary:    ds('crimeBurglary',    'Woninginbraak',        'Woninginbraak per 1.000 inw.',    'per 1.000', false, 'criminaliteit', { ...RTM, inOverall: false }),
+  crimeBike:        ds('crimeBike',        'Fietsendiefstal',      'Fietsendiefstal per 1.000 inw.',  'per 1.000', false, 'criminaliteit', { ...RTM, inOverall: false }),
+  crimePickpocket:  ds('crimePickpocket',  'Zakkenrollerij',       'Zakkenrollerij per 1.000 inw.',   'per 1.000', false, 'criminaliteit', { ...RTM, inOverall: false }),
+  crimeViolence:    ds('crimeViolence',    'Geweldsmisdrijven',    'Geweld per 1.000 inw.',           'per 1.000', false, 'criminaliteit', { ...RTM, inOverall: false }),
+  crimeStreetRobbery: ds('crimeStreetRobbery', 'Straatroof',       'Straatroof per 1.000 inw.',       'per 1.000', false, 'criminaliteit', { ...RTM, inOverall: false }),
+  crimeThreat:      ds('crimeThreat',      'Bedreiging',           'Bedreiging per 1.000 inw.',       'per 1.000', false, 'criminaliteit', { ...RTM, inOverall: false }),
+  crimeVehicle:     ds('crimeVehicle',     'Diefstal uit auto',    'Diefstal uit/vanaf auto per 1.000 inw.', 'per 1.000', false, 'criminaliteit', { ...RTM, inOverall: false }),
+  crimeShoplifting: ds('crimeShoplifting', 'Winkeldiefstal',       'Winkeldiefstal per 1.000 inw.',   'per 1.000', false, 'criminaliteit', { ...RTM, inOverall: false }),
+  crimeVandalism:   ds('crimeVandalism',   'Vernieling',           'Vernieling per 1.000 inw.',       'per 1.000', false, 'criminaliteit', { ...RTM, inOverall: false }),
+  crimeDrugs:       ds('crimeDrugs',       'Drugshandel',          'Drugshandel per 1.000 inw.',      'per 1.000', false, 'criminaliteit', { ...RTM, inOverall: false }),
+  crimeDensity:     ds('crimeDensity',     'Misdrijven per km²',   'Misdrijven per km² land',         'per km²',   false, 'criminaliteit', { ...RTM, inOverall: false }),
+  crimeNearby:      ds('crimeNearby',      'Criminaliteit omgeving', 'Misdrijven per km² in en rond het gebied', 'per km²', false, 'criminaliteit', { ...RTM, inOverall: false }),
   distGP:           ds('distGP',           'Afstand huisarts',     'Afstand tot huisarts (km)',       'km',        false, 'voorzieningen', RTM),
   distSupermarket:  ds('distSupermarket',  'Afstand supermarkt',   'Afstand tot grote supermarkt (km)', 'km',      false, 'voorzieningen', RTM),
   distSchool:       ds('distSchool',       'Afstand basisschool',  'Afstand tot basisschool (km)',    'km',        false, 'voorzieningen', RTM),
@@ -633,30 +633,98 @@ export const DATASETS = Object.freeze({
 
 export const DATASET_KEYS = Object.freeze(Object.keys(DATASETS));
 
+// ── Categories (v0.32.0) ─────────────────────────────────────────────────────
+// One category list for the Layers dropdown, the Uitleg panel and the
+// Ranglijst "Categorie" / "Onderdeel" pickers. `headline` is the metric a
+// category ranks on when no Onderdeel is chosen (and the first layer in it).
+// `layer: false` = data kept for wizard, modal and Uitleg, but no layer and no
+// Ranglijst column: the separate herkomst indelingen (Nederland / Europa /
+// buiten Europa and the postcode country groups) gave way to the per-regio
+// layers on 15 Nov 2026; links with those ids land on RETIRED_LAYERS.
 export const DATASET_GROUPS = Object.freeze([
-  Object.freeze({ key: 'score',         label: 'Score' }),
-  Object.freeze({ key: 'bevolking',     label: 'Bevolking' }),
-  Object.freeze({ key: 'herkomst',      label: 'Herkomst' }),
-  Object.freeze({ key: 'herkomstRegio', label: 'Herkomst per regio' }),
-  Object.freeze({ key: 'welvaart',      label: 'Welvaart & wonen' }),
-  Object.freeze({ key: 'veiligheid',    label: 'Veiligheid' }),
-  Object.freeze({ key: 'voorzieningen', label: 'Voorzieningen' }),
+  Object.freeze({ key: 'score',          label: 'Woonscore',                     headline: 'woonscore' }),
+  Object.freeze({ key: 'bevolking',      label: 'Bevolking & huishoudens',       headline: 'population' }),
+  Object.freeze({ key: 'leeftijd',       label: 'Leeftijd',                      headline: 'pop65plus' }),
+  Object.freeze({ key: 'herkomst',       label: 'Herkomst',                      headline: 'originDutchPct' }),
+  Object.freeze({ key: 'criminaliteit',  label: 'Criminaliteit',                 headline: 'crimeRate' }),
+  Object.freeze({ key: 'opleiding',      label: 'Opleiding',                     headline: 'highEdu' }),
+  Object.freeze({ key: 'welvaart',       label: 'Welvaart & wonen',              headline: 'avgIncome' }),
+  Object.freeze({ key: 'voorzieningen',  label: 'Voorzieningen',                 headline: 'distSupermarket' }),
+  Object.freeze({ key: 'herkomstDetail', label: 'Herkomst (overige indelingen)', headline: null, layer: false }),
 ]);
 
 /**
+ * Old layer ids → the nearest layer that still exists (deep links, share
+ * links, Ranglijst rank/sort). Postcode groups go to their world region,
+ * Europa excl. NL to West-Europa (Duitsland, België), buiten Europa to
+ * Zuid-Amerika (Suriname, Rotterdam's largest group), buitenland geboren to Nederland.
+ */
+export const RETIRED_LAYERS = Object.freeze({
+  originEuropePct: 'hr_westEuropa',
+  nonWesternPct:   'hr_zuidAmerika',
+  bornAbroadPct:   'originDutchPct',
+  hk_suriname:     'hr_zuidAmerika',
+  hk_turkije:      'hr_westAzie',
+  hk_marokko:      'hr_noordAfrika',
+  hk_cariben:      'hr_caribischGebied',
+  hk_indonesie:    'hr_zuidoostAzie',
+  hk_polen:        'hr_oostEuropa',
+  hk_duitsland:    'hr_westEuropa',
+  hk_belgie:       'hr_westEuropa',
+  hk_euNietEu:     'hr_overigEuropa',
+  hk_oceanie:      'hr_oceanie',
+});
+
+/** A layer key for `key`: a retired id maps to its successor; anything else is returned as is. */
+export const resolveLayerKey = key => RETIRED_LAYERS[key] ?? key;
+
+const LAYER_GROUPS = DATASET_GROUPS.filter(g => g.layer !== false);
+/** The categories that have layers (Layers dropdown, Ranglijst). */
+export const LAYER_CATEGORIES = Object.freeze(LAYER_GROUPS);
+
+/**
  * Datasets per dropdown section, in DATASET_GROUPS order, each section in
- * DATASET_KEYS order: [{ key, label, scope, datasets: [dataset…] }]. Empty
- * sections are dropped; a dataset with an unknown group lands in the last one.
+ * DATASETS order: [{ key, label, headline, scope, datasets }]. Empty
+ * sections are dropped; a dataset with an unknown group lands in the last
+ * layer section. Sections with `layer: false` only show with `includeHidden` (Uitleg).
  * `scope` is 'rotterdam' ('nederland') when every dataset in the section is Rotterdam-only (gemeente-only).
  */
-export function groupDatasets(datasets = DATASETS, groups = DATASET_GROUPS) {
+export function groupDatasets(datasets = DATASETS, groups = DATASET_GROUPS, { includeHidden = false } = {}) {
   const known = new Set(groups.map(g => g.key));
-  const last = groups[groups.length - 1]?.key;
-  return groups.map(g => {
+  const last = [...groups].reverse().find(g => g.layer !== false)?.key;
+  return groups.filter(g => includeHidden || g.layer !== false).map(g => {
     const list = Object.values(datasets).filter(d => (known.has(d.group) ? d.group : last) === g.key);
     const only = ['rotterdam', 'nederland'].find(sc => list.length && list.every(d => d.scope === sc));
-    return { key: g.key, label: g.label, scope: only ?? 'all', datasets: list };
+    return { key: g.key, label: g.label, headline: g.headline ?? null, scope: only ?? 'all', datasets: list };
   }).filter(g => g.datasets.length);
+}
+
+/** Every layer dataset key (Layers dropdown and Ranglijst columns), in category order. */
+export const LAYER_KEYS = Object.freeze(groupDatasets().flatMap(g => g.datasets.map(d => d.key)));
+
+/** The layer category key of dataset `key` (after resolveLayerKey), or null. */
+export function categoryOf(key) {
+  const k = resolveLayerKey(key);
+  if (!LAYER_KEYS.includes(k)) return null;
+  return LAYER_GROUPS.find(g => g.key === DATASETS[k].group)?.key ?? LAYER_GROUPS[LAYER_GROUPS.length - 1].key;
+}
+
+/** Layer datasets of category `cat` with data in `scope` (all scopes when omitted). */
+export function categoryDatasets(cat, scope = null) {
+  return LAYER_KEYS.filter(k => categoryOf(k) === cat && (!scope || datasetInScope(k, scope))).map(k => DATASETS[k]);
+}
+
+/** The metric a category ranks on in `scope` when no Onderdeel is chosen: its headline, else its first layer there; null when it has none. */
+export function categoryHeadline(cat, scope = null) {
+  const list = categoryDatasets(cat, scope);
+  const h = LAYER_GROUPS.find(g => g.key === cat)?.headline;
+  return list.find(d => d.key === h)?.key ?? list[0]?.key ?? null;
+}
+
+/** Ranglijst rank key from the two pickers: `sub` when it is a layer of `cat` in scope, else the category headline. */
+export function rankKeyForCategory(cat, sub = null, scope = null) {
+  if (cat === 'overall') return 'overall';
+  return sub && categoryDatasets(cat, scope).some(d => d.key === sub) ? sub : categoryHeadline(cat, scope);
 }
 
 /** True when `key` has data in the given scope ('rotterdam' | 'nederland'). */

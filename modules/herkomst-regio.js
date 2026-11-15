@@ -94,6 +94,15 @@ export const REGIONS = Object.freeze([
   reg('oceanie',         'Oceanië',          'oceanie', '#f472b6', { whole: true, same: 'oceanie' }),
 ]);
 export const REGION_KEYS = Object.freeze(REGIONS.map(r => r.key));
+/**
+ * Nederland as a region of the "Herkomst" layers (15 Nov 2026): the CBS
+ * Nederlandse achtergrond, metric originDutchPct, which exists at every level
+ * (gemeente, wijk, buurt). Not part of REGIONS: those partition the
+ * migration background, and the file and regionGap keep Nederland apart.
+ */
+export const NEDERLAND_REGION = Object.freeze({ key: 'nederland', label: 'Nederland', continent: 'europa', color: '#e5e7eb', metric: 'originDutchPct', native: true });
+/** The regions as offered in the Herkomst layer category: Nederland first, then REGIONS. */
+export const LAYER_REGIONS = Object.freeze([NEDERLAND_REGION, ...REGIONS]);
 /** Metric keys (`hr_<region>`) of the gemeente layers. */
 export const REGION_METRICS = Object.freeze(REGIONS.map(r => r.metric));
 export const isRegionMetric = k => REGION_METRICS.includes(k);
@@ -194,6 +203,16 @@ export function decodeRegio(data) {
 const pct = (v, total) => (v == null || !(total > 0) ? null : Math.round(v / total * 1000) / 10);
 
 /** An entry → { hr_<region>: % of inhabitants (1 decimal) }. */
+/** Share Nederlandse achtergrond (%, 1 decimal) of an entry; null without total. With regionSharesOf and Onbekend it sums to ~100. */
+export function nederlandShareOf(entry) {
+  return entry ? pct(entry.nederland, entry.total) : null;
+}
+
+/** Share Onbekend (%, 1 decimal) of an entry; null without total. */
+export function onbekendShareOf(entry) {
+  return entry ? pct(entry.onbekend, entry.total) : null;
+}
+
 export function regionSharesOf(entry) {
   return Object.fromEntries(REGIONS.map(r => [r.metric, entry ? pct(entry.counts[r.key], entry.total) : null]));
 }

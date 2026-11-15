@@ -244,7 +244,7 @@ const layersDropdown = document.querySelector('.layers-dropdown');
 // Built from DATASETS, one section per DATASET_GROUPS entry. Rotterdam-only
 // layers carry data-scope="rotterdam" and are hidden in the Nederland view (CSS).
 const escHtml = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-// A mixed section (Veiligheid) names the layers it hides in the Nederland view,
+// A mixed section (Criminaliteit) names the layers it hides in the Nederland view,
 // so the shorter list there does not read as missing data.
 layersDropdown.innerHTML = groupDatasets().map(g => {
   const rtmOnly = g.scope === 'all' ? g.datasets.filter(d => d.scope === 'rotterdam').length : 0;
