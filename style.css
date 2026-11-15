@@ -955,6 +955,11 @@ footer {
 .list-table thead th[aria-sort="ascending"] button, .list-table thead th[aria-sort="descending"] button,
 .list-table thead th.is-rank-key button { color: var(--text-primary); }
 .list-table thead th.is-neutral button { font-style: italic; }
+/* Ranking on one dataset: its column comes first and is tinted; the score header names it. */
+.list-table thead th.is-rank-key { box-shadow: inset 0 -2px 0 var(--accent-orange); }
+.list-table thead th.is-rank-key button { color: var(--accent-orange); }
+.list-table td.is-rank-key { background: #1b1426; }
+.list-table thead .col-score.is-single button { white-space: normal; text-align: left; line-height: 1.15; font-size: 0.72rem; }
 .list-sort-arrow { font-size: 0.6rem; min-width: 0.6rem; }
 /* Sticky leading columns: rank, name and score stay put; the datasets scroll. */
 .list-table .col-rank, .list-table .col-name, .list-table .col-score { position: sticky; z-index: 1; }

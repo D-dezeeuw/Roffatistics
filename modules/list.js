@@ -5,7 +5,7 @@
 import { getState, setState, onStateChange } from './state.js';
 import { loadRotterdamAreas, getAreaIndex, DATASETS, DATASET_KEYS } from './areas.js';
 import { interpolateColor } from './overlays.js';
-import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore } from './ranking.js';
+import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, orderColumns, scoreHeader } from './ranking.js';
 
 const LEVELS = {
   rotterdam: [{ key: 'wijken', label: 'Wijken' }, { key: 'buurten', label: 'Buurten' }],
@@ -206,17 +206,25 @@ async function doRender() {
   if (scope !== getState().scope || level !== ui.level[scope]) return;   // superseded
 
   const datasets = ALL_DATASETS.filter(d => areas.some(a => typeof a.values?.[d.key] === 'number'));
-  const ranked = rankRows(scoreAreas(areas, datasets), ui.rankKey, datasets);
+  // A dataset without data on this level cannot rank anything: fall back to the total score.
+  const wanted = ui.rankKey === 'overall' ? null : DATASETS[ui.rankKey];
+  const rankKey = wanted && datasets.includes(wanted) ? wanted.key : 'overall';
+  const ranked = rankRows(scoreAreas(areas, datasets), rankKey, datasets);
   const rows = sortRows(ranked, ui.sort.column, ui.sort.dir);
   const hidden = ALL_DATASETS.filter(d => !datasets.includes(d)).map(d => d.label);
+  const rankDs = DATASETS[rankKey];
 
   const notes = [];
   if (!dataOk) notes.push('CBS-cijfers niet beschikbaar.');
-  notes.push('Score = percentiel 0–100 binnen de lijst, gemiddeld over de datasets met een richting.');
+  if (wanted && !rankDs) notes.push(`${wanted.label} heeft geen data op dit niveau; gerangschikt op totaalscore.`);
+  if (!rankDs) notes.push('Score = percentiel 0–100 binnen de lijst, gemiddeld over de datasets met een richting.');
+  else if (rankDs.higherIsBetter == null) notes.push(`Gerangschikt op ${rankDs.title}, hoogste waarde eerst; score = percentiel 0–100 van die waarde.`);
+  else notes.push(`Score = percentiel 0–100 op ${rankDs.title} alleen (${rankDs.higherIsBetter ? 'hoger' : 'lager'} is beter).`);
+  if (rankDs && rows.some(r => r.rank == null)) notes.push('Gebieden zonder waarde staan onderaan, zonder rang.');
   if (hidden.length) notes.push(`Geen data: ${hidden.join(', ')}.`);
   setNote(notes.join(' '));
 
-  ui.root.querySelector('.list-table-wrap').innerHTML = tableHtml(rows, datasets, level);
+  ui.root.querySelector('.list-table-wrap').innerHTML = tableHtml(rows, orderColumns(datasets, rankKey), level, rankKey);
   markSelected(getState().area);
 }
 
@@ -246,23 +254,25 @@ function directionHint(ds) {
   return `${ds.title} — telt niet mee in de score`;
 }
 
-function tableHtml(rows, datasets, level) {
+function tableHtml(rows, datasets, level, rankKey) {
   const nameLabel = { wijken: 'Wijk', buurten: 'Buurt', provincies: 'Provincie', gemeenten: 'Gemeente' }[level];
+  const sh = scoreHeader(rankKey, datasets);
+  const single = rankKey !== 'overall';
   const head = `<tr>
     ${headerCell('rank', '#', 'col-rank', 'Rang')}
     ${headerCell('name', nameLabel, 'col-name')}
-    ${headerCell('overall', 'Score', 'col-score', 'Gemiddelde percentielscore')}
-    ${datasets.map(d => headerCell(d.key, d.label, `col-data${d.higherIsBetter == null ? ' is-neutral' : ''}${ui.rankKey === d.key ? ' is-rank-key' : ''}`, directionHint(d))).join('')}
+    ${headerCell('overall', sh.label, `col-score${single ? ' is-single' : ''}`, sh.title)}
+    ${datasets.map(d => headerCell(d.key, d.label, `col-data${d.higherIsBetter == null ? ' is-neutral' : ''}${rankKey === d.key ? ' is-rank-key' : ''}`, rankKey === d.key ? `${directionHint(d)} · rangschikt de lijst` : directionHint(d))).join('')}
   </tr>`;
   const body = rows.map(r => {
-    const scoreColor = r.overall != null ? interpolateColor(r.overall, 0, 100) : null;
+    const scoreColor = r.score != null ? interpolateColor(r.score, 0, 100) : null;
     const cells = datasets.map(d => {
       const v = r.values[d.key];
       const s = d.higherIsBetter == null ? r.pct[d.key] : r.scores[d.key];
       const bar = s != null
         ? `<span class="list-bar" style="width:${Math.max(4, Math.round(s))}%;background:${interpolateColor(s, 0, 100)}"></span>` : '';
       const tip = s != null && d.higherIsBetter != null ? ` title="Score ${formatScore(s)}"` : '';
-      return `<td class="col-data${v == null ? ' is-missing' : ''}"${tip}><span class="list-val">${formatValue(v, d.unit)}</span>${bar}</td>`;
+      return `<td class="col-data${v == null ? ' is-missing' : ''}${rankKey === d.key ? ' is-rank-key' : ''}"${tip}><span class="list-val">${formatValue(v, d.unit)}</span>${bar}</td>`;
     }).join('');
     return `<tr data-code="${esc(r.code)}" tabindex="0"${r.rank == null ? ' class="is-unranked"' : ''}>
       <td class="col-rank">${r.rank ?? '—'}</td>
@@ -270,7 +280,7 @@ function tableHtml(rows, datasets, level) {
         <button type="button" class="list-map-btn" title="Toon op kaart" aria-label="Toon ${esc(r.name)} op kaart">
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>
         </button></th>
-      <td class="col-score">${scoreColor ? `<span class="list-chip" style="background:${scoreColor}"></span>` : ''}<strong>${formatScore(r.overall)}</strong><small>${r.overall != null ? `${r.used}/${r.possible}` : ''}</small></td>
+      <td class="col-score">${scoreColor ? `<span class="list-chip" style="background:${scoreColor}"></span>` : ''}<strong>${formatScore(r.score)}</strong><small>${!single && r.score != null ? `${r.used}/${r.possible}` : ''}</small></td>
       ${cells}
     </tr>`;
   }).join('');

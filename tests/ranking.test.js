@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   percentileScores, scoreAreas, rankValue, rankRows, columnValue, sortRows, defaultSortDir, formatValue, formatScore,
+  scoreFor, orderColumns, scoreHeader,
 } from '../modules/ranking.js';
 
 const DS = [
@@ -126,5 +127,75 @@ describe('formatting', () => {
     assert.equal(formatValue(null, '%'), '—');
     assert.equal(formatScore(72.6), '73');
     assert.equal(formatScore(null), '—');
+  });
+});
+
+describe('single-dataset ranking', () => {
+  const DS2 = [
+    { key: 'income', label: 'Inkomen', title: 'Gem. inkomen', higherIsBetter: true },
+    { key: 'crime',  label: 'Crim.',   title: 'Misdrijven',   higherIsBetter: false },
+    { key: 'pop',    label: 'Bevolking', title: 'Inwoners',   higherIsBetter: null },
+  ];
+  const scored = scoreAreas([
+    area('A', 'Alfa',    { income: 10, crime: 1,  pop: 5 }),
+    area('B', 'Bravo',   { income: 30, crime: 9,  pop: 9 }),
+    area('C', 'Charlie', { income: 20, crime: 5,  pop: null }),
+    area('D', 'Delta',   { income: null, crime: 2, pop: 1 }),
+  ], DS2);
+
+  it('scores and ranks on that dataset alone, missing values unranked at the bottom', () => {
+    const r = rankRows(scored, 'income', DS2);
+    assert.deepEqual(r.map(x => [x.code, x.rank, x.score]), [['B', 1, 100], ['C', 2, 50], ['A', 3, 0], ['D', null, null]]);
+    assert.ok(r.every(x => x.rankKey === 'income'));
+  });
+  it('honours higherIsBetter false', () => {
+    const r = rankRows(scored, 'crime', DS2);
+    assert.deepEqual(r.map(x => x.code), ['A', 'D', 'C', 'B']);
+    assert.equal(r[0].score, 100);
+    assert.equal(r.at(-1).score, 0);
+  });
+  it('ranks a neutral dataset by raw value, score = raw percentile', () => {
+    const r = rankRows(scored, 'pop', DS2);
+    assert.deepEqual(r.map(x => [x.code, x.rank]), [['B', 1], ['A', 2], ['D', 3], ['C', null]]);
+    assert.deepEqual(r.map(x => x.score), [100, 50, 0, null]);
+  });
+  it('overall keeps the mean-of-scores behaviour', () => {
+    const r = rankRows(scored, 'overall', DS2);
+    for (const x of r) assert.equal(x.score, x.overall);
+  });
+  it('sorting the score column follows the single-dataset score', () => {
+    const r = rankRows(scored, 'crime', DS2);
+    assert.deepEqual(sortRows(r, 'overall', 'desc').map(x => x.code), ['A', 'D', 'C', 'B']);
+    assert.equal(columnValue({ overall: 40 }, 'overall'), 40);
+    assert.equal(columnValue({ overall: 40, score: null }, 'overall'), null);
+  });
+  it('scoreFor reads overall, scores or pct', () => {
+    assert.equal(scoreFor(scored[1], 'overall', DS2), scored[1].overall);
+    assert.equal(scoreFor(scored[1], 'crime', DS2), 0);
+    assert.equal(scoreFor(scored[1], 'pop', DS2), 100);
+    assert.equal(scoreFor(scored[1], 'nope', DS2), null);
+  });
+});
+
+describe('column order and score header', () => {
+  const DS2 = [
+    { key: 'income', label: 'Inkomen', title: 'Gem. inkomen', higherIsBetter: true },
+    { key: 'crime',  label: 'Crim.',   title: 'Misdrijven',   higherIsBetter: false },
+    { key: 'pop',    label: 'Bevolking', title: 'Inwoners',   higherIsBetter: null },
+  ];
+  it('moves the ranking dataset to the first data column', () => {
+    assert.deepEqual(orderColumns(DS2, 'pop').map(d => d.key), ['pop', 'income', 'crime']);
+    assert.deepEqual(orderColumns(DS2, 'crime').map(d => d.key), ['crime', 'income', 'pop']);
+  });
+  it('keeps the original order for overall or an unknown key, without mutating', () => {
+    assert.deepEqual(orderColumns(DS2, 'overall').map(d => d.key), ['income', 'crime', 'pop']);
+    assert.deepEqual(orderColumns(DS2, 'nope').map(d => d.key), ['income', 'crime', 'pop']);
+    assert.notEqual(orderColumns(DS2, 'overall'), DS2);
+  });
+  it('names the basis of the score in the header', () => {
+    assert.equal(scoreHeader('overall', DS2).label, 'Score');
+    assert.equal(scoreHeader('income', DS2).label, 'Score · Inkomen');
+    assert.match(scoreHeader('crime', DS2).title, /lager is beter/);
+    assert.match(scoreHeader('pop', DS2).title, /Percentiel van Inwoners/);
   });
 });

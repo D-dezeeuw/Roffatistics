@@ -74,9 +74,22 @@ export function rankValue(row, key, datasets) {
 }
 
 /**
- * Adds `rank` (1 = best, competition ranking: ties share a rank, 1-2-2-4) on `key`.
- * Rows without a rank value get rank null and sort to the bottom by name.
- * Returns a new array in rank order.
+ * The 0–100 score shown in the score column when ranking on `key`:
+ * 'overall' → the mean of scores; a scored dataset → its direction-aware
+ * percentile; a neutral dataset (higherIsBetter null) → the raw-value
+ * percentile (high value = high score, matching its raw-value ranking).
+ */
+export function scoreFor(row, key, datasets) {
+  if (key === 'overall') return row.overall ?? null;
+  const ds = datasets.find(d => d.key === key);
+  if (!ds) return null;
+  return (ds.higherIsBetter == null ? row.pct?.[key] : row.scores?.[key]) ?? null;
+}
+
+/**
+ * Adds `rank` (1 = best, competition ranking: ties share a rank, 1-2-2-4) on `key`,
+ * plus `score` (scoreFor) and `rankKey`. Rows without a rank value get rank null
+ * and sort to the bottom by name. Returns a new array in rank order.
  */
 export function rankRows(rows, key = 'overall', datasets = []) {
   const withVal = rows.map(r => ({ row: r, v: rankValue(r, key, datasets) }));
@@ -88,10 +101,31 @@ export function rankRows(rows, key = 'overall', datasets = []) {
   });
   let rank = 0, prev;
   return withVal.map(({ row, v }, i) => {
-    if (v == null) return { ...row, rank: null };
+    const score = scoreFor(row, key, datasets);
+    if (v == null) return { ...row, rank: null, score, rankKey: key };
     if (v !== prev) { rank = i + 1; prev = v; }
-    return { ...row, rank };
+    return { ...row, rank, score, rankKey: key };
   });
+}
+
+/**
+ * Dataset columns in display order: the ranking dataset first (right after
+ * name and score), the rest in their original order. 'overall' or a key
+ * that is not a column keeps the original order.
+ */
+export function orderColumns(datasets, key) {
+  const i = datasets.findIndex(d => d.key === key);
+  return i < 0 ? [...datasets] : [datasets[i], ...datasets.slice(0, i), ...datasets.slice(i + 1)];
+}
+
+/** Score column header and its tooltip for the ranking key. */
+export function scoreHeader(key, datasets) {
+  const ds = key === 'overall' ? null : datasets.find(d => d.key === key);
+  if (!ds) return { label: 'Score', title: 'Gemiddelde percentielscore over de datasets met een richting' };
+  const title = ds.higherIsBetter == null
+    ? `Percentiel van ${ds.title} binnen de lijst (hoog = hoge waarde)`
+    : `Percentielscore op ${ds.title} — ${ds.higherIsBetter ? 'hoger' : 'lager'} is beter`;
+  return { label: `Score · ${ds.label}`, title };
 }
 
 function compareNames(a, b) {
@@ -102,7 +136,7 @@ function compareNames(a, b) {
 export function columnValue(row, column) {
   if (column === 'rank')    return row.rank ?? null;
   if (column === 'name')    return row.name ?? null;
-  if (column === 'overall') return row.overall ?? null;
+  if (column === 'overall') return ('score' in row ? row.score : row.overall) ?? null;
   const v = row.values?.[column];
   return isNum(v) ? v : null;
 }
