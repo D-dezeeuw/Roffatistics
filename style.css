@@ -291,22 +291,24 @@ body {
 .layer-group-title {
   display: block;
   padding: 0.35rem 1rem 0.15rem;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 .layer-group-list { list-style: none; margin: 0; padding: 0; }
 .layer-hint { padding: 0.25rem 1rem 0.4rem; font-size: 0.68rem; font-style: italic; color: var(--text-muted); }
-/* Wide screens: two columns, a section never splits. A grid, not CSS
-   columns: columns with a max-height overflow sideways into extra columns
-   outside the 420px box, which is how the crime section vanished once the
-   herkomst layers grew the list (fixed 15 Nov 2026). A grid scrolls down. */
+/* Wide screens: two balanced columns, a section never splits. The columns
+   sit on an inner list without a height limit (.layers-cols > ul), so they
+   balance and grow downwards while the outer dropdown scrolls. Columns on the
+   height-limited dropdown itself overflowed sideways (crime section vanished,
+   v0.31); a two-column grid left gaps beside long sections (v0.32). */
+.layers-cols, .layers-cols > ul { list-style: none; margin: 0; padding: 0; }
 @media (min-width: 720px) {
-  .layers-dropdown { min-width: 440px; max-height: calc(100dvh - 5rem); }
-  .layers-dropdown.open { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; align-content: start; }
-  .layer-group { break-inside: avoid; }
-  .layer-group + .layer-group { border-top: none; margin-top: 0; }
+  .layers-dropdown { min-width: 460px; max-height: calc(100dvh - 5rem); }
+  .layers-cols > ul { columns: 2; column-gap: 0; column-rule: 1px solid rgba(var(--accent-rgb), 0.12); }
+  .layer-group { break-inside: avoid; page-break-inside: avoid; }
 }
 
 /* Rotterdam-only layers and panel rows vanish in the Nederland view, and the

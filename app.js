@@ -246,7 +246,7 @@ const layersDropdown = document.querySelector('.layers-dropdown');
 const escHtml = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 // A mixed section (Criminaliteit) names the layers it hides in the Nederland view,
 // so the shorter list there does not read as missing data.
-layersDropdown.innerHTML = groupDatasets().map(g => {
+layersDropdown.innerHTML = '<li class="layers-cols" role="none"><ul role="none">' + groupDatasets().map(g => {
   const rtmOnly = g.scope === 'all' ? g.datasets.filter(d => d.scope === 'rotterdam').length : 0;
   return `
   <li class="layer-group" role="group" aria-labelledby="layer-group-${g.key}"${g.scope !== 'all' ? ` data-scope="${g.scope}"` : ''}>
@@ -256,7 +256,7 @@ layersDropdown.innerHTML = groupDatasets().map(g => {
       <li role="none" class="layer-hint" data-scope="nederland">+${rtmOnly} lagen per wijk/buurt in de Rotterdam-weergave</li>` : ''}
     </ul>
   </li>`;
-}).join('');
+}).join('') + '</ul></li>';
 
 function closeDropdown() {
   layersDropdown.classList.remove('open');

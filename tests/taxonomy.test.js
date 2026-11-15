@@ -55,10 +55,11 @@ describe('categories', () => {
     assert.ok(categoryDatasets('criminaliteit', 'rotterdam').length > 10, 'sub-categories per wijk/buurt');
     assert.ok(['crimeBurglary', 'crimeViolence', 'crimeStreetRobbery', 'crimeBike', 'crimeVandalism', 'crimeDensity', 'crimeNearby'].every(k => categoryOf(k) === 'criminaliteit'));
   });
-  it('wide layer dropdown is a grid, not CSS columns (columns spilled the last sections out of view)', () => {
+  it('wide layer dropdown: columns on the unbounded inner list, never on the height-limited dropdown', () => {
     const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
     assert.doesNotMatch(css, /\.layers-dropdown\s*\{[^}]*columns:/);
-    assert.match(css, /\.layers-dropdown\.open\s*\{[^}]*display:\s*grid/);
+    assert.match(css, /\.layers-cols > ul\s*\{[^}]*columns:\s*2/);
+    assert.doesNotMatch(css, /\.layers-dropdown\.open\s*\{[^}]*display:\s*grid/);
   });
 });
 
