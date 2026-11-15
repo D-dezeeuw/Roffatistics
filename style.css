@@ -955,6 +955,7 @@ footer {
   border-radius: var(--radius);
   cursor: pointer;
 }
+.splash-nl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
 .splash-nl-btn:hover { border-color: var(--accent); color: var(--accent); }
 @media (max-width: 720px) {
   .splash-nl { grid-template-columns: minmax(0, 1fr); }
@@ -969,17 +970,6 @@ footer {
   gap: 0.4rem 1.2rem;
   text-align: center;
 }
-
-.splash-start {
-  padding: 0.45rem 0.9rem;
-  font: 600 0.85rem var(--font-ui);
-  color: var(--text-primary);
-  background: none;
-  border: 1px solid rgba(var(--accent-rgb), 0.35);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-.splash-start:hover { border-color: var(--accent); }
 
 .splash-hide-label {
   display: inline-flex;
