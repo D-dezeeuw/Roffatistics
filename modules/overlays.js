@@ -1,4 +1,5 @@
 import { getMap } from './map.js';
+import { buildScale, getScaleMethod, outlierLabel, OUTLIER_COLOR } from './scale.js';
 
 const ZOOM_NATIONAL     = 6;
 const ZOOM_MUNICIPALITY = 10;
@@ -38,14 +39,11 @@ const STYLE_BUURT = {
   opacity:     0.5,
 };
 
-// Low → #2e1065 (deep purple)  High → #ea580c (orange)
-export function interpolateColor(value, min, max) {
-  const t = max === min ? 0 : (value - min) / (max - min);
-  const r = Math.round(46  + t * (234 - 46));
-  const g = Math.round(16  + t * (88  - 16));
-  const b = Math.round(101 + t * (12  - 101));
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-}
+// The ramp lives in scale.js; re-exported for older importers.
+export { interpolateColor } from './scale.js';
+
+// Solid red border on top of the class fill marks an outlier (see scale.js).
+const STYLE_OUTLIER = { color: OUTLIER_COLOR, weight: 2.5, opacity: 1 };
 
 export function resolveZoomTier(zoom) {
   if (zoom <= ZOOM_NATIONAL)     return 'national';
@@ -58,7 +56,7 @@ const layers   = { national: null, province: null, municipality: null, buurt: nu
 let activeTier = null;
 let provinceData     = [];
 let municipalityData = [];
-let activeColorState = null; // { lookup, min, max } — set by applyDataset
+let activeColorState = null; // { lookup, scale } — set by applyDataset
 let activeGemeente     = null; // GM code of the last clicked gemeente
 let activeGemeenteName = null; // display name of the last clicked gemeente
 const geoCache = {};
@@ -104,13 +102,10 @@ function choroplethOpacity() {
   return 0.65;
 }
 
-export function applyDataset(data, valueKey) {
-  const values = data.map(d => d[valueKey]).filter(v => v != null);
-  const min    = values.length ? Math.min(...values) : null;   // Rotterdam-only dataset in the Nederland view
-  const max    = values.length ? Math.max(...values) : null;
+export function applyDataset(data, valueKey, method = getScaleMethod()) {
   const lookup = Object.fromEntries(data.map(d => [d.regionCode, d[valueKey]]));
-
-  activeColorState = { lookup, min, max };
+  const scale  = buildScale(data.map(d => d[valueKey]), { method });   // empty for a Rotterdam-only dataset
+  activeColorState = { lookup, scale };
 
   // Color the municipality layer — it is visible at both municipality and buurt tiers.
   const targetLayer = (activeTier === 'municipality' || activeTier === 'buurt')
@@ -118,19 +113,14 @@ export function applyDataset(data, valueKey) {
     : layers.province;
 
   if (targetLayer) {
-    const fillOpacity = choroplethOpacity();
     targetLayer.eachLayer(fl => {
-      const code  = fl.feature?.properties?.statcode;
-      const value = lookup[code];
-      fl.setStyle(
-        value != null
-          ? { fillColor: interpolateColor(value, min, max), fillOpacity }
-          : { ...STYLE_DEFAULT },
-      );
+      const code = fl.feature?.properties?.statcode;
+      fl.setStyle(restoreStyle(code));
+      if (scale.isOutlier(lookup[code])) fl.bringToFront();
     });
   }
 
-  return { min, max };
+  return { min: scale.min, max: scale.max, scale };
 }
 
 function restoreStyle(code) {
@@ -139,9 +129,15 @@ function restoreStyle(code) {
     : { ...STYLE_DEFAULT };
   if (!activeColorState) return base;
   const value = activeColorState.lookup[code];
-  return value != null
-    ? { ...base, fillColor: interpolateColor(value, activeColorState.min, activeColorState.max), fillOpacity: choroplethOpacity() }
-    : base;
+  if (value == null) return base;
+  const { scale } = activeColorState;
+  return { ...base, fillColor: scale.colorFor(value), fillOpacity: choroplethOpacity(), ...(scale.isOutlier(value) ? STYLE_OUTLIER : {}) };
+}
+
+/** Popup HTML: the name, plus the outlier note when the value is one. */
+function popupHtml(name, code) {
+  const side = activeColorState?.scale.outlierSide(activeColorState.lookup[code]);
+  return `<strong>${name}</strong>${side ? `<br><span class="tt-outlier">${outlierLabel(side)}</span>` : ''}`;
 }
 
 async function loadGeoJSON(url) {
@@ -165,7 +161,7 @@ function makeProvinceLayer(geojson) {
           e.target.bringToFront();
           L.popup({ closeButton: false, offset: [0, -4] })
             .setLatLng(e.latlng)
-            .setContent(`<strong>${name}</strong>`)
+            .setContent(popupHtml(name, code))
             .openOn(getMap());
         },
         mouseout(e) {
@@ -194,7 +190,7 @@ function makeGemeenteLayer(geojson) {
           e.target.bringToFront();
           L.popup({ closeButton: false, offset: [0, -4] })
             .setLatLng(e.latlng)
-            .setContent(`<strong>${name}</strong>`)
+            .setContent(popupHtml(name, code))
             .openOn(getMap());
         },
         mouseout(e) {

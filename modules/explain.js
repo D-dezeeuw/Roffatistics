@@ -97,6 +97,15 @@ export const GENERAL_SECTIONS = Object.freeze([
     ],
   },
   {
+    id: 'scale',
+    title: 'Kleurschaal',
+    paragraphs: [
+      'Standaard kleurt de kaart in 7 klassen op rangorde (kwantielen): elke klasse bevat ongeveer even veel gebieden van de getoonde set (alle wijken of alle buurten, in de gekozen criminaliteitsweergave). De middelste klasse bevat de mediaan; de legenda toont per klasse van welke tot welke waarde die loopt. Zo krijgen 26 en 85 misdrijven per 1.000 een duidelijk andere kleur, ook als één gebied er 500 heeft.',
+      'Uitschieters krijgen een rode rand bovenop hun kleur, en een rood stipje in de Ranglijst en een rode rand in het dashboard. Een uitschieter ligt buiten de Tukey-grenzen (anderhalf keer de afstand tussen het 25e en 75e percentiel, onder of boven die percentielen), gemeten op de gewone én op een logaritmische schaal; alleen wat op beide ver buiten de rest valt telt. Bij criminaliteit zijn dat vooral gebieden waar veel mensen komen en weinig wonen (Centrum, station, winkelcentra).',
+      'Met "Schaal: Lineair" in de legenda zie je de oude kleuring van laagste naar hoogste waarde; een enkele uitschieter maakt dan bijna alles dezelfde kleur. Je keuze wordt onthouden.',
+    ],
+  },
+  {
     id: 'nodata',
     title: 'Geen data en peiljaren',
     paragraphs: [

@@ -5,7 +5,7 @@ import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CB
 import { PANEL_FIELDS }                   from './modules/panel.js';
 import { initState, getState, setState, onStateChange } from './modules/state.js';
 import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea, pinActiveArea, clearPinnedArea, getActiveArea } from './modules/rotterdam.js';
-import { updateLegend }                   from './modules/legend.js';
+import { updateLegend, initScaleToggle, SCALE_EVENT } from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
 import { initList, setNationalRows }      from './modules/list.js';   // Ranglijst view
 import { initSearch }                     from './modules/search.js';
@@ -21,8 +21,6 @@ for (const key of PANEL_FIELDS) { setValue(`panel.${key}`, ''); setValue(`panel2
 for (const key of ['name', 'code']) { setValue(`panel.${key}`, ''); setValue(`panel2.${key}`, ''); }
 // ── Legend ────────────────────────────────────────────────────────────────────
 setValue('legend.title',           '');
-setValue('legend.min',             '');
-setValue('legend.max',             '');
 
 bindDOM();
 run();
@@ -219,9 +217,9 @@ async function activateDataset(key) {
   const ds = datasetFor(key, mode);
   syncLegendExtras(key);
   if (getState().scope === 'rotterdam') {
-    const { min, max, level, hasData } = applyRotterdamDataset(key, mode);
+    const { scale, level, hasData } = applyRotterdamDataset(key, mode);
     const suffix = hasData ? (level === 'buurt' ? 'buurt' : 'wijk') : 'geen wijkdata';
-    await updateLegend({ title: `${ds.title} · ${suffix}`, min, max, dataset: key, showNoData: true });
+    await updateLegend({ title: `${ds.title} · ${suffix}`, scale, dataset: key, mode, showNoData: true });
     return;
   }
   const tier       = getActiveTier();
@@ -230,8 +228,8 @@ async function activateDataset(key) {
   if (!rows.length) return;
   const title = !datasetInScope(key, 'nederland') ? `${ds.title} · alleen in Rotterdam-weergave`
     : useGemeente ? `${ds.title} · gemeente` : ds.title;
-  const { min, max } = applyDataset(rows.map(r => crimeValues(r, mode)), ds.key);
-  await updateLegend({ title, min, max, dataset: key });
+  const { scale } = applyDataset(rows.map(r => crimeValues(r, mode)), ds.key);
+  await updateLegend({ title, scale, dataset: key, mode });
 }
 
 // ── Scope (Rotterdam | Nederland) ─────────────────────────────────────────────
@@ -318,4 +316,7 @@ initDashboard();
 applyScope(initialState.scope, { initial: true });
 initSearch();
 initCrimeToggles();
+initScaleToggle();
+// Schaal: Kwantiel | Lineair — recolour the map and legend from the shown set.
+document.addEventListener(SCALE_EVENT, () => activateDataset(getState().dataset));
 initExplain();

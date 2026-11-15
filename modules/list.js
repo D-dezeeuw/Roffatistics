@@ -7,7 +7,7 @@ import { loadRotterdamAreas, getAreaIndex, DATASETS, DATASET_KEYS } from './area
 import { datasetFor, crimeAreas, crimeValues, isCrimeDataset } from './datasets.js';
 import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
-import { interpolateColor } from './overlays.js';
+import { buildScale, getScaleMethod, outlierLabel, SCALE_EVENT } from './scale.js';
 import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, orderColumns, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES } from './ranking.js';
 
 const LEVELS = {
@@ -118,6 +118,7 @@ export function initList(root = document.getElementById('view-list')) {
     }
   });
 
+  document.addEventListener(SCALE_EVENT, () => { if (isVisible()) render(); });
   if (getState().view === 'list') render();
 }
 
@@ -316,15 +317,22 @@ function tableHtml(rows, datasets, level, rankKey, sortDs = null) {
     ${headerCell('overall', sh.label, `col-score${single ? ' is-single' : ''}`, sh.title, 'score')}
     ${datasets.map(d => headerCell(d.key, d.label, `col-data${d.higherIsBetter == null ? ' is-neutral' : ''}${rankKey === d.key ? ' is-rank-key' : ''}`, rankKey === d.key ? `${directionHint(d)} · rangschikt de lijst` : directionHint(d), d.key)).join('')}
   </tr>`;
+  // Same colour scale as the map (scale.js), built per column from the listed rows:
+  // bar width = score/percentile, bar colour = the value's map class, red mark = outlier.
+  const method = getScaleMethod();
+  const scales = Object.fromEntries(datasets.map(d => [d.key, buildScale(rows.map(r => r.values[d.key]), { method })]));
+  const scoreScale = buildScale(rows.map(r => r.score), { method });
   const body = rows.map(r => {
-    const scoreColor = r.score != null ? interpolateColor(r.score, 0, 100) : null;
+    const scoreColor = r.score != null ? scoreScale.colorFor(r.score) : null;
     const cells = datasets.map(d => {
       const v = r.values[d.key];
       const s = d.higherIsBetter == null ? r.pct[d.key] : r.scores[d.key];
       const bar = s != null
-        ? `<span class="list-bar" style="width:${Math.max(4, Math.round(s))}%;background:${interpolateColor(s, 0, 100)}"></span>` : '';
-      const tip = s != null && d.higherIsBetter != null ? ` title="Score ${formatScore(s)}"` : '';
-      return `<td class="col-data${v == null ? ' is-missing' : ''}${rankKey === d.key ? ' is-rank-key' : ''}"${tip}><span class="list-val">${formatValue(v, d.unit)}</span>${bar}</td>`;
+        ? `<span class="list-bar" style="width:${Math.max(4, Math.round(s))}%;background:${scales[d.key].colorFor(v)}"></span>` : '';
+      const side = scales[d.key].outlierSide(v);
+      const mark = side ? `<span class="list-outlier" title="${outlierLabel(side)}" aria-label="${outlierLabel(side)}"></span>` : '';
+      const tip = s != null && d.higherIsBetter != null ? ` title="Score ${formatScore(s)}${side ? ` · ${outlierLabel(side)}` : ''}"` : side ? ` title="${outlierLabel(side)}"` : '';
+      return `<td class="col-data${v == null ? ' is-missing' : ''}${side ? ' is-outlier' : ''}${rankKey === d.key ? ' is-rank-key' : ''}"${tip}><span class="list-val">${formatValue(v, d.unit)}${mark}</span>${bar}</td>`;
     }).join('');
     return `<tr data-code="${esc(r.code)}" tabindex="0"${r.rank == null ? ' class="is-unranked"' : ''}>
       <td class="col-rank">${r.rank ?? '—'}</td>

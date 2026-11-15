@@ -6,7 +6,7 @@ import { loadRotterdamAreas, DATASETS, DATASET_KEYS } from './areas.js';
 import { datasetFor, crimeAreas } from './datasets.js';
 import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
-import { interpolateColor } from './overlays.js';
+import { buildScale, getScaleMethod, OUTLIER_COLOR, SCALE_EVENT } from './scale.js';
 import { NO_DATA_COLOR } from './rotterdam.js';
 import {
   sortByValue, cityValue, isCityTotal, cityKpis, formatValue, formatShort, formatTick,
@@ -39,6 +39,7 @@ export function initDashboard() {
     else if (changed.includes('area') && areas && root.querySelector('[data-donuts]')) { renderDonuts(); drawCharts(); }
   });
 
+  document.addEventListener(SCALE_EVENT, () => { if (getState().view === 'dashboard') drawCharts(); });
   root.addEventListener('click', onActivate);
   root.addEventListener('keydown', e => {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('[data-code]')) { e.preventDefault(); onActivate(e); }
@@ -296,7 +297,7 @@ function barChartSvg(wijken, key, W, selected) {
   const ds = meta(key);
   const rows = sortByValue(wijken, key);
   const vals = rows.map(a => a.values[key]).filter(v => v != null);
-  const lo = vals.length ? Math.min(...vals) : 0, hi = vals.length ? Math.max(...vals) : 1;
+  const scale = buildScale(vals, { method: getScaleMethod() });   // same classes and outliers as the map
   const dom = barDomain(vals);
   const labelW = Math.round(Math.min(150, W * 0.34));
   const padR = 76, top = 18, rowH = 20, axisH = 20;
@@ -317,7 +318,7 @@ function barChartSvg(wijken, key, W, selected) {
     const body = v == null
       ? `<rect x="${labelW}" y="${y + 3}" width="${r1(W - padR - labelW)}" height="${rowH - 6}" rx="2" fill="${NO_DATA_COLOR}" opacity="0.35"/>
          <text class="dash-bar-nodata" x="${labelW + 6}" y="${y + rowH / 2 + 4}">geen data</text>`
-      : `<rect x="${r1(Math.min(x(0), x(v)))}" y="${y + 3}" width="${r1(Math.max(1, Math.abs(x(v) - x(0))))}" height="${rowH - 6}" rx="2" fill="${interpolateColor(v, lo, hi)}"/>
+      : `<rect x="${r1(Math.min(x(0), x(v)))}" y="${y + 3}" width="${r1(Math.max(1, Math.abs(x(v) - x(0))))}" height="${rowH - 6}" rx="2" fill="${scale.colorFor(v)}"${scale.isOutlier(v) ? ` stroke="${OUTLIER_COLOR}" stroke-width="1.5" class="dash-bar-outlier"` : ''}/>
          <text class="dash-bar-value" x="${r1(x(v) + 5)}" y="${y + rowH / 2 + 4}">${esc(formatShort(v, key, mode))}</text>`;
     return `
     <g class="${cls}" data-code="${esc(a.code)}" data-tip="${esc(text)}" tabindex="0" role="button" aria-label="${esc(text)}. Toon op kaart">
@@ -351,7 +352,7 @@ function scatterSvg(wijken, xKey, yKey, W, selected, noteEl) {
   const x = linearScale([xd.min, xd.max], [m.l, W - m.r]);
   const y = linearScale([yd.min, yd.max], [H - m.b, m.t]);
   const maxPop = Math.max(1, ...points.map(p => p.population ?? 0));
-  const yLo = ys.length ? Math.min(...ys) : 0, yHi = ys.length ? Math.max(...ys) : 1;
+  const yScale = buildScale(ys, { method: getScaleMethod() });
 
   const grid = xd.ticks.map(t => `
     <line class="dash-grid-line" x1="${r1(x(t))}" x2="${r1(x(t))}" y1="${m.t}" y2="${H - m.b}"/>
@@ -369,7 +370,7 @@ function scatterSvg(wijken, xKey, yKey, W, selected, noteEl) {
     const text = `${p.name}\n${meta(xKey).title}: ${formatValue(p.x, xKey, mode)}\n${meta(yKey).title}: ${formatValue(p.y, yKey, mode)}`;
     return `
     <g class="dash-dot${p.code === selected ? ' is-selected' : ''}" data-code="${esc(p.code)}" data-tip="${esc(text)}" tabindex="0" role="button" aria-label="${esc(text.replace(/\n/g, ', '))}. Toon op kaart">
-      <circle cx="${r1(x(p.x))}" cy="${r1(y(p.y))}" r="${r1(r)}" fill="${interpolateColor(p.y, yLo, yHi)}"/>
+      <circle cx="${r1(x(p.x))}" cy="${r1(y(p.y))}" r="${r1(r)}" fill="${yScale.colorFor(p.y)}"${yScale.isOutlier(p.y) ? ' class="is-outlier"' : ''}/>
     </g>`;
   }).join('');
 

@@ -2,12 +2,13 @@
 // higher zoom. Every wijk/buurt is always drawn; areas without a value share
 // NO_DATA_COLOR. Pure styling helpers are exported for the unit tests.
 import { getMap } from './map.js';
-import { interpolateColor, addKeyboardNav } from './overlays.js';
-import { loadRotterdamAreas, valueRange, toNumber, areaPanelData } from './areas.js';
-import { datasetValue, crimeAreas } from './datasets.js';
+import { addKeyboardNav } from './overlays.js';
+import { loadRotterdamAreas, toNumber, areaPanelData } from './areas.js';
+import { buildScale, getScaleMethod, outlierLabel, NO_DATA_COLOR, OUTLIER_COLOR } from './scale.js';
+import { datasetValue } from './datasets.js';
 import { formatValue } from './dashboard-data.js';
 
-export const NO_DATA_COLOR   = '#4b4658';
+export { NO_DATA_COLOR };
 export const MASK_COLOR      = '#0d0a14';
 export const MASK_OPACITY    = 0.85;
 export const ZOOM_BUURT_RD   = 13;
@@ -21,11 +22,16 @@ export function resolveRotterdamLevel(zoom) {
   return zoom >= ZOOM_BUURT_RD ? 'buurt' : 'wijk';
 }
 
-/** Fill style for one area; null/undefined values (or no range) get the neutral colour. */
-export function areaFillStyle(value, range, fillOpacity = 0.6) {
+/** Fill style for one area; null/undefined values (or an empty scale) get the neutral colour. */
+export function areaFillStyle(value, scale, fillOpacity = 0.6) {
   const v = toNumber(value);
-  if (v == null || !range) return { fillColor: NO_DATA_COLOR, fillOpacity: Math.min(fillOpacity, 0.45) };
-  return { fillColor: interpolateColor(v, range.min, range.max), fillOpacity };
+  if (v == null || !scale?.count) return { fillColor: NO_DATA_COLOR, fillOpacity: Math.min(fillOpacity, 0.45) };
+  return { fillColor: scale.colorFor(v), fillOpacity };
+}
+
+/** Red border on top of the class fill for an outlier; null otherwise. */
+export function outlierStroke(value, scale) {
+  return scale?.isOutlier(toNumber(value)) ? { color: OUTLIER_COLOR, weight: 2.5, opacity: 1 } : null;
 }
 
 /**
@@ -47,11 +53,12 @@ export function buildMaskRings(geojson) {
   return rings;
 }
 
-/** Tooltip HTML: name plus the formatted value or "geen data". */
-export function tooltipHtml(name, value, format = v => v.toLocaleString('nl-NL')) {
+/** Tooltip HTML: name plus the formatted value or "geen data", and the outlier note for `side` ('high'|'low'). */
+export function tooltipHtml(name, value, format = v => v.toLocaleString('nl-NL'), side = null) {
   const v = toNumber(value);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  return `<strong>${esc(name)}</strong><br><span class="tt-value">${v == null ? 'geen data' : esc(format(v))}</span>`;
+  const note = v != null && side ? `<br><span class="tt-outlier">${outlierLabel(side)}</span>` : '';
+  return `<strong>${esc(name)}</strong><br><span class="tt-value">${v == null ? 'geen data' : esc(format(v))}</span>${note}`;
 }
 
 // ── Leaflet layers ────────────────────────────────────────────────────────────
@@ -62,7 +69,7 @@ let level = null;
 let dataset = 'population';
 let crimeMode = 'rate';   // state.crime: crime datasets read their raw counts in 'abs'
 const valueOf = area => datasetValue(area?.values, dataset, crimeMode);
-let ranges = { wijk: null, buurt: null };
+let scales = { wijk: buildScale([]), buurt: buildScale([]) };   // rebuilt from the shown set on every recolor
 let activeArea = null;   // area object last shown in slot A
 let pinnedArea = null;   // area object pinned for compare
 const layers = { mask: null, outline: null, wijk: null, buurt: null };
@@ -76,10 +83,10 @@ function makeAreaLayer(geojson, list, kind, onSelect) {
     style: () => ({ color: kind === 'wijk' ? ACCENT : '#ea580c', weight: kind === 'wijk' ? 1.2 : 0.6, opacity: 0.7, fillColor: NO_DATA_COLOR, fillOpacity: 0.45 }),
     onEachFeature(feature, fl) {
       const area = lookup.get(feature.properties.statcode);
-      fl.bindTooltip(() => tooltipHtml(area.name, valueOf(area), v => formatValue(v, dataset, crimeMode)), { sticky: true, direction: 'top', className: 'area-tooltip' });
+      fl.bindTooltip(() => tooltipHtml(area.name, valueOf(area), v => formatValue(v, dataset, crimeMode), scales[kind].outlierSide(valueOf(area))), { sticky: true, direction: 'top', className: 'area-tooltip' });
       fl.on({
         mouseover(e) { e.target.setStyle({ weight: 2.5, color: '#ea580c', opacity: 1 }); e.target.bringToFront(); },
-        mouseout(e)  { e.target.setStyle(baseStroke(kind)); },
+        mouseout(e)  { e.target.setStyle(strokeFor(kind, area)); },
         click()      { onSelect(area); },
       });
     },
@@ -89,6 +96,9 @@ function makeAreaLayer(geojson, list, kind, onSelect) {
 const baseStroke = kind => kind === 'wijk'
   ? { color: ACCENT, weight: 1.2, opacity: level === 'buurt' ? 0.9 : 0.7 }
   : { color: '#ea580c', weight: 0.6, opacity: 0.7 };
+
+// Outlier border only on the level whose fill is shown (wijk fill is off at buurt zoom).
+const strokeFor = (kind, area) => (kind === 'wijk' && level === 'buurt' ? null : outlierStroke(valueOf(area), scales[kind])) ?? baseStroke(kind);
 
 function selectArea(area, onSelect) {
   if (pinnedArea && pinnedArea.code !== area.code) {
@@ -141,18 +151,24 @@ function syncLevel() {
 
 function recolor() {
   if (!layers.wijk) return;
-  ranges = { wijk: valueRange(crimeAreas(areas.wijken, crimeMode), dataset), buurt: valueRange(crimeAreas(areas.buurten, crimeMode), dataset) };
+  const method = getScaleMethod();
+  const values = list => list.map(valueOf);   // the very values the fills and tooltips show
+  scales = { wijk: buildScale(values(areas.wijken), { method }), buurt: buildScale(values(areas.buurten), { method }) };
   const wijkLookup = new Map(areas.wijken.map(a => [a.code, a]));
   const buurtLookup = new Map(areas.buurten.map(a => [a.code, a]));
+  const outliers = [];
   layers.wijk.eachLayer(fl => {
     const a = wijkLookup.get(fl.feature.properties.statcode);
-    const fill = level === 'buurt' ? { fill: false } : { fill: true, ...areaFillStyle(valueOf(a), ranges.wijk) };
-    fl.setStyle({ ...baseStroke('wijk'), ...fill });
+    const fill = level === 'buurt' ? { fill: false } : { fill: true, ...areaFillStyle(valueOf(a), scales.wijk) };
+    fl.setStyle({ ...strokeFor('wijk', a), ...fill });
+    if (level !== 'buurt' && scales.wijk.isOutlier(valueOf(a))) outliers.push(fl);
   });
   layers.buurt.eachLayer(fl => {
     const a = buurtLookup.get(fl.feature.properties.statcode);
-    fl.setStyle({ ...baseStroke('buurt'), ...areaFillStyle(valueOf(a), ranges.buurt, 0.65) });
+    fl.setStyle({ ...strokeFor('buurt', a), ...areaFillStyle(valueOf(a), scales.buurt, 0.65) });
+    if (level === 'buurt' && scales.buurt.isOutlier(valueOf(a))) outliers.push(fl);
   });
+  outliers.forEach(fl => fl.bringToFront());   // red borders not hidden under neighbouring strokes
 }
 
 /**
@@ -182,14 +198,14 @@ export function disableRotterdam() {
   pinnedArea = null;
 }
 
-/** Colours the layers for `key` in crime mode `mode`; returns { min, max, level, hasData } for the legend. */
+/** Colours the layers for `key` in crime mode `mode`; returns { scale, min, max, level, hasData } for the legend. */
 export function applyRotterdamDataset(key, mode = crimeMode) {
   dataset = key;
   crimeMode = mode;
   recolor();
   const lvl = level ?? 'wijk';
-  const range = ranges[lvl];
-  return { min: range?.min ?? null, max: range?.max ?? null, level: lvl, hasData: range != null };
+  const scale = scales[lvl];
+  return { scale, min: scale.min, max: scale.max, level: lvl, hasData: scale.count > 0 };
 }
 
 export function getRotterdamLevel() { return level; }

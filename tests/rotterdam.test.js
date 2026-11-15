@@ -1,20 +1,29 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { areaFillStyle, buildMaskRings, resolveRotterdamLevel, tooltipHtml, NO_DATA_COLOR, ZOOM_BUURT_RD } from '../modules/rotterdam.js';
-import { interpolateColor } from '../modules/overlays.js';
+import { areaFillStyle, outlierStroke, buildMaskRings, resolveRotterdamLevel, tooltipHtml, NO_DATA_COLOR, ZOOM_BUURT_RD } from '../modules/rotterdam.js';
+import { buildScale, OUTLIER_COLOR } from '../modules/scale.js';
 
 describe('Rotterdam styling', () => {
   it('areas without a value all get the same neutral colour', () => {
-    const range = { min: 0, max: 10 };
-    assert.equal(areaFillStyle(null, range).fillColor, NO_DATA_COLOR);
-    assert.equal(areaFillStyle(undefined, range).fillColor, NO_DATA_COLOR);
-    assert.equal(areaFillStyle(5, null).fillColor, NO_DATA_COLOR, 'no range = no data for the whole dataset');
+    const scale = buildScale([0, 5, 10]);
+    assert.equal(areaFillStyle(null, scale).fillColor, NO_DATA_COLOR);
+    assert.equal(areaFillStyle(undefined, scale).fillColor, NO_DATA_COLOR);
+    assert.equal(areaFillStyle(5, null).fillColor, NO_DATA_COLOR, 'no scale = no data for the whole dataset');
+    assert.equal(areaFillStyle(5, buildScale([null])).fillColor, NO_DATA_COLOR, 'empty scale = no data');
   });
 
-  it('areas with a value use the existing colour scale', () => {
-    const range = { min: 0, max: 10 };
-    assert.deepEqual(areaFillStyle(10, range, 0.6), { fillColor: interpolateColor(10, 0, 10), fillOpacity: 0.6 });
-    assert.equal(areaFillStyle(0, range).fillColor, interpolateColor(0, 0, 10), 'zero is data, not missing');
+  it('areas with a value use the scale colour', () => {
+    const scale = buildScale([0, 2, 4, 6, 8, 10, 12, 14, 16]);
+    assert.deepEqual(areaFillStyle(10, scale, 0.6), { fillColor: scale.colorFor(10), fillOpacity: 0.6 });
+    assert.equal(areaFillStyle(0, scale).fillColor, scale.colorFor(0), 'zero is data, not missing');
+  });
+
+  it('outliers get a red border, others none', () => {
+    const scale = buildScale([30, 40, 45, 50, 55, 60, 65, 70, 75, 80, 500]);
+    assert.deepEqual(outlierStroke(500, scale), { color: OUTLIER_COLOR, weight: 2.5, opacity: 1 });
+    assert.equal(outlierStroke(60, scale), null);
+    assert.equal(outlierStroke(null, scale), null);
+    assert.equal(outlierStroke(500, null), null);
   });
 
   it('level switches to buurt at ZOOM_BUURT_RD', () => {
@@ -36,5 +45,8 @@ describe('Rotterdam styling', () => {
   it('tooltip shows the value or "geen data" and escapes names', () => {
     assert.match(tooltipHtml('Noord', 1234), /Noord.*1\.234/);
     assert.match(tooltipHtml('A<b>', null), /A&lt;b&gt;.*geen data/);
+    assert.match(tooltipHtml('Centrum', 500, String, 'high'), /uitschieter \(ver boven mediaan\)/);
+    assert.doesNotMatch(tooltipHtml('Noord', 50), /uitschieter/);
+    assert.doesNotMatch(tooltipHtml('Leeg', null, String, 'high'), /uitschieter/);
   });
 });

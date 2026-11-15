@@ -527,11 +527,32 @@ footer {
 #legend.legend-has-crime .legend-crime { display: block; }
 
 .legend-strip {
+  position: relative;
   height: 7px;
   border-radius: 3px;
   background: linear-gradient(to right, #2e1065, #ea580c);
   margin-bottom: 0.3rem;
 }
+.legend-median-tick {
+  position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px;
+  background: var(--text-primary);
+}
+
+/* Stepped classes (scale.js): one row per class, the median's class marked. */
+.legend-classes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.legend-class {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-family: var(--font-data); font-size: 0.62rem; color: var(--text-muted);
+}
+.legend-class.is-median { color: var(--text-primary); }
+.legend-median { font-family: var(--font-ui); font-size: 0.58rem; color: var(--accent-orange); }
+.legend-chip { flex: none; width: 16px; height: 9px; border-radius: 2px; }
+.legend-chip.is-outlier { background: rgba(124, 58, 237, 0.35); outline: 2px solid #ef4444; outline-offset: -2px; }
+.legend-meta, .legend-outlier, .legend-empty { margin-top: 0.35rem; font-size: 0.6rem; color: var(--text-muted); }
+.legend-outlier { display: flex; align-items: center; gap: 0.4rem; color: #fca5a5; }
+.legend-toggle { margin-top: 0.5rem; }
+.legend-toggle .seg-opt { font-size: 0.62rem; }
+.area-tooltip .tt-outlier, .leaflet-popup-content .tt-outlier { color: #fca5a5; font-size: 0.7rem; }
 
 .legend-nodata {
   display: none;
@@ -1025,6 +1046,11 @@ footer {
 .list-map-btn:hover { color: var(--accent-orange); background: rgba(124, 58, 237, 0.15); }
 .list-table td.col-data { position: relative; font-family: var(--font-data); min-width: 5.5rem; }
 .list-val { position: relative; z-index: 1; }
+/* Outlier in this column (scale.js): small red marker after the value. */
+.list-outlier {
+  display: inline-block; width: 6px; height: 6px; margin-left: 0.3rem; vertical-align: middle;
+  border-radius: 50%; background: #ef4444; box-shadow: 0 0 0 1px rgba(13, 10, 20, 0.8);
+}
 .list-bar { position: absolute; left: 0; bottom: 0; height: 3px; opacity: 0.85; border-radius: 0 2px 2px 0; }
 .list-table td.is-missing { color: var(--text-muted); }
 .list-table tbody tr { cursor: pointer; }
@@ -1261,6 +1287,7 @@ footer {
 .dash-bar.is-selected .dash-hit { fill: rgba(234, 88, 12, 0.16); }
 .dash-dot circle { stroke: var(--bg-base); stroke-width: 1; fill-opacity: 0.9; }
 .dash-dot:hover circle, .dash-dot:focus-visible circle, .dash-dot.is-selected circle { stroke: var(--text-primary); stroke-width: 2; }
+.dash-dot circle.is-outlier { stroke: #ef4444; stroke-width: 1.5; }
 
 /* Composition donuts: chart with its legend beside it, wrapping under it on narrow cards. */
 .dash-donuts {
