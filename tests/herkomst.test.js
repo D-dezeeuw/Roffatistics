@@ -10,7 +10,6 @@ import {
   buildHerkomstUrls, loadCityHerkomst, _resetHerkomstCache, wijkOriginRows,
 } from '../modules/herkomst.js';
 import { GENERAL_SECTIONS } from '../modules/explain.js';
-import { formatPanelData } from '../modules/panel.js';
 
 // WK059901 Stadscentrum, 86165NED (2025), fetched 15 Nov 2026.
 const centrum = {
@@ -82,12 +81,6 @@ describe('origin split and panel bar', () => {
     assert.match(html, /role="img" aria-label="Herkomst: Nederland 36,6%, Europa \(excl\. NL\) 17,7%, Buiten Europa 45,7%"/);
     assert.equal((html.match(/class="origin-seg"/g) || []).length, 3);
     assert.equal(originBarHtml({}), '');
-  });
-  it('panel formats the new fields', () => {
-    const f = formatPanelData({ originDutchPct: 36.6, originEuropePct: 17.7, bornAbroadPct: 43.6 });
-    assert.equal(f.originDutchPct, '36.6%');
-    assert.equal(f.bornAbroadPct, '43.6%');
-    assert.equal(formatPanelData(null).originEuropePct, '—');
   });
 });
 

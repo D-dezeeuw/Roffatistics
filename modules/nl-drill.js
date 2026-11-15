@@ -4,7 +4,8 @@
 // every gemeente. Geometry and values load lazily (nl-areas.js).
 import { getMap } from './map.js';
 import { addKeyboardNav } from './overlays.js';
-import { areaPanelData, areaLevel } from './areas.js';
+import { areaLevel } from './areas.js';
+import { routeToCompare } from './compare.js';
 import { buildScale, getScaleMethod } from './scale.js';
 import { datasetValue, DATASETS } from './datasets.js';
 import { createScoreLabels } from './score-labels.js';
@@ -38,6 +39,7 @@ function ensurePane(map) {
 }
 
 function onClick(code) {
+  if (routeToCompare(code)) return;   // Vergelijken open: fill a column
   const trigger = globalThis.document?.getElementById('map') ?? null;
   import('./area-modal.js').then(({ openAreaModal }) => openAreaModal(code, trigger));
 }
@@ -158,7 +160,7 @@ function featureLayer(code) {
 
 /**
  * Deep link / search for a NL wijk or buurt: shows its gemeente at the right
- * level, fits the map to it and opens the panel. `zoomFor(level)` gives the
+ * level and fits the map to it. `zoomFor(level)` gives the
  * lowest zoom of the tier so the tier follows. Resolves to the area or null.
  */
 export async function focusDrillArea(code, { zoomFor }) {
@@ -176,6 +178,5 @@ export async function focusDrillArea(code, { zoomFor }) {
   }
   const area = findNlArea(code);
   const name = area?.name ?? fl?.feature.properties.statnaam ?? code;
-  import('./panel.js').then(({ showPanel }) => showPanel({ name, code, data: areaPanelData(area) }));
   return area ?? { code, name };
 }

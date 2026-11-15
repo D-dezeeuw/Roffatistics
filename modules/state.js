@@ -4,6 +4,7 @@
 // on a private EventTarget under node.
 import { DATASET_KEYS, CRIME_MODES, resolveLayerKey } from './datasets.js';
 import { shareableScore, restoreLocalScore, isShareOf, SHARE_NONE } from './wizard-model.js';
+import { sanitizeCmp } from './compare.js';
 
 export const SCOPES = Object.freeze(['rotterdam', 'nederland']);
 export const VIEWS  = Object.freeze(['map', 'dashboard', 'list']);
@@ -40,6 +41,7 @@ export function sanitizePatch(patch = {}) {
     if (sc === '') out.score = null;
     else if (SCORE_RE.test(sc)) out.score = sc;
   }
+  if ('cmp' in patch) out.cmp = sanitizeCmp(patch.cmp);   // Vergelijken columns (compare.js); not in DEFAULT_STATE
   if ('area' in patch) {
     const a = patch.area == null ? '' : String(patch.area).trim().toUpperCase();
     if (a === '') out.area = null;
@@ -52,7 +54,7 @@ export function sanitizePatch(patch = {}) {
 export function parseHash(hash) {
   const params = new URLSearchParams(String(hash ?? '').replace(/^#/, ''));
   const raw = {};
-  for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score', 'dtab']) if (params.has(key)) raw[key] = params.get(key);
+  for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score', 'dtab', 'cmp']) if (params.has(key)) raw[key] = params.get(key);
   for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score']) if (params.has(key)) raw[key] = params.get(key);
   if (params.get('lv') === 'adv') raw.listView = 'adv';   // no lv (every old link) = Eenvoudig default
   return sanitizePatch(raw);
@@ -74,6 +76,7 @@ export function serializeHash(state, shareOpts = shareChoice) {
   const shared = state.score && SCORE_RE.test(state.score) ? shareableScore(state.score, shareOpts) : null;
   if (shared) params.set('score', shared);
   if (state.dtab === 'jouw') params.set('dtab', 'jouw');
+  if (state.cmp) params.set('cmp', state.cmp);
   return `#${params}`;
 }
 

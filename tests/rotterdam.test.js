@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { areaFillStyle, outlierStroke, buildMaskRings, resolveRotterdamLevel, tooltipHtml, NO_DATA_COLOR, ZOOM_BUURT_RD, mapClickAction } from '../modules/rotterdam.js';
+import { areaFillStyle, outlierStroke, buildMaskRings, resolveRotterdamLevel, tooltipHtml, NO_DATA_COLOR, ZOOM_BUURT_RD } from '../modules/rotterdam.js';
 import { buildScale, OUTLIER_COLOR } from '../modules/scale.js';
 
 describe('Rotterdam styling', () => {
@@ -51,10 +51,3 @@ describe('Rotterdam styling', () => {
   });
 });
 
-describe('mapClickAction', () => {
-  it('opens the modal, or fills the compare slot while another area is pinned', () => {
-    assert.equal(mapClickAction(null, 'BU05990101'), 'modal');
-    assert.equal(mapClickAction('BU05990101', 'BU05990101'), 'modal', 'the pinned area itself');
-    assert.equal(mapClickAction('WK059901', 'BU05990101'), 'compare');
-  });
-});

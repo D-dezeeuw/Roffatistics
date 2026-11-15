@@ -1,12 +1,12 @@
 import { bindDOM, run, setValue } from 'spektrum';
 import { initMap, getMap, setMapScope, refreshMapSize, setBasemap, BASEMAP_STORAGE_KEY } from './modules/map.js';
-import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente, focusNederlandArea, drillIntoGemeente, gemeenteName } from './modules/overlays.js';
+import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, focusNederlandArea, drillIntoGemeente, gemeenteName } from './modules/overlays.js';
 import { applyDrillDataset }            from './modules/nl-drill.js';
 import { rescoreNlAreas }               from './modules/nl-areas.js';
 import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD, DATASETS, groupDatasets, datasetInScope, datasetFor, crimeValues, isCrimeDataset } from './modules/datasets.js';
-import { PANEL_FIELDS }                   from './modules/panel.js';
+import { initComparePanel, toggleCompare, closeCompare, addToCompare } from './modules/compare-panel.js';
 import { initState, getState, setState, onStateChange } from './modules/state.js';
-import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea, pinActiveArea, clearPinnedArea, getActiveArea } from './modules/rotterdam.js';
+import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea } from './modules/rotterdam.js';
 import { updateLegend, initScaleToggle, initLegendCollapse, SCALE_EVENT } from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
 import { initNavMenu }                    from './modules/nav-menu.js';
@@ -15,7 +15,7 @@ import { initSearch }                     from './modules/search.js';
 import { initDashboard }                  from './modules/dashboard.js';
 import { initExplain }                    from './modules/explain.js';
 import { initCrimeToggles }               from './modules/crime-mode.js';
-import { initAreaModal, openAreaModal, COMPARE_EVENT, DRILL_EVENT, setNationalAreas } from './modules/area-modal.js';
+import { initAreaModal, openAreaModal, isAreaModalOpen, COMPARE_EVENT, DRILL_EVENT, setNationalAreas } from './modules/area-modal.js';
 import { initSpacePan }                   from './modules/space-pan.js';
 import { rowsWithWoonscore, setPersonalPreset, assignScore } from './modules/presets.js';
 import { loadGemeenteGroup, missingDetailGroups } from './modules/herkomst-gemeente.js';
@@ -31,12 +31,6 @@ import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, pres
 import { loadGemeenteRegio, isRegioLoaded, isRegionMetric, withRegionShares } from './modules/herkomst-regio.js';
 import { showLoader, hideLoader, setLoaderProgress, withLoader } from './modules/loader.js';
 
-// ── Slot A (primary) ─────────────────────────────────────────────────────────
-setValue('panel.visible',          false);
-setValue('panel.pinned',           false);
-// Slot A + B fields (panel.js PANEL_FIELDS)
-for (const key of PANEL_FIELDS) { setValue(`panel.${key}`, ''); setValue(`panel2.${key}`, ''); }
-for (const key of ['name', 'code']) { setValue(`panel.${key}`, ''); setValue(`panel2.${key}`, ''); }
 // ── Legend ────────────────────────────────────────────────────────────────────
 setValue('legend.title',           '');
 
@@ -126,20 +120,12 @@ fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
 // Start fetching in the background immediately so it is ready by the time the
 // user zooms to municipality level. Stored in gemeenteRows + overlays module.
 
-// Called after each setMunicipalityData to re-apply coloring and refresh the
-// panel if the user is already at municipality tier.
+// Called after each setMunicipalityData to re-apply coloring if the user is
+// already at municipality tier (Vergelijken re-reads the rows itself).
 function refreshMunicipalityView() {
   if (!atGemeenteTier()) return;
   if (getState().scope !== 'nederland') return;
   activateDataset(getState().dataset);
-  const code = getActiveGemeente();
-  const name = getActiveGemeenteName();
-  if (!code) return;
-  const panelEl = document.getElementById('panel');
-  if (!panelEl.classList.contains('has-region')) return;
-  const data = gemeenteRows.find(d => d.regionCode === code) ?? null;
-  if (!data) return;
-  import('./modules/panel.js').then(({ showPanel }) => showPanel({ name, code, data }));
 }
 
 fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
@@ -162,43 +148,11 @@ fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeDropdown();
-    import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
+    if (!isAreaModalOpen()) closeCompare();   // the modal's own Escape closes the modal first
   }
 });
 
-document.querySelector('.panel-close').addEventListener('click', () => {
-  clearPinnedGemeente();
-  clearPinnedArea();
-  import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
-});
-
-document.querySelector('.panel-pin-btn').addEventListener('click', () => {
-  if (getState().scope === 'rotterdam') {
-    if (!getActiveArea()) return;
-    pinActiveArea();
-    import('./modules/panel.js').then(({ pinPanel }) => pinPanel());
-    return;
-  }
-  const code = getActiveGemeente();
-  const name = getActiveGemeenteName();
-  if (!code) return;
-  setPinnedGemeente(code, name);
-  import('./modules/panel.js').then(({ pinPanel }) => pinPanel());
-});
-
-// Map click keeps the quick panel (and compare); "Details" opens the area modal.
-document.querySelector('.panel-details-btn')?.addEventListener('click', e => {
-  const code = getActiveArea()?.code;
-  if (getState().scope === 'rotterdam' && code) openAreaModal(code, e.currentTarget);
-});
-
-// Nederland: "Wijken en buurten" on a gemeente panel zooms into its wijken (nl-drill.js).
-document.querySelector('.panel-drill-btn')?.addEventListener('click', () => {
-  const code = getActiveGemeente();
-  if (getState().scope === 'nederland' && code) drillIntoGemeente(code);
-});
-
-// Modal "Wijken en buurten" on a gemeente: show the map, then zoom into its wijken (as .panel-drill-btn).
+// Modal "Wijken en buurten" on a gemeente: show the map, then zoom into its wijken.
 document.addEventListener(DRILL_EVENT, async ({ detail: { code } }) => {
   if (!code) return;
   const toMap = getState().view !== 'map';
@@ -207,27 +161,14 @@ document.addEventListener(DRILL_EVENT, async ({ detail: { code } }) => {
   drillIntoGemeente(code);
 });
 
-// Modal "Vergelijk": show the area on the map, pinned, so the next click fills slot B.
-document.addEventListener(COMPARE_EVENT, async ({ detail: { code } }) => {
-  if (getState().scope !== 'rotterdam' || !code) return;
-  const toMap = getState().view !== 'map';
-  setState({ area: code, view: 'map' }, { source: 'map' });   // 'map': the state listener does not focus a second time
-  if (toMap) await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));   // map size back first
-  clearPinnedArea();
-  const panel = await import('./modules/panel.js');
-  await panel.clearCompare();
-  if (!(await focusArea(code))) return;
-  pinActiveArea();
-  panel.pinPanel();
+// Modal "Vergelijk": the area goes into a Vergelijken column, the panel opens on the map.
+document.addEventListener(COMPARE_EVENT, ({ detail: { code } }) => {
+  if (!code) return;
+  if (getState().view !== 'map') setState({ view: 'map' }, { source: 'modal' });
+  addToCompare(code);
 });
 
-document.querySelector('.panel-compare-close').addEventListener('click', () => {
-  clearPinnedGemeente();
-  clearPinnedArea();
-  import('./modules/panel.js').then(({ clearCompare }) => clearCompare());
-});
-
-// ── Panel toggle ──────────────────────────────────────────────────────────────
+// ── Vergelijken panel (compare-panel.js) ──────────────────────────────────────
 
 const panelEl        = document.getElementById('panel');
 const panelToggleBtn = document.querySelector('.panel-toggle-btn');
@@ -236,12 +177,12 @@ panelEl.addEventListener('transitionend', e => {
   if (e.propertyName === 'width') getMap().invalidateSize();
 });
 
-panelToggleBtn.addEventListener('click', () => {
-  const opening = !panelEl.classList.contains('panel-open');
-  panelEl.classList.toggle('panel-open', opening);
-  panelEl.setAttribute('aria-hidden', opening ? 'false' : 'true');
-  panelToggleBtn.setAttribute('aria-pressed', opening);
-});
+// The header button keeps its class; its wording follows the new role here so the markup stays untouched.
+panelToggleBtn.setAttribute('aria-label', 'Vergelijken');
+panelToggleBtn.title = 'Vergelijken: gebieden naast elkaar';
+const toggleLabel = panelToggleBtn.querySelector('.btn-label');
+if (toggleLabel) toggleLabel.textContent = 'Vergelijk';
+panelToggleBtn.addEventListener('click', () => toggleCompare());
 
 document.addEventListener('panel-toggle', ({ detail: { open } }) => {
   panelToggleBtn.setAttribute('aria-pressed', open);
@@ -373,9 +314,6 @@ async function applyScope(scope, { initial = false } = {}) {
   scopeSelect.value = scope;
   document.body.classList.toggle('scope-rotterdam', scope === 'rotterdam');
   document.body.classList.toggle('scope-nederland', scope === 'nederland');
-  clearPinnedGemeente();
-  clearPinnedArea();
-  import('./modules/panel.js').then(({ hidePanel }) => hidePanel());
 
   if (scope === 'rotterdam') {
     await setOverlaysEnabled(false);
@@ -519,6 +457,7 @@ initLegendCollapse();
 document.addEventListener(SCALE_EVENT, () => activateDataset(getState().dataset));
 initExplain();
 initAreaModal();
+initComparePanel();   // after initState: a cmp in the link opens the panel
 initShare();
 if (hasShareExtras(sharedView)) applySharedView(sharedView);
 initWizard({ rows: () => (gemeenteRows.length && (atGemeenteTier() || !provinceRows.length)

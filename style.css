@@ -17,7 +17,9 @@
   --radius:         8px;
   --nav-h:          48px;
   --footer-h:       48px;
-  --panel-w:        320px;
+  --cmp-w:          540px;   /* Vergelijken: label column + 3 area columns */
+  --cmp-label-w:    118px;
+  --cmp-col-w:      128px;
   --font-ui:        -apple-system, 'Segoe UI', sans-serif;
   --font-data:      'JetBrains Mono', 'Fira Mono', monospace;
   /* Jouw dashboard (W19): one blue token set for both themes (Rotterdam, Klassiek).
@@ -45,6 +47,8 @@
   --gradient-text:   linear-gradient(135deg, #ffffff 0%, #9be8b8 100%);
   --text-primary:   #f2f5f8;
   --text-muted:     #a3adba;   /* >= 4.5:1 on every surface, incl. the 'geen data' bar */
+  --cmp-better:     #5fdc8f;   /* Vergelijken: best value in a row */
+  --cmp-worse:      #ff8a7a;   /* Vergelijken: worst value in a row */
   --row-even:       #151f2a;
   --row-key:        #17302a;
   --row-key-even:   #152b26;
@@ -69,6 +73,8 @@
   --gradient-text:   linear-gradient(135deg, #7c3aed, #ea580c);
   --text-primary:   #f1f0f5;
   --text-muted:     #9d9ca9;
+  --cmp-better:     #6ee7a0;
+  --cmp-worse:      #ff9a8a;
   --row-even:       #120f1e;
   --row-key:        #1b1426;
   --row-key-even:   #1e1729;
@@ -332,9 +338,6 @@ body.scope-nederland.nl-drill .layers-dropdown li[data-scope="rotterdam"] { disp
 body.scope-nederland.nl-drill .layers-dropdown .layer-opt[data-scope="rotterdam"] { display: flex !important; }
 body.scope-nederland.nl-drill .layers-dropdown .layer-opt[data-scope][data-dataset="distCentrum"],
 body.nl-drill .layers-dropdown .layer-hint { display: none !important; }
-/* "Wijken en buurten" only on a gemeente panel. */
-.panel-drill-btn { display: none; }
-#panel[data-region="gemeente"] .panel-drill-btn { display: inline-block; }
 
 .layer-opt {
   display: flex;
@@ -444,99 +447,7 @@ option, optgroup { color: var(--text-primary); background: var(--bg-surface); }
   transition: width 0.25s ease;
 }
 
-#panel.panel-open  { width: var(--panel-w); }
-#panel.comparing   { width: calc(var(--panel-w) * 2 + 1px); }
-
-/* ── Compare layout ──────────────────────────────────────── */
-
-.panel-compare-inner {
-  display: flex;
-  height: 100%;
-}
-
-.panel-slot {
-  width: var(--panel-w);
-  flex-shrink: 0;
-}
-
-/* Slot B hidden until comparing class is present */
-.panel-slot-b {
-  display: none;
-  border-left: 1px solid rgba(var(--accent-rgb), 0.2);
-}
-
-#panel.comparing .panel-slot-b {
-  display: block;
-}
-
-/* Slot B placeholder: shown until has-compare */
-#panel.comparing:not(.has-compare) .panel-slot-b .panel-region    { display: none; }
-#panel.comparing:not(.has-compare) .panel-slot-b .panel-placeholder { display: block; }
-#panel.comparing.has-compare       .panel-slot-b .panel-placeholder { display: none; }
-#panel.comparing.has-compare       .panel-slot-b .panel-region      { display: block; }
-
-.panel-inner {
-  position: relative;
-  width: var(--panel-w);
-  height: 100%;
-  overflow-y: auto;
-  padding: 1.5rem;
-  background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
-}
-
-.panel-inner::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  padding-left: 1px;
-  background: var(--gradient-accent);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* ── Panel slot action row (close + pin buttons) ─────────── */
-
-.panel-slot-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.4rem;
-  margin-bottom: 0.5rem;
-}
-
-/* Pin / compare button */
-.panel-pin-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.7rem;
-  font-family: var(--font-ui);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  border-radius: 4px;
-  border: 1px solid rgba(var(--accent-rgb), 0.3);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-}
-
-.panel-pin-btn:hover {
-  color: var(--text-primary);
-  border-color: var(--accent-2);
-}
-
-/* Hide pin button once comparing */
-#panel.comparing .panel-pin-btn { display: none; }
-.panel-pin-btn, .panel-details-btn, .panel-drill-btn { font-family: var(--font-ui); }
-.panel-details-btn, .panel-drill-btn {
-  padding: 0.3rem 0.65rem; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.04em; border-radius: 4px; cursor: pointer;
-  border: 1px solid rgba(var(--glow-rgb), 0.5); background: rgba(var(--glow-rgb), 0.12); color: var(--text-primary);
-}
-.panel-details-btn:hover, .panel-drill-btn:hover { background: rgba(var(--glow-rgb), 0.25); }
+#panel.panel-open { width: var(--cmp-w); }
 
 /* ─── Footer ─────────────────────────────────────────────── */
 
@@ -690,88 +601,13 @@ footer {
   color: var(--text-muted);
 }
 
-/* ─── Panel ──────────────────────────────────────────────── */
-
-.panel-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  margin-bottom: 0.25rem;
-  background: var(--gradient-text);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.panel-code {
-  font-family: var(--font-data);
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 1.25rem;
-}
-
-
-/* ─── Panel region / placeholder ────────────────────────── */
-
-.panel-placeholder {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  text-align: center;
-  margin-top: 2rem;
-}
-
-.panel-region { display: none; }
-
-#panel.has-region .panel-placeholder { display: none; }
-#panel.has-region .panel-region      { display: block; }
-
-/* ─── Panel section title ───────────────────────────────── */
-
-.panel-section-title {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
-  margin-top: 1.1rem;
-  margin-bottom: 0.4rem;
-  padding-bottom: 0.25rem;
-  border-bottom: 1px solid rgba(var(--accent-rgb), 0.2);
-}
-
 /* ─── Panel herkomst bar (NL / Europa / buiten Europa) ───── */
 
-.panel-origin-bar { margin: 0.2rem 0 0.5rem; }
 .origin-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
 .origin-seg { display: block; height: 100%; min-width: 1px; }
 .origin-legend { display: flex; flex-wrap: wrap; gap: 0.2rem 0.7rem; margin-top: 0.3rem; font-size: 0.68rem; color: var(--text-muted); }
 .origin-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
 .origin-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
-
-/* ─── Panel stats ────────────────────────────────────────── */
-
-.panel-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem 0.5rem;
-  margin-top: 0.25rem;
-}
-
-.panel-stats dt {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  align-self: end;
-}
-
-.panel-stats dd {
-  font-family: var(--font-data);
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  align-self: end;
-}
 
 /* ─── Accessibility ──────────────────────────────────────── */
 
@@ -787,37 +623,70 @@ footer {
   border: 0;
 }
 
-/* ─── Panel handle + close ───────────────────────────────── */
+/* ─── Vergelijken panel (modules/compare-panel.js) ───────── */
 
-.panel-handle {
-  display: none;
+.cmp.panel-inner {
+  position: relative;
+  width: var(--cmp-w);
+  height: 100%;
+  overflow-y: auto;
+  padding: 1rem 1rem 1.25rem;
+  background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
+  border-left: 1px solid rgba(var(--accent-rgb), 0.35);
 }
-
-.panel-close,
-.panel-compare-close {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  line-height: 1;
-  border: 1px solid rgba(var(--accent-rgb), 0.3);
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
+.cmp-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; }
+.cmp-title {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 600;
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.cmp-hint { font-size: 0.7rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 0.7rem; }
+.cmp-clear-all, .cmp-details {
+  font-family: var(--font-ui); font-size: 0.68rem; font-weight: 500; letter-spacing: 0.03em;
+  padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer;
+  border: 1px solid rgba(var(--glow-rgb), 0.5); background: rgba(var(--glow-rgb), 0.12); color: var(--text-primary);
+}
+.cmp-clear-all { background: transparent; color: var(--text-muted); border-color: rgba(var(--accent-rgb), 0.3); }
+.cmp-clear-all:hover, .cmp-details:hover { background: rgba(var(--glow-rgb), 0.25); color: var(--text-primary); }
+.panel-close, .cmp-clear {
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  border: 1px solid rgba(var(--accent-rgb), 0.3); border-radius: 50%;
+  background: transparent; color: var(--text-muted); cursor: pointer; line-height: 1;
   transition: color 0.15s ease, border-color 0.15s ease;
-  flex-shrink: 0;
 }
+.panel-close { width: 28px; height: 28px; font-size: 1rem; }
+.cmp-clear { width: 22px; height: 22px; font-size: 0.75rem; }
+.panel-close:hover, .cmp-clear:hover { color: var(--text-primary); border-color: rgba(var(--accent-rgb), 0.6); }
 
-.panel-close:hover,
-.panel-compare-close:hover {
-  color: var(--text-primary);
-  border-color: rgba(var(--accent-rgb), 0.6);
+/* Columns scroll sideways when the panel is narrower than the table (phone). */
+.cmp-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cmp-table { width: 100%; min-width: calc(var(--cmp-label-w) + 3 * var(--cmp-col-w)); border-collapse: collapse; table-layout: fixed; }
+.cmp-table th, .cmp-table td { padding: 0.4rem 0.35rem; text-align: left; vertical-align: top; border-bottom: 1px solid rgba(var(--accent-rgb), 0.14); }
+.cmp-table thead th { vertical-align: bottom; border-bottom-color: rgba(var(--accent-rgb), 0.35); }
+.cmp-rowhead {
+  width: var(--cmp-label-w);
+  position: sticky; left: 0; z-index: 1;
+  background: var(--bg-surface);
 }
-
-/* ─── Responsive — mobile drawer ────────────────────────── */
+.cmp-col { width: var(--cmp-col-w); }
+.cmp-col.is-new { box-shadow: inset 0 3px 0 var(--accent); }
+.cmp-name { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); line-height: 1.25; overflow-wrap: anywhere; }
+.cmp-level { display: block; font-family: var(--font-data); font-size: 0.6rem; letter-spacing: 0.05em; color: var(--text-muted); margin-top: 0.15rem; }
+.cmp-actions { display: flex; align-items: center; gap: 0.3rem; margin-top: 0.35rem; }
+.cmp-empty { display: block; font-size: 0.68rem; font-weight: 400; font-style: italic; color: var(--text-muted); border: 1px dashed rgba(var(--accent-rgb), 0.35); border-radius: 4px; padding: 0.6rem 0.3rem; text-align: center; }
+.cmp-cat { display: block; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.cmp-metric { display: block; font-size: 0.72rem; font-weight: 500; color: var(--text-primary); line-height: 1.25; }
+.cmp-cell { font-family: var(--font-data); font-size: 0.75rem; color: var(--text-primary); overflow-wrap: anywhere; }
+.cmp-row.is-active th, .cmp-row.is-active td { background: rgba(var(--glow-rgb), 0.12); }
+.cmp-row.is-active .cmp-rowhead { box-shadow: inset 3px 0 0 var(--accent); background: linear-gradient(rgba(var(--glow-rgb), 0.12), rgba(var(--glow-rgb), 0.12)), var(--bg-surface); }
+.cmp-cell.is-best  { color: var(--cmp-better); font-weight: 600; }
+.cmp-cell.is-worst { color: var(--cmp-worse); }
+.cmp-cell.is-best::before  { content: '▲ '; font-size: 0.6rem; }
+.cmp-cell.is-worst::before { content: '▼ '; font-size: 0.6rem; }
 
 @media (max-width: 768px) {
   #panel {
@@ -825,58 +694,15 @@ footer {
     bottom: var(--footer-h);
     left: 0;
     right: 0;
-    width: 100% !important;      /* override desktop width in all modes */
+    width: 100% !important;      /* override the desktop width */
     height: 72vh;
-    overflow: hidden;
     transform: translateY(100%);
     transition: transform 0.3s ease;
     border-radius: var(--radius) var(--radius) 0 0;
     z-index: 1001;
   }
-
-  #panel.panel-open,
-  #panel.comparing {
-    transform: translateY(0);
-  }
-
-  /* Stack slots vertically on mobile */
-  .panel-compare-inner {
-    flex-direction: column;
-    overflow-y: auto;
-    height: 100%;
-  }
-
-  .panel-slot {
-    width: 100%;
-  }
-
-  .panel-slot-b {
-    border-left: none;
-    border-top: 1px solid rgba(var(--accent-rgb), 0.2);
-  }
-
-  .panel-inner {
-    width: 100%;
-    height: auto;
-    overflow-y: visible;
-    padding-top: 0.75rem;
-    border-radius: var(--radius) var(--radius) 0 0;
-  }
-
-  .panel-inner::before {
-    padding-left: 0;
-    padding-top: 1px;
-    border-radius: var(--radius) var(--radius) 0 0;
-  }
-
-  .panel-handle {
-    display: block;
-    width: 40px;
-    height: 4px;
-    border-radius: 2px;
-    background: rgba(var(--accent-rgb), 0.35);
-    margin: 0 auto 1rem;
-  }
+  #panel.panel-open { transform: translateY(0); }
+  .cmp.panel-inner { width: 100%; border-left: none; border-top: 1px solid rgba(var(--accent-rgb), 0.35); border-radius: var(--radius) var(--radius) 0 0; }
 }
 
 /* ─── Leaflet overrides ──────────────────────────────────── */

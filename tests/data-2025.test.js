@@ -10,7 +10,6 @@ import {
 } from '../modules/areas.js';
 import { DATASETS, DATASET_KEYS, DATASET_GROUPS, groupDatasets, datasetInScope } from '../modules/datasets.js';
 import { cityKpis, cityWozKpi, formatValue, KPI_KEYS } from '../modules/dashboard-data.js';
-import { formatPanelData, PANEL_FIELDS } from '../modules/panel.js';
 import { scoreAreas } from '../modules/ranking.js';
 
 const C = WIJK_COLUMNS;
@@ -225,18 +224,4 @@ describe('new layers and dropdown groups', () => {
 });
 
 describe('panel fields', () => {
-  it('formats the new Rotterdam rows', () => {
-    const f = formatPanelData({ dataYears: '2025 · inkomen: 2024', ownerOccupiedPct: 27, rentalPct: 73, welfarePer1000: 34.2,
-      crimeTrend: -4.7, crimeBurglary: 1.3, crimeBike: 34.2, crimePickpocket: 6, crimeViolence: 26.8, distGP: 0.6, distSupermarket: 0.4 });
-    assert.equal(f.dataYears, '2025 · inkomen: 2024');
-    assert.equal(f.ownerOccupiedPct, '27.0%');
-    assert.equal(f.crimeTrend, '−4,7% t.o.v. 2024');
-    assert.equal(f.crimePickpocket, '6,0 /1k inw.');
-    assert.equal(f.distGP, '0,6 km');
-    assert.equal(formatPanelData({ crimeTrend: 3 }).crimeTrend, '+3,0% t.o.v. 2024');
-    assert.equal(formatPanelData(null).crimeViolence, '—');
-  });
-  it('PANEL_FIELDS lists every formatted key', () => {
-    for (const k of ['population', 'dataYears', 'crimeTrend', 'distSupermarket']) assert.ok(PANEL_FIELDS.includes(k), k);
-  });
 });

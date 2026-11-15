@@ -1,5 +1,5 @@
 // Area detail modal: a wijk, buurt, gemeente or provincie in full. Opened from a Ranglijst row, a
-// dashboard bar/slice, the panel's "Details" button, or any [data-area-modal]
+// dashboard bar/slice, a Vergelijken column's "Details" link, or any [data-area-modal]
 // element (buurten list, parent wijk link). The figures come from
 // area-detail.js (pure); this file builds the markup and runs the dialog.
 
@@ -226,7 +226,7 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
       <div class="area-actions">
         <button type="button" class="area-btn" data-area-action="map">Toon op kaart</button>
         ${d.level === 'gemeente' ? '<button type="button" class="area-btn" data-area-action="drill">Wijken en buurten</button>' : ''}
-        ${peers === 'nederland' ? '' : '<button type="button" class="area-btn" data-area-action="compare">Vergelijk</button>'}
+        <button type="button" class="area-btn" data-area-action="compare">Vergelijk</button>
         <button type="button" class="area-btn" data-area-action="copy">Kopieer link</button>
       </div>
       ${nonres}${woonscore}${overall}${chips}
@@ -279,6 +279,27 @@ async function render(code) {
   els.dialog.scrollTop = 0;
   els.dialog.querySelector('.area-body')?.scrollTo?.(0, 0);
   return !!area;
+}
+
+/**
+ * The area of any WK/BU/GM/PV code ({ code, name, level, values } or null) for
+ * a Vergelijken column (compare-panel.js): GM/PV from the national CBS rows,
+ * Rotterdam wijken/buurten from the Rotterdam set (more fields), other wijken/buurten from the NL set.
+ */
+export async function compareArea(code) {
+  if (!isModalCode(code)) return null;
+  if (isNationalCode(code)) {
+    const level = nationalLevel(code);
+    if (!national[level].length) await Promise.race([ready[level], new Promise(r => setTimeout(r, NATIONAL_WAIT_MS))]);
+    const index = await getAreaIndex().catch(() => []);
+    return nationalAreaSet(code, national[level], { names: new Map(index.map(e => [e.code, e.name])) }).area;
+  }
+  try {
+    const areas = isRotterdamCode(code) ? await loadRotterdamAreas() : await loadNlAreas();
+    return areas.wijken.find(a => a.code === code) ?? areas.buurten.find(a => a.code === code) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Opens the modal for a wijk/buurt/gemeente/provincie code (isModalCode); `trigger` gets focus back on close. */

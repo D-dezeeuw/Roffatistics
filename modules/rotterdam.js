@@ -3,7 +3,8 @@
 // NO_DATA_COLOR. Pure styling helpers are exported for the unit tests.
 import { getMap } from './map.js';
 import { addKeyboardNav } from './overlays.js';
-import { loadRotterdamAreas, toNumber, areaPanelData } from './areas.js';
+import { loadRotterdamAreas, toNumber } from './areas.js';
+import { routeToCompare } from './compare.js';
 import { buildScale, getScaleMethod, outlierLabel, NO_DATA_COLOR, OUTLIER_COLOR } from './scale.js';
 import { datasetValue, DATASETS } from './datasets.js';
 import { createScoreLabels } from './score-labels.js';
@@ -75,7 +76,6 @@ let crimeMode = 'rate';   // state.crime: crime datasets read their raw counts i
 const valueOf = area => datasetValue(area?.values, dataset, crimeMode);
 let scales = { wijk: buildScale([]), buurt: buildScale([]) };   // rebuilt from the shown set on every recolor
 let activeArea = null;   // area object last shown in slot A
-let pinnedArea = null;   // area object pinned for compare
 const layers = { mask: null, outline: null, wijk: null, buurt: null };
 let zoomHandlerBound = false;
 let labels = null;       // score stamps (score-labels.js), made on first use
@@ -105,20 +105,10 @@ const baseStroke = kind => kind === 'wijk'
 // Outlier border only on the level whose fill is shown (wijk fill is off at buurt zoom).
 const strokeFor = (kind, area) => (kind === 'wijk' && level === 'buurt' ? null : outlierStroke(valueOf(area), scales[kind])) ?? baseStroke(kind);
 
-/**
- * What a map click on a wijk/buurt does: 'compare' fills panel slot B while
- * another area is pinned (started from the modal's "Vergelijk"); otherwise
- * 'modal' opens the area detail modal.
- */
-export function mapClickAction(pinnedCode, code) {
-  return pinnedCode && pinnedCode !== code ? 'compare' : 'modal';
-}
-
+// A map click on a wijk/buurt: with Vergelijken open it fills a column (compare.js), else the area modal opens.
 function selectArea(area, onSelect) {
-  if (mapClickAction(pinnedArea?.code, area.code) === 'compare') {
-    import('./panel.js').then(({ showCompareSlot }) => showCompareSlot({ name: area.name, code: area.code, data: areaPanelData(area) }));
-  } else {
-    activeArea = area;
+  activeArea = area;
+  if (!routeToCompare(area.code)) {
     const trigger = globalThis.document?.getElementById('map') ?? null;
     import('./area-modal.js').then(({ openAreaModal }) => openAreaModal(area.code, trigger));
   }
@@ -234,7 +224,6 @@ export function disableRotterdam() {
   const map = getMap();
   for (const l of Object.values(layers)) if (l && map.hasLayer(l)) map.removeLayer(l);
   labels?.clear();
-  pinnedArea = null;
 }
 
 /** Colours the layers for `key` in crime mode `mode`; returns { scale, min, max, level, hasData } for the legend. */
@@ -254,16 +243,13 @@ export function applyRotterdamDataset(key, mode = crimeMode) {
 export function getRotterdamLevel() { return level; }
 export function getRotterdamAreas() { return areas; }
 export function getActiveArea()     { return activeArea; }
-export function pinActiveArea()     { pinnedArea = activeArea; return pinnedArea; }
-export function clearPinnedArea()   { pinnedArea = null; }
 
-/** Opens the panel for `code` and zooms to it (deep links, search, ranking). */
+/** Zooms to `code` (deep links, search, ranking) and makes it the active area. */
 export async function focusArea(code) {
   await ensureLayers();
   const area = byCode(code);
   if (!area) return null;
   if (area.bounds) getMap().fitBounds(area.bounds, { maxZoom: area.level === 'buurt' ? 15 : 13, padding: [24, 24] });
   activeArea = area;
-  import('./panel.js').then(({ showPanel }) => showPanel({ name: area.name, code: area.code, data: areaPanelData(area) }));
   return area;
 }
