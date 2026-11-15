@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-11-15 — Privacy, disclaimer and colofon in one dialog (W27)
+
+- **One dialog, three tabs** (`modules/legal.js`): Privacy · Disclaimer · Colofon, built on the search/explain modal classes with a tablist (arrow keys, Home/End), Esc and a focus trap. Esc and Tab stop propagation in the dialog so the splash's document key handler underneath does not react. z-index 3100, above the splash (3000), because the splash footer opens it. Phones get it full screen.
+- **Entry points:** a row under the sources in the splash footer, a row at the foot of the Uitleg dialog (outside the filtered body, so the filter never hides it), and a ☰ item "Privacy & colofon". All are `[data-legal="<tab>"]` triggers caught by one document listener. `#legal=privacy|disclaimer|colofon` opens it on load; the hash is read at module import, before state.js rewrites the address bar.
+- **Privacy claims checked against the code:** no cookies, no analytics/trackers, no `sendBeacon`, no fonts from a CDN; search and postcode lookups use app files, the query itself is never sent. The page does contact third parties: GitHub Pages (the app), unpkg.com (Leaflet, MapLibre JS/CSS), tiles.openfreemap.org (style, tiles, glyphs), service.pdok.nl (boundaries, aerial photo) and opendata.cbs.nl / dataderden.cbs.nl (statistics, police figures). Those hosts see IP and user agent, which the text says plainly instead of "nothing leaves your device".
+- **"Wis mijn gegevens"** removes localStorage keys starting with `roffatistics.` (the origin d-dezeeuw.github.io is shared with other Pages projects, so nothing else) and, in sessionStorage, prefixed keys plus the cached data responses (keyed by their `https://` URL), then reloads without the hash so in-memory state cannot write the old values back. A test pins every known storage-key constant to the prefix.
+- **Version** is a constant `APP_VERSION` in legal.js (the app showed no version before); a test fails when it differs from package.json, so a version bump has to touch both.
+- **Colofon** names the maker as "Danny de Zeeuw, Neko Media" (footer brand + package.json author) and points contact to GitHub (repo issues, profile). The author email in package.json is not published; that is the operator's call. Politie data gets no licence claim ("open data, via CBS"), only CBS (CC BY 4.0) and OSM (ODbL) are named with a licence.
+
 ## 2026-11-15 — Jouw dashboard: a blue second tab from the wizard answers (W19)
 
 - **Two tabs, one grid.** The dashboard gets "Algemeen" (the W17 6 × 3 board, unchanged) and "Jouw dashboard". The Jouw tab is always shown; without a custom `score` it holds a hint ("Vul eerst de wizard in") and a button that opens the wizard. Showing it always keeps the tab bar stable and makes the feature discoverable.

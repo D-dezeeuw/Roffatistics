@@ -5,6 +5,7 @@
 // modal's shell and patterns: role=dialog, Esc closes, Tab is trapped, focus
 // returns to the opener. Any element with data-explain="<key>" opens it
 // scrolled to that entry ('score', 'crime-mode', 'nodata' for the general parts).
+import { legalLinksHtml } from './legal.js';
 import { DATASETS, groupDatasets, datasetFor } from './datasets.js';
 import { ORIGIN_GROUPS, HERKOMST_TABLE, HERKOMST_FIRST_YEAR, HERKOMST_YEAR } from './herkomst.js';
 import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, PC4_VALIDATION, pc4RegionComposition } from './herkomst-pc4.js';
@@ -321,6 +322,7 @@ export function initExplain() {
         <input type="search" class="explain-filter" placeholder="Filter, bijv. inkomen of 47018NED" aria-label="Filter de uitleg" autocomplete="off" spellcheck="false">
       </div>
       <div class="explain-body" tabindex="0" aria-label="Uitleg per cijfer">${explainBodyHtml()}</div>
+      <div class="explain-foot">${legalLinksHtml()}</div>
     </div>`;
   document.body.appendChild(modal);
   els = {
