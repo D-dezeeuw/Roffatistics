@@ -12,6 +12,8 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 - **Nederland mode** — pick "Nederland" in the topnav dropdown for the national view below
 - **Ranglijst** — the list view ranks every wijk or buurt (or province/gemeente in Nederland mode) on a 0–100 percentile score per dataset, sortable per column, with heat bars; click a row to select it, the pin icon opens it on the map
 - **Dashboard** — the Dashboard view compares all 21 Rotterdam wijken: city KPIs, a sorted bar chart per data layer with the Rotterdam average, and an X/Y scatter; click a wijk to zoom the map to it
+- **Layers in four sections** — Bevolking, Welvaart & wonen, Veiligheid, Voorzieningen; Rotterdam-only layers (housing, bijstand, crime sub-layers, distances) hide in Nederland mode
+- **Data years shown** — wijk/buurt figures are 2025 (CBS 86165NED); fields CBS has not filled yet fall back to 2024 and say so in the dashboard subtitle and the panel ("Peiljaar"); the dashboard also shows the newest city WOZ (2026, peildatum 1 januari)
 - **Deep links** — `#scope=rotterdam|nederland&view=map|dashboard|list&area=<CBS code>`; the scope choice is remembered
 - **Province choropleth** — four selectable datasets color all 12 provinces
 - **Municipality drill-down** — zoom to level 10+ to see gemeente-level data
@@ -28,8 +30,10 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 | Crime rate | CBS OData | 83648NED |
 | Province / gemeente geometry | cartomap/nl | gemeente_2023, provincie_2023 |
 | Neighbourhood geometry | cartomap/nl | buurt_2023 |
-| Rotterdam wijk + buurt figures | CBS OData — Kerncijfers wijken en buurten 2024 | 85984NED |
-| Rotterdam wijk crime (misdrijven 2025) | CBS dataderden (Politie) | 47018NED |
+| Rotterdam wijk + buurt figures (2025) | CBS OData — Kerncijfers wijken en buurten 2025 | 86165NED |
+| Fallback per field when 2025 is empty (income, education; some WOZ/65+/herkomst/bijstand cells) | CBS OData — Kerncijfers wijken en buurten 2024 | 85984NED |
+| Rotterdam wijk + buurt crime 2025 and 2024 (total, woninginbraak, fietsendiefstal, zakkenrollerij, geweld) | CBS dataderden (Politie) — Geregistreerde misdrijven; soort misdrijf, wijk, buurt | 47018NED |
+| Rotterdam average WOZ 2026 (gemeente, peildatum 1 januari 2026) | CBS OData — Gemiddelde WOZ-waarde van woningen; eigendom, regio | 85036NED |
 | Rotterdam gemeente + wijk geometry | PDOK CBS gebiedsindelingen 2024 (`gemeente_gegeneraliseerd`, `wijk_gegeneraliseerd`), pre-cached in `data/rotterdam_*.geojson` | — |
 
 Wijk/buurt datasets: population, income (standardised household income), higher education, WOZ value, 65+ and origin outside Europe. Wijk crime (misdrijven per 1.000 inwoners) comes from police table 47018NED; buurten and wijken under 1.000 inhabitants show "geen data" for crime. Regenerate the Rotterdam geometry with `node scripts/build-rotterdam-geo.mjs`.
