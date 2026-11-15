@@ -9,6 +9,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_COLUMNS } from '../modules/datasets.js';
 import { formatPanelData } from '../modules/panel.js';
+import { WIJK_COLUMNS, WIJK_SELECT, WIJK_TABLE, extractAreaValues, normalizeAreaCode } from '../modules/areas.js';
 // Filters copied from app.js; the demographics select and column map come from modules/datasets.js
 const CBS_FILTER   = "startswith(RegioS,'PV') and Perioden eq '2023JJ00'";
 const CRIME_FILTER = "startswith(RegioS,'PV') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000')";
@@ -112,5 +113,19 @@ describe('CBS API — municipality demographics (sample of 5)', { timeout: 20000
     assert.ok(withPop, 'no municipality with population in sample');
     const fmt = formatPanelData(withPop);
     assert.notEqual(fmt.population, '—', 'municipality population is "—" — data is not reaching the sidebar');
+  });
+});
+
+// ── Rotterdam wijken (Kerncijfers wijken en buurten) ─────────────────────────
+
+describe('CBS API — Rotterdam wijken', { timeout: 15000 }, () => {
+  it(`${WIJK_TABLE} returns all mapped columns for WK0599 wijken`, async () => {
+    const rows = await fetchCBS(WIJK_TABLE, "startswith(WijkenEnBuurten,'WK0599')", WIJK_SELECT);
+    assert.ok(rows.length >= 20, `expected ~21 Rotterdam wijken, got ${rows.length}`);
+    for (const col of Object.values(WIJK_COLUMNS)) assert.ok(col in rows[0], `missing column ${col}`);
+    const centrum = rows.find(r => normalizeAreaCode(r.WijkenEnBuurten) === 'WK059901');
+    const v = extractAreaValues(centrum);
+    assert.ok(v.population > 10000, 'Rotterdam Centrum population');
+    assert.ok(v.avgIncome > 10 && v.wozValue > 100 && v.highEdu > 0, 'income, WOZ and education filled');
   });
 });

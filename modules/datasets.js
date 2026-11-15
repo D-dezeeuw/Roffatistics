@@ -110,3 +110,19 @@ export function normalizeCrime(rows) {
       };
     });
 }
+
+// ── Dataset metadata ──────────────────────────────────────────────────────────
+// One entry per choropleth dataset in the Layers dropdown. `higherIsBetter`
+// drives ranking direction: true = high values rank first as "good",
+// false = low values are good (crime), null = neutral (no judgement).
+export const DATASETS = Object.freeze({
+  population:    Object.freeze({ key: 'population',    label: 'Bevolking',        title: 'Inwoners',                   unit: 'aantal',     higherIsBetter: null  }),
+  avgIncome:     Object.freeze({ key: 'avgIncome',     label: 'Inkomen',          title: 'Gem. inkomen (×€1k)',        unit: '×€1.000',    higherIsBetter: true  }),
+  crimeRate:     Object.freeze({ key: 'crimeRate',     label: 'Criminaliteit',    title: 'Misdrijven per 1.000 inw.',  unit: 'per 1.000',  higherIsBetter: false }),
+  highEdu:       Object.freeze({ key: 'highEdu',       label: 'Opleiding',        title: 'Hoog opgeleid (%)',          unit: '%',          higherIsBetter: true  }),
+  wozValue:      Object.freeze({ key: 'wozValue',      label: 'WOZ waarde',       title: 'Gem. WOZ waarde (×€1k)',     unit: '×€1.000',    higherIsBetter: true  }),
+  pop65plus:     Object.freeze({ key: 'pop65plus',     label: '65+ (%)',          title: '65+ (%)',                    unit: '%',          higherIsBetter: null  }),
+  nonWesternPct: Object.freeze({ key: 'nonWesternPct', label: 'Buiten Europa (%)', title: 'Herkomst buiten Europa (%)', unit: '%',          higherIsBetter: null  }),
+});
+
+export const DATASET_KEYS = Object.freeze(Object.keys(DATASETS));
