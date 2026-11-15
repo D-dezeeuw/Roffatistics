@@ -119,6 +119,15 @@ export const GENERAL_SECTIONS = Object.freeze([
     ],
   },
   {
+    id: 'gemeenschap',
+    title: 'Jouw score: nabijheid gemeenschap',
+    paragraphs: [
+      'In de wizard "Vind jouw ideale woonplek" is stap 6 (Gemeenschap) optioneel en standaard uit; de Woonscore (Standaard) en "Gelijk gewogen" gebruiken herkomst nooit. Kies je er wel een groep, dan telt het aandeel inwoners van die groep (CBS-kerncijfers per wijk en buurt: Nederland, Europa excl. NL of buiten Europa) als plus mee, met een gewicht dat jij kiest (standaard 10% van het totaal, hoogstens 30%). Waar een niveau dat cijfer niet heeft, valt de factor weg en tellen de andere thema\'s naar verhouding zwaarder.',
+      'Wat het niet doet: er is geen optie om een groep te vermijden of lager te laten wegen, ook niet via een aangepaste link, en een gebied staat nooit als zwak punt in de lijst omdat er minder mensen van een groep wonen. Het resultaat heet "nabijheid gemeenschap" en is geen etnische score van een gebied; het zijn totalen per gebied, niets over personen.',
+      'Je score wordt in je browser berekend en er wordt niets verstuurd. Je keuze wordt op dit apparaat onthouden; in een gedeelde link staat ze alleen als je "Deel ook gemeenschap" aanvinkt.',
+    ],
+  },
+  {
     id: 'nodata',
     title: 'Geen data en peiljaren',
     paragraphs: [

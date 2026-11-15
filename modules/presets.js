@@ -58,11 +58,19 @@ export const RATE_KEYS = Object.freeze(DATASET_KEYS.filter(k => DATASETS[k].unit
  * Each theme's weight is split evenly over its available metrics; weights are
  * then normalised to sum to 1.
  */
+/**
+ * Origin (herkomst) metrics. §5: they may only ever count as `higher` (more of
+ * a chosen group = plus), never lower, as a target or as a filter, so no
+ * preset can rank an area by the absence of a group.
+ */
+export const ORIGIN_KEYS = Object.freeze(['originDutchPct', 'originEuropePct', 'nonWesternPct']);
+const originAllowed = (m, target) => !ORIGIN_KEYS.includes(m.key) || (m.pref === 'higher' && !target);
+
 export function resolvePreset(preset, available) {
   const has = available instanceof Set ? k => available.has(k) : k => (available ?? []).includes(k);
   const out = [];
   for (const theme of preset?.themes ?? []) {
-    const metrics = theme.metrics.filter(m => has(m.key) && !(m.w <= 0));
+    const metrics = theme.metrics.filter(m => has(m.key) && !(m.w <= 0) && originAllowed(m, preset.targets?.[m.key]));
     if (!metrics.length || !(theme.weight > 0)) continue;
     // A metric's optional `w` is its share inside the theme (default 1 = an even split).
     const wSum = metrics.reduce((s, m) => s + (isNum(m.w) ? m.w : 1), 0);
@@ -70,7 +78,7 @@ export function resolvePreset(preset, available) {
       const target = preset.targets?.[m.key];
       if (target && !(isNum(target.ideal) && isNum(target.tolerance))) continue;   // unresolved quantile target: no peers
       out.push({
-        key: m.key, label: DATASETS[m.key]?.label ?? m.key, theme: theme.key,
+        key: m.key, label: m.label ?? DATASETS[m.key]?.label ?? m.key, theme: theme.key,
         weight: (theme.weight * (isNum(m.w) ? m.w : 1)) / wSum, pref: target ? 'target' : m.pref,
         ...(target ? { ideal: target.ideal, tolerance: target.tolerance, log: !!target.log } : {}),
       });
@@ -130,7 +138,7 @@ export function scoreWithPreset(areas, preset = DEFAULT_PRESET, { parents = null
   const p = resolveTargets(raw, areas);
   const factors = resolvePreset(p, availableKeys(areas));
   const shrinkKeys = p.shrink && parents ? factors.map(f => f.key).filter(k => RATE_KEYS.includes(k)) : [];
-  const results = scoreAreas(areas, factors, { parents, shrinkKeys, filters: p.filters ?? [], minCoverage: p.minCoverage ?? MIN_COVERAGE });
+  const results = scoreAreas(areas, factors, { parents, shrinkKeys, filters: (p.filters ?? []).filter(f => !ORIGIN_KEYS.includes(f.key)), minCoverage: p.minCoverage ?? MIN_COVERAGE });
   return { factors, results };
 }
 
@@ -140,6 +148,7 @@ export function scoreWithPreset(areas, preset = DEFAULT_PRESET, { parents = null
 export const THEME_LABELS = Object.freeze({
   veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding',
   woningmarkt: 'Woningmarkt', leeftijd: 'Leeftijd', nieuwbouw: 'Nieuwbouw', budget: 'Budget', sfeer: 'Sfeer',
+  gemeenschap: 'Nabijheid gemeenschap',
 });
 
 /** Score layer key → the preset it uses; `jouwscore` follows setPersonalPreset(). */

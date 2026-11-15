@@ -5,15 +5,31 @@
 // Every step is optional; a skipped step leaves the Standaard weights alone,
 // so the empty answers give exactly the Standaard preset.
 //
-// W4 hook: a step is one entry in STEPS plus one entry in APPLY (answers →
-// preset changes) and one in CODECS (hash segment). The Gemeenschap step
-// (§5) plugs in there; nothing in this epic scores origin.
-import { STANDAARD, GELIJK, THEME_LABELS } from './presets.js';
+// A step is one entry in STEPS plus one entry in APPLY (answers → preset
+// changes) and one hash segment. Step 6 "Gemeenschap" (§5, Epic W4) is an
+// opt-in, positive-only attraction to one CBS origin group: it can only add
+// a `higher` factor on that group's share, never score any group down.
+import { STANDAARD, GELIJK, THEME_LABELS, ORIGIN_KEYS } from './presets.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
-export const STEPS = Object.freeze(['levensfase', 'budget', 'vervoer', 'sfeer', 'veiligheid']);
+export const STEPS = Object.freeze(['levensfase', 'budget', 'vervoer', 'sfeer', 'veiligheid', 'gemeenschap']);
+
+/**
+ * Gemeenschap (§5): the CBS origin groups the kerncijfers (86165NED) give per
+ * wijk and buurt. The factor is the chosen group's share, always `higher`.
+ */
+export const GEMEENSCHAP_GROUPS = Object.freeze({
+  nederland:    Object.freeze({ label: 'Nederland',         key: 'originDutchPct' }),
+  europa:       Object.freeze({ label: 'Europa (excl. NL)', key: 'originEuropePct' }),
+  buitenEuropa: Object.freeze({ label: 'Buiten Europa',     key: 'nonWesternPct' }),
+});
+/** Gemeenschap weight as a share (%) of the total weight: default modest, never above the cap. */
+export const GEMEENSCHAP_DEFAULT_PCT = 10;
+export const GEMEENSCHAP_MIN_PCT = 5;
+export const GEMEENSCHAP_MAX_PCT = 30;
+export const GEMEENSCHAP_LABEL = 'Nabijheid gemeenschap';
 
 export const LEVENSFASEN = Object.freeze({
   student: 'Student of starter',
@@ -52,7 +68,21 @@ export const STRESS_W = 3;
 
 export const EMPTY_ANSWERS = Object.freeze({
   levensfase: null, oud: null, budget: null, vervoer: Object.freeze([]), sfeer: null, veiligheid: Object.freeze([]), weights: Object.freeze({}),
+  gemeenschap: null,
 });
+
+/**
+ * { group, pct, share } or null. Anything that is not one known group with a
+ * positive weight is dropped (null = off); the weight is clamped to
+ * GEMEENSCHAP_MIN_PCT–GEMEENSCHAP_MAX_PCT, so a zero, negative or huge weight
+ * can never come through. There is no direction field: the factor is `higher`.
+ */
+export function normalizeGemeenschap(g) {
+  if (!g || typeof g !== 'object' || !Object.hasOwn(GEMEENSCHAP_GROUPS, g.group)) return null;
+  const raw = g.pct == null ? GEMEENSCHAP_DEFAULT_PCT : g.pct;
+  if (!isNum(raw) || raw <= 0) return null;
+  return { group: g.group, pct: Math.round(clamp(raw, GEMEENSCHAP_MIN_PCT, GEMEENSCHAP_MAX_PCT)), share: g.share === true };
+}
 
 /** Cleans any answers-like object into the canonical shape (unknown values dropped). */
 export function normalizeAnswers(a = {}) {
@@ -65,7 +95,7 @@ export function normalizeAnswers(a = {}) {
     budget = { mode: b.mode, income, maxPrice, hide: !!b.hide && b.mode === 'koop' && (income != null || maxPrice != null) };
   }
   const weights = {};
-  for (const [k, v] of Object.entries(a?.weights ?? {})) if (Object.hasOwn(THEME_LABELS, k) && isNum(v)) weights[k] = Math.round(clamp(v, 0, 100));
+  for (const [k, v] of Object.entries(a?.weights ?? {})) if (Object.hasOwn(THEME_LABELS, k) && k !== 'gemeenschap' && isNum(v)) weights[k] = Math.round(clamp(v, 0, 100));
   return {
     levensfase: Object.hasOwn(LEVENSFASEN, a?.levensfase) ? a.levensfase : null,
     oud: Object.hasOwn(OUD_OPTIONS, a?.oud) ? a.oud : null,
@@ -74,13 +104,14 @@ export function normalizeAnswers(a = {}) {
     sfeer: isNum(a?.sfeer) ? Math.round(clamp(a.sfeer, 0, 100)) : null,
     veiligheid: pick(a?.veiligheid, CRIMES),
     weights,
+    gemeenschap: normalizeGemeenschap(a?.gemeenschap),
   };
 }
 
 /** True when no step was answered and no theme weight was moved (= Standaard). */
 export function isEmptyAnswers(a) {
   const n = normalizeAnswers(a);
-  return !n.levensfase && !n.oud && !n.budget && !n.vervoer.length && n.sfeer == null && !n.veiligheid.length && !Object.keys(n.weights).length;
+  return !n.levensfase && !n.oud && !n.budget && !n.vervoer.length && n.sfeer == null && !n.veiligheid.length && !Object.keys(n.weights).length && !n.gemeenschap;
 }
 
 /** Koop budget ceiling in ×€1.000 (the WOZ unit): max price, else income × 4.5; null otherwise. */
@@ -177,6 +208,20 @@ export const APPLY = Object.freeze({
   veiligheid(d, a) {
     for (const c of a.veiligheid) metric(d, 'veiligheid', CRIMES[c].key, 'lower', STRESS_W);
   },
+  // Runs last (after the slider overrides): its weight is a share of the total.
+  // One metric, the chosen group's share, `higher`; nothing else ever touches origin.
+  gemeenschap(d, a) {
+    const g = a.gemeenschap;
+    if (!g) return;
+    const others = [...d.themes.values()].reduce((s, t) => s + (t.key !== 'gemeenschap' && t.weight > 0 && t.metrics.size ? t.weight : 0), 0);
+    if (!(others > 0)) return;
+    const grp = GEMEENSCHAP_GROUPS[g.group];
+    d.themes.set('gemeenschap', {
+      key: 'gemeenschap', label: GEMEENSCHAP_LABEL,
+      weight: Math.round((others * g.pct / (100 - g.pct)) * 10) / 10,
+      metrics: new Map([[grp.key, { key: grp.key, pref: 'higher', label: `${GEMEENSCHAP_LABEL} (${grp.label})` }]]),
+    });
+  },
 });
 
 /** Theme weights the answers produce before any slider override: { theme: weight }. */
@@ -192,32 +237,55 @@ export function themeWeights(answers) {
 export function answersToPreset(answers) {
   const a = normalizeAnswers(answers);
   const d = draft();
-  for (const step of STEPS) APPLY[step]?.(d, a);
+  for (const step of STEPS) if (step !== 'gemeenschap') APPLY[step]?.(d, a);
   for (const [k, w] of Object.entries(a.weights)) if (d.themes.has(k)) d.themes.get(k).weight = w;
-  return {
+  APPLY.gemeenschap(d, a);
+  return guardOrigin({
     id: 'jouwscore', label: 'Jouw score',
     themes: [...d.themes.values()].map(t => ({ key: t.key, label: t.label, weight: t.weight, metrics: [...t.metrics.values()] })),
     targets: d.targets, filters: d.filters,
     shrink: STANDAARD.shrink, minCoverage: STANDAARD.minCoverage,
-  };
+  });
+}
+
+/**
+ * §5 guard: in a preset, an origin metric may only appear as `higher` with a
+ * positive weight inside the Gemeenschap theme, and never with a target or
+ * filter. Anything else that names an origin metric is removed. Applied to
+ * every preset the answers or the hash produce (presets.js resolvePreset
+ * enforces the same at scoring time).
+ */
+export function guardOrigin(preset) {
+  const themes = (preset.themes ?? []).map(t => ({
+    ...t,
+    metrics: t.metrics.filter(m => !ORIGIN_KEYS.includes(m.key) || (t.key === 'gemeenschap' && m.pref === 'higher' && t.weight > 0 && !(m.w <= 0))),
+  })).filter(t => t.key !== 'gemeenschap' || t.metrics.length);
+  const targets = Object.fromEntries(Object.entries(preset.targets ?? {}).filter(([k]) => !ORIGIN_KEYS.includes(k)));
+  const filters = (preset.filters ?? []).filter(f => !ORIGIN_KEYS.includes(f.key));
+  return { ...preset, themes, targets, filters };
 }
 
 // ── hash / storage form ──────────────────────────────────────────────────────
 // '.'-separated segments, each led by one letter; only [a-z0-9.] so the
-// value survives URLSearchParams unescaped. Unknown segments are ignored
-// (room for W4's 'g' segment). 'gelijk' / 'standaard' name a fixed preset.
+// value survives URLSearchParams unescaped. Unknown segments are ignored.
+// 'gelijk' / 'standaard' name a fixed preset.
 //   l<s|p|g|v|r>        levensfase      o<b|g>          oud = bewoners/gebouwen
 //   b<h|k>[i<n>][p<n>][x] budget        v<f|o|a|l>…     vervoer
 //   s<0-100>            sfeer           c<in|gw|…>…     veiligheid chips
 //   w<theme letter><n>… slider weights
+//   g<d|e|b><5-30>[x]   gemeenschap: group, weight in % of the total, x = "deel ook
+//                       gemeenschap" ticked. No sign, no direction: the format
+//                       cannot express scoring a group down. A 'g' segment
+//                       without x stays local (shareableScore drops it).
 
 const LF = { student: 's', stel: 'p', gezin: 'g', '50plus': 'v', senior: 'r' };
 const OUD = { bewoners: 'b', gebouwen: 'g' };
 const VV = { fiets: 'f', ov: 'o', auto: 'a', lopen: 'l' };
 const CR = { inbraak: 'in', geweld: 'gw', straatroof: 'sr', fiets: 'fd', auto: 'ad', vandalisme: 'vd', drugs: 'dr' };
 const TH = { veiligheid: 'v', welvaart: 'e', voorzieningen: 'z', opleiding: 'o', woningmarkt: 'm', leeftijd: 'l', nieuwbouw: 'n', budget: 'b', sfeer: 's' };
+const GM = { nederland: 'd', europa: 'e', buitenEuropa: 'b' };
 const inv = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [v, k]));
-const LF_ = inv(LF), OUD_ = inv(OUD), VV_ = inv(VV), CR_ = inv(CR), TH_ = inv(TH);
+const LF_ = inv(LF), OUD_ = inv(OUD), VV_ = inv(VV), CR_ = inv(CR), TH_ = inv(TH), GM_ = inv(GM);
 
 export const SCORE_RE = /^[a-z0-9.]{1,120}$/;
 export const FIXED_PRESETS = Object.freeze(['standaard', 'gelijk']);
@@ -234,6 +302,7 @@ export function encodeAnswers(answers) {
   if (a.veiligheid.length) seg.push(`c${a.veiligheid.map(c => CR[c]).join('')}`);
   const w = Object.keys(TH).filter(k => k in a.weights).map(k => `${TH[k]}${a.weights[k]}`).join('');
   if (w) seg.push(`w${w}`);
+  if (a.gemeenschap) seg.push(`g${GM[a.gemeenschap.group]}${a.gemeenschap.pct}${a.gemeenschap.share ? 'x' : ''}`);
   return seg.join('.');
 }
 
@@ -252,8 +321,34 @@ export function decodeAnswers(str) {
     else if (head === 's' && /^\d{1,3}$/.test(body)) out.sfeer = +body;
     else if (head === 'c') out.veiligheid = (body.match(/../g) ?? []).map(c => CR_[c]).filter(Boolean);
     else if (head === 'w') for (const [, t, n] of body.matchAll(/([a-z])(\d{1,3})/g)) { if (TH_[t]) out.weights[TH_[t]] = +n; }
+    else if (head === 'g') {
+      // Only "group + positive weight [+ x]"; any other shape is dropped whole.
+      const m = /^([a-z])(\d{1,3})(x?)$/.exec(body);
+      if (m && GM_[m[1]] && +m[2] > 0) out.gemeenschap = { group: GM_[m[1]], pct: +m[2], share: m[3] === 'x' };
+    }
   }
   return normalizeAnswers(out);
+}
+
+/**
+ * The `score` value as it may go into the URL: a Gemeenschap segment without
+ * the "deel ook gemeenschap" flag is dropped (it stays in localStorage only).
+ * Null when nothing is left.
+ */
+export function shareableScore(score) {
+  if (typeof score !== 'string' || !score) return null;
+  const out = score.split('.').filter(s => s[0] !== 'g' || s.endsWith('x') || FIXED_PRESETS.includes(score)).join('.');
+  return out || null;
+}
+
+/**
+ * The score to use on load: when the URL score is the shared form of the
+ * locally stored score (same answers, private Gemeenschap left out), the
+ * stored one wins so the local Gemeenschap choice survives a reload.
+ */
+export function restoreLocalScore(urlScore, storedScore) {
+  if (!storedScore || storedScore === urlScore) return urlScore ?? storedScore ?? null;
+  return shareableScore(storedScore) === (urlScore || null) ? storedScore : urlScore ?? null;
 }
 
 /**
@@ -312,5 +407,6 @@ export function describeAnswers(answers) {
   if (a.vervoer.length) parts.push(a.vervoer.map(v => VERVOER[v].toLowerCase()).join('/'));
   if (a.sfeer != null) parts.push(a.sfeer < 35 ? 'levendig' : a.sfeer > 65 ? 'rustig' : 'tussen druk en rustig');
   if (a.veiligheid.length) parts.push(`let op ${a.veiligheid.map(c => CRIMES[c].label.toLowerCase()).join(', ')}`);
+  if (a.gemeenschap) parts.push(`${GEMEENSCHAP_LABEL.toLowerCase()}: ${GEMEENSCHAP_GROUPS[a.gemeenschap.group].label}`);
   return parts.join(' · ');
 }

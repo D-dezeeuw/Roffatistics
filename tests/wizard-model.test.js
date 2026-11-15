@@ -42,7 +42,7 @@ describe('wizard: skip = Standaard', () => {
   });
   it('every step has an applier; W4 has room (no origin key anywhere in a preset)', () => {
     for (const s of STEPS) assert.equal(typeof APPLY[s], 'function');
-    assert.ok(!STEPS.includes('gemeenschap'));
+    assert.equal(STEPS.at(-1), 'gemeenschap');
     const keys = answersToPreset(FULL).themes.flatMap(t => t.metrics.map(m => m.key));
     assert.ok(!keys.some(k => /origin|nonWestern|bornAbroad/.test(k)));
   });

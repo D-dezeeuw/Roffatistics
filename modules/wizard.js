@@ -17,16 +17,17 @@ import {
   STEPS, LEVENSFASEN, OUD_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK,
+  GEMEENSCHAP_GROUPS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_MIN_PCT, GEMEENSCHAP_MAX_PCT,
 } from './wizard-model.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const storage = () => { try { return globalThis.localStorage ?? null; } catch { return null; } };
 
-const STEP_TITLES = { levensfase: 'Levensfase', budget: 'Budget', vervoer: 'Vervoer', sfeer: 'Sfeer', veiligheid: 'Veiligheid' };
+const STEP_TITLES = { levensfase: 'Levensfase', budget: 'Budget', vervoer: 'Vervoer', sfeer: 'Sfeer', veiligheid: 'Veiligheid', gemeenschap: 'Gemeenschap (optioneel)' };
 
 let els = null;
-let step = 0;                 // 0..4, or 'result'
+let step = 0;                 // 0..5, or 'result'
 let answers = normalizeAnswers(EMPTY_ANSWERS);
 let returnFocus = null;
 let nationalRows = () => ({ level: 'provincie', rows: [] });
@@ -78,6 +79,20 @@ function stepBody(key) {
       <div class="wiz-range-ends"><span>Midden in de drukte</span><span>Rustig wonen</span></div>
     </div>
     <p class="wiz-hint"><span class="wiz-sfeer-now" aria-live="polite">${a.sfeer == null ? 'Schuif om te kiezen; nog niet gekozen' : esc(sfeerText(v))}</span>. Drukte = bevolkingsdichtheid en afstand tot Rotterdam Centraal, aan de drukke kant ook horeca dichtbij. Relatief: “rustig” is rustig voor deze lijst.</p>`;
+  }
+  if (key === 'gemeenschap') {
+    const g = a.gemeenschap;
+    const pct = g?.pct ?? GEMEENSCHAP_DEFAULT_PCT;
+    return `
+    <p class="wiz-hint">Optioneel en standaard uit. Wil je graag dichter bij mensen met dezelfde herkomst wonen, dan kun je hier één groep kiezen. Herkomst volgt de CBS-definitie: je eigen geboorteland, of als je in Nederland bent geboren dat van je moeder (of anders je vader). Per wijk en buurt levert CBS alleen drie groepen: Nederland, Europa (excl. NL) en buiten Europa. Het zijn totalen per gebied, geen gegevens over personen.</p>
+    <p class="wiz-q" id="wiz-q">Bij welke gemeenschap wil je graag in de buurt wonen?</p>
+    <div class="wiz-opts" role="group" aria-labelledby="wiz-q">${Object.entries(GEMEENSCHAP_GROUPS).map(([k, grp]) => optBtn('gemGroup', k, grp.label, g?.group === k)).join('')}${optBtn('gemGroup', '', 'Geen voorkeur', !g)}</div>
+    ${g ? `
+    <label class="wiz-slider"><span>Gewicht</span>
+      <input type="range" min="${GEMEENSCHAP_MIN_PCT}" max="${GEMEENSCHAP_MAX_PCT}" step="5" value="${pct}" data-field="gemPct" aria-valuetext="${pct}% van het totaal">
+      <output>${pct}%</output></label>
+    <label class="wiz-check"><input type="checkbox" data-field="gemShare"${g.share ? ' checked' : ''}> Deel ook gemeenschap (zet je keuze in de link die je deelt)</label>` : ''}
+    <p class="wiz-hint">Alleen een plus: een groter aandeel van de gekozen groep telt mee als “nabijheid gemeenschap”. Een gebied krijgt nooit minpunten voor wie er (niet) woont. Je score wordt in je browser berekend; er wordt niets verstuurd. Zonder vinkje blijft je keuze alleen op dit apparaat.</p>`;
   }
   return `
     <p class="wiz-q" id="wiz-q">Welke misdrijven wegen voor jou het zwaarst?</p>
@@ -131,10 +146,16 @@ async function resultItems() {
 
 function themeSliders() {
   const preset = getPersonalPreset();
-  return (preset.themes ?? []).map(t => `
+  const g = answers.gemeenschap;
+  // Gemeenschap has its own slider in % of the total (it is never a free theme weight).
+  const gem = g ? `
+    <label class="wiz-slider"><span>${esc(THEME_LABELS.gemeenschap)} (% van totaal)</span>
+      <input type="range" min="${GEMEENSCHAP_MIN_PCT}" max="${GEMEENSCHAP_MAX_PCT}" step="5" value="${g.pct}" data-field="gemPct" aria-valuetext="${g.pct}% van het totaal">
+      <output>${g.pct}%</output></label>` : '';
+  return (preset.themes ?? []).filter(t => t.key !== 'gemeenschap').map(t => `
     <label class="wiz-slider"><span>${esc(THEME_LABELS[t.key] ?? t.label)}</span>
       <input type="range" min="0" max="100" step="5" value="${t.weight}" data-theme="${t.key}" aria-valuetext="gewicht ${t.weight}">
-      <output>${t.weight}</output></label>`).join('');
+      <output>${t.weight}</output></label>`).join('') + gem;
 }
 
 async function resultHtml() {
@@ -211,6 +232,7 @@ function clearStep(key) {
   else if (key === 'vervoer') answers = { ...answers, vervoer: [] };
   else if (key === 'sfeer') answers = { ...answers, sfeer: null };
   else if (key === 'veiligheid') answers = { ...answers, veiligheid: [] };
+  else if (key === 'gemeenschap') answers = { ...answers, gemeenschap: null };
 }
 
 function go(next) {
@@ -239,7 +261,8 @@ function onClick(e) {
   const set = t.closest('[data-set]');
   if (set) {
     const { set: k, value } = set.dataset;
-    if (k === 'mode') answers = { ...answers, budget: { ...(answers.budget ?? {}), mode: value } };
+    if (k === 'gemGroup') answers = { ...answers, gemeenschap: value && answers.gemeenschap?.group !== value ? { ...(answers.gemeenschap ?? {}), group: value } : null };
+    else if (k === 'mode') answers = { ...answers, budget: { ...(answers.budget ?? {}), mode: value } };
     else answers = { ...answers, [k]: answers[k] === value || value === '' ? null : value };
     answers = normalizeAnswers(answers);
     render({ focus: `[data-set="${k}"][data-value="${CSS.escape(value)}"]` });
@@ -271,6 +294,9 @@ function onInput(e) {
     t.setAttribute('aria-valuetext', sfeerText(+t.value));
     const now = els.dialog.querySelector('.wiz-sfeer-now');
     if (now) now.textContent = sfeerText(+t.value);
+  } else if (t.dataset.field === 'gemPct') {
+    t.nextElementSibling.textContent = `${t.value}%`;
+    t.setAttribute('aria-valuetext', `${t.value}% van het totaal`);
   } else if (t.dataset.theme) {
     t.nextElementSibling.textContent = t.value;
     t.setAttribute('aria-valuetext', `gewicht ${t.value}`);
@@ -283,6 +309,10 @@ function onChange(e) {
   if (f === 'income' || f === 'maxPrice') {
     answers = normalizeAnswers({ ...answers, budget: { ...answers.budget, [f]: parseEuroK(t.value) } });
     render({ focus: `[data-field="${f}"]` });
+  } else if (f === 'gemPct' || f === 'gemShare') {
+    if (!answers.gemeenschap) return;
+    answers = normalizeAnswers({ ...answers, gemeenschap: { ...answers.gemeenschap, ...(f === 'gemPct' ? { pct: +t.value } : { share: t.checked }) } });
+    if (step === 'result') { applyAnswers(); render({ focus: `[data-field="${f}"]` }); }
   } else if (f === 'hide') {
     answers = normalizeAnswers({ ...answers, budget: { ...answers.budget, hide: t.checked } });
   } else if (t.dataset.theme) {

@@ -3,6 +3,7 @@
 // URL hash and emits a 'state-change' event: on `document` in the browser,
 // on a private EventTarget under node.
 import { DATASET_KEYS, CRIME_MODES } from './datasets.js';
+import { shareableScore, restoreLocalScore } from './wizard-model.js';
 
 export const SCOPES = Object.freeze(['rotterdam', 'nederland']);
 export const VIEWS  = Object.freeze(['map', 'dashboard', 'list']);
@@ -54,7 +55,9 @@ export function serializeHash(state) {
   if (state.dataset && state.dataset !== DEFAULT_STATE.dataset && DATASET_KEYS.includes(state.dataset)) params.set('dataset', state.dataset);
   if (state.area) params.set('area', state.area);
   if (state.crime === 'abs') params.set('crime', 'abs');
-  if (state.score && SCORE_RE.test(state.score)) params.set('score', state.score);
+  // A private Gemeenschap choice (not ticked "deel ook gemeenschap") never goes into the URL.
+  const shared = state.score && SCORE_RE.test(state.score) ? shareableScore(state.score) : null;
+  if (shared) params.set('score', shared);
   return `#${params}`;
 }
 
@@ -63,7 +66,10 @@ export function resolveInitialState({ hash = '', storage = null } = {}) {
   let stored = {};
   try { stored = sanitizePatch({ scope: storage?.getItem(SCOPE_STORAGE_KEY), crime: storage?.getItem(CRIME_STORAGE_KEY), score: storage?.getItem(SCORE_STORAGE_KEY) });
     if (stored.score === null) delete stored.score; } catch { /* storage blocked */ }
-  return { ...DEFAULT_STATE, ...stored, ...parseHash(hash) };
+  const fromHash = parseHash(hash);
+  const out = { ...DEFAULT_STATE, ...stored, ...fromHash };
+  if ('score' in stored) out.score = restoreLocalScore(fromHash.score ?? null, stored.score) ?? out.score;
+  return out;
 }
 
 let state = { ...DEFAULT_STATE };
@@ -116,6 +122,10 @@ export function initState({ hash = globalThis.location?.hash ?? '', storage } = 
   storageRef = storage;
   state = resolveInitialState({ hash, storage });
   writeHash();
-  globalThis.addEventListener?.('hashchange', () => setState({ area: null, ...parseHash(location.hash) }, { source: 'hash' }));
+  globalThis.addEventListener?.('hashchange', () => {
+    const patch = { area: null, ...parseHash(location.hash) };
+    if (state.score && shareableScore(state.score) === (patch.score ?? null)) delete patch.score;   // same answers, local Gemeenschap kept
+    setState(patch, { source: 'hash' });
+  });
   return getState();
 }
