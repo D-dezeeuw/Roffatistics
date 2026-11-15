@@ -1656,7 +1656,7 @@ footer {
 .wiz-hint strong { color: var(--text-primary); }
 .wiz-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin: 0.3rem 0; }
 .wiz-field { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.78rem; color: var(--text-muted); }
-.wiz-field input {
+.wiz-field input, .wiz-field select {
   font: inherit; font-size: 0.95rem; color: var(--text-primary); background: var(--bg-surface-alt);
   border: 1px solid rgba(124, 58, 237, 0.4); border-radius: var(--radius); padding: 0.45rem 0.6rem;
 }

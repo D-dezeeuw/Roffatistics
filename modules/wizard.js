@@ -19,17 +19,19 @@ import {
   STEPS, LEVENSFASEN, OUD_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
-  GEMEENSCHAP_GROUPS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_MIN_PCT, GEMEENSCHAP_MAX_PCT,
+  GEMEENSCHAP_GROUPS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS,
+  SITUATIE_EDU, SITUATIE_LABEL, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance,
 } from './wizard-model.js';
+import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const storage = () => { try { return globalThis.localStorage ?? null; } catch { return null; } };
 
-const STEP_TITLES = { levensfase: 'Levensfase', budget: 'Budget', vervoer: 'Vervoer', sfeer: 'Sfeer', veiligheid: 'Veiligheid', gemeenschap: 'Gemeenschap (optioneel)' };
+const STEP_TITLES = { levensfase: 'Levensfase', budget: 'Budget', vervoer: 'Vervoer', sfeer: 'Sfeer', veiligheid: 'Veiligheid', situatie: 'Jouw situatie (optioneel)', gemeenschap: 'Gemeenschap (optioneel)' };
 
 let els = null;
-let step = 0;                 // 0..5, or 'result'
+let step = 0;                 // 0..STEPS.length-1, or 'result'
 let answers = normalizeAnswers(EMPTY_ANSWERS);
 let returnFocus = null;
 let nationalRows = () => ({ level: 'provincie', rows: [] });
@@ -40,6 +42,11 @@ const isOpen = () => !!els && !els.modal.hidden;
 
 const optBtn = (set, value, label, on) =>
   `<button type="button" class="wiz-opt${on ? ' active' : ''}" data-set="${set}" data-value="${esc(value)}" aria-pressed="${on}">${esc(label)}</button>`;
+/** 5-step importance slider (Niet belangrijk … Heel belangrijk); `attr` names what it sets. */
+const impSlider = (attr, level, label, min = 0) => `
+    <label class="wiz-slider wiz-imp"><span>${esc(label)}</span>
+      <input type="range" min="${min}" max="${IMPORTANCE.length - 1}" step="1" value="${level}" ${attr} aria-valuetext="${esc(IMPORTANCE[level].label)}">
+      <output>${esc(IMPORTANCE[level].label)}</output></label>`;
 const chip = (set, value, label, on) =>
   `<button type="button" class="wiz-chip${on ? ' active' : ''}" data-toggle="${set}" data-value="${esc(value)}" aria-pressed="${on}">${esc(label)}</button>`;
 
@@ -84,17 +91,33 @@ function stepBody(key) {
   }
   if (key === 'gemeenschap') {
     const g = a.gemeenschap;
-    const pct = g?.pct ?? GEMEENSCHAP_DEFAULT_PCT;
+    const level = gemeenschapLevel(g?.pct ?? GEMEENSCHAP_DEFAULT_PCT);
     return `
-    <p class="wiz-hint">Optioneel en standaard uit. Wil je graag dichter bij mensen met dezelfde herkomst wonen, dan kun je hier één groep kiezen. Herkomst volgt de CBS-definitie: je eigen geboorteland, of als je in Nederland bent geboren dat van je moeder (of anders je vader). Per wijk en buurt levert CBS alleen drie groepen: Nederland, Europa (excl. NL) en buiten Europa. Het zijn totalen per gebied, geen gegevens over personen.</p>
-    <p class="wiz-q" id="wiz-q">Bij welke gemeenschap wil je graag in de buurt wonen?</p>
-    <div class="wiz-opts" role="group" aria-labelledby="wiz-q">${Object.entries(GEMEENSCHAP_GROUPS).map(([k, grp]) => optBtn('gemGroup', k, grp.label, g?.group === k)).join('')}${optBtn('gemGroup', '', 'Geen voorkeur', !g)}</div>
+    <p class="wiz-hint">Optioneel en standaard uit. Wil je graag dichter bij mensen met dezelfde herkomst wonen, dan kun je hier een groep kiezen. Herkomst volgt de CBS-definitie: je eigen geboorteland, of als je in Nederland bent geboren dat van je moeder (of anders je vader). Het zijn totalen per gebied, geen gegevens over personen.</p>
+    <label class="wiz-field" id="wiz-q">Specifieke herkomstgroep <small>(alleen per gemeente, Nederland-kaart)</small>
+      <select data-field="gemDetail">
+        <option value="">Geen specifieke groep</option>
+        ${Object.entries(DETAIL_GROUPS).map(([k, d]) => `<option value="${esc(k)}"${g?.detail === k ? ' selected' : ''}>${esc(d.label)}</option>`).join('')}
+      </select></label>
+    <p class="wiz-hint wiz-note"><strong>Let op:</strong> per wijk en buurt levert CBS geen specifieke herkomstgroepen. Op wijk- en buurtniveau telt een specifieke groep daarom <strong>niet</strong> mee; we vervangen hem niet stilletjes door een brede groep. Wil je op wijk- en buurtniveau wel een factor, kies dan hieronder ook een brede groep.</p>
+    <p class="wiz-q" id="wiz-q2">${g?.detail ? 'Brede groep voor wijken en buurten (optioneel)' : 'Of een brede groep (wijk, buurt en gemeente)'}</p>
+    <div class="wiz-opts" role="group" aria-labelledby="wiz-q2">${Object.entries(GEMEENSCHAP_GROUPS).map(([k, grp]) => optBtn('gemGroup', k, grp.label, g?.group === k)).join('')}${optBtn('gemGroup', '', 'Geen brede groep', !g?.group)}</div>
     ${g ? `
-    <label class="wiz-slider"><span>Gewicht</span>
-      <input type="range" min="${GEMEENSCHAP_MIN_PCT}" max="${GEMEENSCHAP_MAX_PCT}" step="5" value="${pct}" data-field="gemPct" aria-valuetext="${pct}% van het totaal">
-      <output>${pct}%</output></label>
+    ${impSlider('data-field="gemLevel"', level, 'Hoe belangrijk', 1)}
     <label class="wiz-check"><input type="checkbox" data-field="gemShare"${g.share ? ' checked' : ''}> Deel ook gemeenschap (zet je keuze in de link die je deelt)</label>` : ''}
     <p class="wiz-hint">Alleen een plus: een groter aandeel van de gekozen groep telt mee als “nabijheid gemeenschap”. Een gebied krijgt nooit minpunten voor wie er (niet) woont. Je score wordt in je browser berekend; er wordt niets verstuurd. Zonder vinkje blijft je keuze alleen op dit apparaat.</p>`;
+  }
+  if (key === 'situatie') {
+    const st = a.situatie;
+    return `
+    <p class="wiz-hint">Optioneel en standaard uit. Wil je wonen tussen ${esc(SITUATIE_LABEL.toLowerCase())}? Vul in wat je wilt; alles mag leeg blijven.</p>
+    <p class="wiz-q" id="wiz-q">Wat is je hoogst behaalde opleiding?</p>
+    <div class="wiz-opts" role="group" aria-labelledby="wiz-q">${Object.entries(SITUATIE_EDU).map(([k, e]) => optBtn('sitEdu', k, e.label, st?.edu === k)).join('')}${optBtn('sitEdu', '', 'Zeg ik liever niet', !st?.edu)}</div>
+    <p class="wiz-hint">Een groter aandeel inwoners met hetzelfde opleidingsniveau telt als plus. In plaats van het Standaard-thema Opleiding (meer hbo/wo = beter).</p>
+    <label class="wiz-check"><input type="checkbox" data-field="sitBijstand"${st?.bijstand ? ' checked' : ''}> Ik ontvang bijstand</label>
+    <p class="wiz-hint">Dan telt bijstand per 1.000 inwoners als plus (mensen in een vergelijkbare situatie) in plaats van als minpunt. Dit cijfer is er alleen voor Rotterdamse wijken en buurten; elders telt het niet mee.</p>
+    ${st ? `<label class="wiz-check"><input type="checkbox" data-field="sitShare"${st.share ? ' checked' : ''}> Deel ook mijn situatie (zet je keuze in de link die je deelt)</label>` : ''}
+    <p class="wiz-hint">Alleen een plus: een gebied krijgt nooit minpunten voor wie er (niet) woont. Je score wordt in je browser berekend; er wordt niets verstuurd. Zonder vinkje blijft je keuze alleen op dit apparaat.</p>`;
   }
   return `
     <p class="wiz-q" id="wiz-q">Welke misdrijven wegen voor jou het zwaarst?</p>
@@ -152,23 +175,21 @@ async function resultItems() {
   return { level: level === 'gemeente' ? 'gemeenten' : 'provincies', items: rows.map(r => ({ code: r.regionCode, name: names.get(r.regionCode) ?? r.regionCode })) };
 }
 
+/** One 5-step importance slider per theme; Gemeenschap's levels map to its % of the total. */
 function themeSliders() {
   const preset = getPersonalPreset();
+  const imp = themeImportance(answers);
   const g = answers.gemeenschap;
-  // Gemeenschap has its own slider in % of the total (it is never a free theme weight).
-  const gem = g ? `
-    <label class="wiz-slider"><span>${esc(THEME_LABELS.gemeenschap)} (% van totaal)</span>
-      <input type="range" min="${GEMEENSCHAP_MIN_PCT}" max="${GEMEENSCHAP_MAX_PCT}" step="5" value="${g.pct}" data-field="gemPct" aria-valuetext="${g.pct}% van het totaal">
-      <output>${g.pct}%</output></label>` : '';
-  return (preset.themes ?? []).filter(t => t.key !== 'gemeenschap').map(t => `
-    <label class="wiz-slider"><span>${esc(THEME_LABELS[t.key] ?? t.label)}</span>
-      <input type="range" min="0" max="100" step="5" value="${t.weight}" data-theme="${t.key}" aria-valuetext="gewicht ${t.weight}">
-      <output>${t.weight}</output></label>`).join('') + gem;
+  const gem = g ? impSlider('data-field="gemLevel"', gemeenschapLevel(g.pct), THEME_LABELS.gemeenschap) : '';
+  return (preset.themes ?? []).filter(t => t.key !== 'gemeenschap')
+    .map(t => impSlider(`data-theme="${esc(t.key)}"`, imp[t.key] ?? IMPORTANCE_DEFAULT, THEME_LABELS[t.key] ?? t.label)).join('') + gem;
 }
 
 async function resultHtml() {
   const state = getState();
   const kind = scoreKind(state.score);
+  // A detailed Gemeenschap group is fetched on demand; app.js rescores when it lands (same promise, earlier handler).
+  await Promise.all(missingDetailGroups(getPersonalPreset()).map(g => loadGemeenteGroup(g).catch(() => null)));
   const { level, items } = await resultItems();
   const withScores = items.map(i => {
     const r = scoreResult('woonscore', i.code);
@@ -204,7 +225,7 @@ async function resultHtml() {
       ${hidden ? `<p class="wiz-hint">${hidden} ${esc(levelLabel)} boven je budget zijn verborgen (grijs op de kaart).</p>` : ''}
       ${list}
       <p class="wiz-hint">Match = ${esc(scoreLabel(state.score))}, 0–100 t.o.v. de andere ${esc(levelLabel)} op de kaart. Std = de Woonscore (Standaard) ter vergelijking.</p>
-      ${kind === 'custom' || kind === 'standaard' ? `<details class="wiz-tune"${kind === 'custom' ? ' open' : ''}><summary>Gewichten per thema bijstellen</summary><div class="wiz-sliders">${themeSliders()}</div></details>` : ''}
+      ${kind === 'custom' || kind === 'standaard' ? `<details class="wiz-tune"${kind === 'custom' ? ' open' : ''}><summary>Hoe belangrijk is elk thema?</summary><div class="wiz-sliders">${themeSliders()}</div></details>` : ''}
     </div>
     <footer class="wiz-foot">
       <button type="button" class="area-btn" data-wiz="restart">Antwoorden aanpassen</button>
@@ -241,6 +262,7 @@ function clearStep(key) {
   else if (key === 'sfeer') answers = { ...answers, sfeer: null };
   else if (key === 'veiligheid') answers = { ...answers, veiligheid: [] };
   else if (key === 'gemeenschap') answers = { ...answers, gemeenschap: null };
+  else if (key === 'situatie') answers = { ...answers, situatie: null };
 }
 
 function go(next) {
@@ -269,7 +291,9 @@ function onClick(e) {
   const set = t.closest('[data-set]');
   if (set) {
     const { set: k, value } = set.dataset;
-    if (k === 'gemGroup') answers = { ...answers, gemeenschap: value && answers.gemeenschap?.group !== value ? { ...(answers.gemeenschap ?? {}), group: value } : null };
+    const cur = answers.gemeenschap;
+    if (k === 'gemGroup') { const group = value && cur?.group !== value ? value : null; answers = { ...answers, gemeenschap: { ...(cur ?? {}), group } }; }
+    else if (k === 'sitEdu') answers = { ...answers, situatie: { ...(answers.situatie ?? {}), edu: value && answers.situatie?.edu !== value ? value : null } };
     else if (k === 'mode') answers = { ...answers, budget: { ...(answers.budget ?? {}), mode: value } };
     else answers = { ...answers, [k]: answers[k] === value || value === '' ? null : value };
     answers = normalizeAnswers(answers);
@@ -302,12 +326,10 @@ function onInput(e) {
     t.setAttribute('aria-valuetext', sfeerText(+t.value));
     const now = els.dialog.querySelector('.wiz-sfeer-now');
     if (now) now.textContent = sfeerText(+t.value);
-  } else if (t.dataset.field === 'gemPct') {
-    t.nextElementSibling.textContent = `${t.value}%`;
-    t.setAttribute('aria-valuetext', `${t.value}% van het totaal`);
-  } else if (t.dataset.theme) {
-    t.nextElementSibling.textContent = t.value;
-    t.setAttribute('aria-valuetext', `gewicht ${t.value}`);
+  } else if (t.dataset.field === 'gemLevel' || t.dataset.theme) {
+    const label = IMPORTANCE[+t.value]?.label ?? '';
+    t.nextElementSibling.textContent = label;
+    t.setAttribute('aria-valuetext', label);
   }
 }
 
@@ -317,14 +339,26 @@ function onChange(e) {
   if (f === 'income' || f === 'maxPrice') {
     answers = normalizeAnswers({ ...answers, budget: { ...answers.budget, [f]: parseEuroK(t.value) } });
     render({ focus: `[data-field="${f}"]` });
-  } else if (f === 'gemPct' || f === 'gemShare') {
+  } else if (f === 'gemDetail') {
+    const detail = t.value || null;
+    answers = normalizeAnswers({ ...answers, gemeenschap: { ...(answers.gemeenschap ?? {}), detail } });
+    if (detail) loadGemeenteGroup(detail).catch(() => { /* CBS down: the factor is skipped, as at wijk/buurt */ });
+    render({ focus: '[data-field="gemDetail"]' });
+  } else if (f === 'gemLevel' || f === 'gemShare') {
     if (!answers.gemeenschap) return;
-    answers = normalizeAnswers({ ...answers, gemeenschap: { ...answers.gemeenschap, ...(f === 'gemPct' ? { pct: +t.value } : { share: t.checked }) } });
+    // Level 0 ("Niet belangrijk", result only) switches Gemeenschap off.
+    const pct = f === 'gemLevel' ? GEMEENSCHAP_LEVEL_PCT[+t.value] : null;
+    answers = normalizeAnswers({ ...answers, gemeenschap: f === 'gemLevel' && !pct ? null : { ...answers.gemeenschap, ...(f === 'gemLevel' ? { pct } : { share: t.checked }) } });
     if (step === 'result') { applyAnswers(); render({ focus: `[data-field="${f}"]` }); }
+  } else if (f === 'sitBijstand' || f === 'sitShare') {
+    answers = normalizeAnswers({ ...answers, situatie: { ...(answers.situatie ?? {}), [f === 'sitBijstand' ? 'bijstand' : 'share']: t.checked } });
+    render({ focus: `[data-field="${f}"]` });
   } else if (f === 'hide') {
     answers = normalizeAnswers({ ...answers, budget: { ...answers.budget, hide: t.checked } });
   } else if (t.dataset.theme) {
-    answers = normalizeAnswers({ ...answers, weights: { ...answers.weights, [t.dataset.theme]: +t.value } });
+    const k = t.dataset.theme;
+    const { [k]: _old, ...weights } = answers.weights;   // the 5-step level replaces an old absolute weight
+    answers = normalizeAnswers({ ...answers, weights, importance: { ...answers.importance, [k]: +t.value } });
     applyAnswers();
     render({ focus: `[data-theme="${t.dataset.theme}"]` });
   }

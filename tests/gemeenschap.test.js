@@ -32,7 +32,7 @@ const area = (code, o) => ({ code, values: { originDutchPct: o, crimeRate: 50, a
 
 describe('Gemeenschap: off by default, never in Standaard or Gelijk', () => {
   it('is the optional sixth step and absent from the empty answers', () => {
-    assert.equal(STEPS[5], 'gemeenschap');
+    assert.equal(STEPS.at(-1), 'gemeenschap');
     assert.equal(normalizeAnswers({}).gemeenschap, null);
     assert.equal(originMetrics(answersToPreset({})).length, 0);
     assert.ok(isEmptyAnswers({}));

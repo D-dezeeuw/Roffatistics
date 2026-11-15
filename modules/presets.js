@@ -3,6 +3,7 @@
 // weighted factors for the metrics that have data among the peers.
 import { DATASETS, DATASET_KEYS } from './datasets.js';
 import { scoreAreas, MIN_COVERAGE } from './score.js';
+import { DETAIL_KEYS, withDetailShares } from './herkomst-gemeente.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 
@@ -63,14 +64,19 @@ export const RATE_KEYS = Object.freeze(DATASET_KEYS.filter(k => DATASETS[k].unit
  * a chosen group = plus), never lower, as a target or as a filter, so no
  * preset can rank an area by the absence of a group.
  */
-export const ORIGIN_KEYS = Object.freeze(['originDutchPct', 'originEuropePct', 'nonWesternPct']);
+export const ORIGIN_KEYS = Object.freeze(['originDutchPct', 'originEuropePct', 'nonWesternPct', ...DETAIL_KEYS]);
 const originAllowed = (m, target) => !ORIGIN_KEYS.includes(m.key) || (m.pref === 'higher' && !target);
+/** "Jouw situatie" (v0.23.0) is positive-only: in that theme a metric counts only as `higher`, never as a target. */
+const situatieAllowed = (theme, m, target) => theme.key !== 'situatie' || (m.pref === 'higher' && !target);
 
 export function resolvePreset(preset, available) {
   const has = available instanceof Set ? k => available.has(k) : k => (available ?? []).includes(k);
   const out = [];
   for (const theme of preset?.themes ?? []) {
-    const metrics = theme.metrics.filter(m => has(m.key) && !(m.w <= 0) && originAllowed(m, preset.targets?.[m.key]));
+    // `unless`: the metric only counts where that other key has no data (the broad
+    // Gemeenschap group next to a detailed group: wijk/buurt only, not for gemeenten).
+    const metrics = theme.metrics.filter(m => has(m.key) && !(m.w <= 0) && !(m.unless && has(m.unless))
+      && originAllowed(m, preset.targets?.[m.key]) && situatieAllowed(theme, m, preset.targets?.[m.key]));
     if (!metrics.length || !(theme.weight > 0)) continue;
     // A metric's optional `w` is its share inside the theme (default 1 = an even split).
     const wSum = metrics.reduce((s, m) => s + (isNum(m.w) ? m.w : 1), 0);
@@ -150,7 +156,7 @@ export function scoreWithPreset(areas, preset = DEFAULT_PRESET, { parents = null
 export const THEME_LABELS = Object.freeze({
   veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding',
   woningmarkt: 'Woningmarkt', leeftijd: 'Leeftijd', nieuwbouw: 'Nieuwbouw', budget: 'Budget', sfeer: 'Sfeer',
-  gemeenschap: 'Nabijheid gemeenschap',
+  situatie: 'Vergelijkbare situatie', gemeenschap: 'Nabijheid gemeenschap',
 });
 
 /** The active preset of the Woonscore (setPersonalPreset(null) = Standaard). */
@@ -212,7 +218,8 @@ export function withWoonscore(areas, { parents = null } = {}) {
 export function rowsWithWoonscore(rows) {
   const list = rows ?? [];
   const out = list.map(r => ({ ...r }));
-  const areas = list.map(r => ({ code: r.regionCode, values: r }));
+  // Detailed herkomst shares (Gemeenschap, gemeenten only) are added for scoring, not to the rows.
+  const areas = list.map(r => ({ code: r.regionCode, values: withDetailShares(r, r.regionCode) }));
   for (const key of SCORE_KEYS) {
     const preset = presetFor(key);
     const { results } = scoreWithPreset(areas, preset);

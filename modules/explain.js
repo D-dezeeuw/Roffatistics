@@ -122,9 +122,25 @@ export const GENERAL_SECTIONS = Object.freeze([
     id: 'gemeenschap',
     title: 'Jouw score: nabijheid gemeenschap',
     paragraphs: [
-      'In de wizard "Vind jouw ideale woonplek" is stap 6 (Gemeenschap) optioneel en standaard uit; de Woonscore (Standaard) en "Gelijk gewogen" gebruiken herkomst nooit. Kies je er wel een groep, dan telt het aandeel inwoners van die groep (CBS-kerncijfers per wijk en buurt: Nederland, Europa excl. NL of buiten Europa) als plus mee, met een gewicht dat jij kiest (standaard 10% van het totaal, hoogstens 30%). Waar een niveau dat cijfer niet heeft, valt de factor weg en tellen de andere thema\'s naar verhouding zwaarder.',
+      'In de wizard "Vind jouw ideale woonplek" is de laatste stap (Gemeenschap) optioneel en standaard uit; de Woonscore (Standaard) en "Gelijk gewogen" gebruiken herkomst nooit. Kies je er wel een groep, dan telt het aandeel inwoners van die groep (CBS-kerncijfers per wijk en buurt: Nederland, Europa excl. NL of buiten Europa) als plus mee, met een gewicht dat jij kiest (standaard 10% van het totaal, hoogstens 30%). Waar een niveau dat cijfer niet heeft, valt de factor weg en tellen de andere thema\'s naar verhouding zwaarder.',
       'Wat het niet doet: er is geen optie om een groep te vermijden of lager te laten wegen, ook niet via een aangepaste link, en een gebied staat nooit als zwak punt in de lijst omdat er minder mensen van een groep wonen. Het resultaat heet "nabijheid gemeenschap" en is geen etnische score van een gebied; het zijn totalen per gebied, niets over personen.',
       'Je score wordt in je browser berekend en er wordt niets verstuurd. Je keuze wordt op dit apparaat onthouden; in een gedeelde link staat ze alleen als je "Deel ook gemeenschap" aanvinkt.',
+      'Specifieke herkomstgroep (zoals Suriname, Turkije of Marokko): CBS levert die per gemeente (tabel 85458NED, laatste jaar), niet per wijk of buurt. Op de Nederland-kaart telt dan het aandeel van die groep per gemeente. Op wijk- en buurtniveau telt de specifieke groep niet mee en wordt hij niet vervangen door een brede groep; wie dat wil kiest daarnaast zelf een brede groep, die dan alleen voor wijken en buurten telt.',
+    ],
+  },
+  {
+    id: 'situatie',
+    title: 'Jouw score: mensen in een vergelijkbare situatie',
+    paragraphs: [
+      'De optionele stap "Jouw situatie" is standaard uit. Kies je een opleidingsniveau (laag, middelbaar of hoog), dan telt een groter aandeel inwoners met dat niveau als plus; het Standaard-thema Opleiding (meer hbo/wo = beter) vervalt dan voor jou. Vink je "ik ontvang bijstand" aan, dan telt bijstand per 1.000 inwoners als plus in plaats van als minpunt; dat cijfer is er alleen voor Rotterdamse wijken en buurten.',
+      'Alleen een plus: een gebied krijgt nooit minpunten voor wie er woont. Je score wordt in je browser berekend en er wordt niets verstuurd; in een gedeelde link staat je situatie alleen als je "Deel ook mijn situatie" aanvinkt.',
+    ],
+  },
+  {
+    id: 'belang',
+    title: 'Jouw score: hoe belangrijk is elk thema',
+    paragraphs: [
+      'Per thema kies je in vijf stappen hoe zwaar het weegt: niet belangrijk (telt niet mee), beetje (half), gemiddeld (zoals je antwoorden het zetten), belangrijk (anderhalf keer) of heel belangrijk (dubbel). Voor nabijheid gemeenschap zijn de stappen een vast aandeel van het totaal: 5, 10, 20 of 30 %.',
     ],
   },
   {

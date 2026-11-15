@@ -15,6 +15,7 @@ import { initCrimeToggles }               from './modules/crime-mode.js';
 import { initAreaModal, openAreaModal, COMPARE_EVENT } from './modules/area-modal.js';
 import { initSpacePan }                   from './modules/space-pan.js';
 import { rowsWithWoonscore, setPersonalPreset, assignScore } from './modules/presets.js';
+import { loadGemeenteGroup, missingDetailGroups } from './modules/herkomst-gemeente.js';
 import { presetFromScore, scoreTitle }    from './modules/wizard-model.js';
 import { initWizard }                     from './modules/wizard.js';
 import { peekRotterdamAreas }             from './modules/areas.js';
@@ -332,7 +333,17 @@ function syncDatasetButtons(key) {
 // A new `score` (wizard, switcher, Reset, hash) rescores the Woonscore of every
 // loaded area in place. Runs before the list, modal and wizard listeners (subscribed later).
 function applyPersonalScore(score) {
-  setPersonalPreset(presetFromScore(score));
+  const preset = presetFromScore(score);
+  setPersonalPreset(preset);
+  // Gemeenschap with a detailed herkomst group (gemeenten only, CBS 85458NED):
+  // fetched on demand, then rescored once. On failure the factor is skipped.
+  for (const g of missingDetailGroups(preset)) {
+    loadGemeenteGroup(g).then(() => {
+      if (getState().score !== score) return;
+      applyPersonalScore(score);
+      if (DATASETS[getState().dataset]?.unit === 'score') activateDataset(getState().dataset);
+    }).catch(() => { /* CBS unavailable */ });
+  }
   const rd = peekRotterdamAreas();
   if (rd) {
     assignScore(rd.wijken, 'woonscore');

@@ -139,18 +139,22 @@ export function scoreAreas(areas, factors, { parents = null, shrinkKeys = [], fi
   });
 }
 
+/** Themes whose factors are only ever listed as a plus (positive-only opt-ins). */
+export const PLUS_ONLY_THEMES = Object.freeze(['gemeenschap', 'situatie']);
+
 /**
  * Strong and weak points of one scored area: factors with data sorted by
  * |impact|, plus = above the peer middle, minus = below. { plus, minus } of
  * [{ key, label, impact, f, value }], at most `top` each. A Gemeenschap
- * factor (theme 'gemeenschap', §5) is only ever a plus: an area is never
+ * factor (theme 'gemeenschap', §5) or a "Jouw situatie" factor (v0.23.0) is
+ * only ever a plus: an area is never
  * listed as weak for having fewer people of a group.
  */
 export function explain(result, { top = 3 } = {}) {
   const rows = (result?.factors ?? []).filter(r => r.f != null && r.impact != null)
     .map(({ key, label, impact, f, value, weight, theme }) => ({ key, label, impact, f, value, weight, theme }));
   const plus = rows.filter(r => r.impact > 0).sort((a, b) => b.impact - a.impact).slice(0, top);
-  const minus = rows.filter(r => r.impact < 0 && r.theme !== 'gemeenschap').sort((a, b) => a.impact - b.impact).slice(0, top);
+  const minus = rows.filter(r => r.impact < 0 && !PLUS_ONLY_THEMES.includes(r.theme)).sort((a, b) => a.impact - b.impact).slice(0, top);
   return { plus, minus };
 }
 
