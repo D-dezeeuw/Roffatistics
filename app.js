@@ -1,12 +1,13 @@
 import { bindDOM, run, setValue } from 'spektrum';
 import { initMap, getMap, setMapScope, refreshMapSize } from './modules/map.js';
-import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente } from './modules/overlays.js';
+import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, getActiveGemeente, getActiveGemeenteName, setPinnedGemeente, clearPinnedGemeente, focusNederlandArea } from './modules/overlays.js';
 import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD, DATASETS } from './modules/datasets.js';
 import { initState, getState, setState, onStateChange } from './modules/state.js';
 import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea, pinActiveArea, clearPinnedArea, getActiveArea } from './modules/rotterdam.js';
 import { updateLegend }                   from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
 import { initList, setNationalRows }      from './modules/list.js';   // Ranglijst view
+import { initSearch }                     from './modules/search.js';
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -275,6 +276,7 @@ async function applyScope(scope, { initial = false } = {}) {
   setMapScope('nederland', { fit: !initial });
   if (!initial) await setOverlaysEnabled(true);   // initOverlays already enabled them on a Nederland start
   if (seq === scopeSeq) await activateDataset(getState().dataset);
+  if (seq === scopeSeq && /^(PV|GM)/.test(getState().area ?? '')) focusNederlandArea(getState().area);   // search / deep link
 }
 
 // ── View switcher (Kaart | Dashboard | Ranglijst) ─────────────────────────────
@@ -309,9 +311,13 @@ onStateChange(({ state, changed, source }) => {
   if (changed.includes('area') && state.area && source !== 'map' && state.scope === 'rotterdam') {
     focusArea(state.area);
   }
+  if (changed.includes('area') && state.area && source !== 'map' && state.scope === 'nederland') {
+    focusNederlandArea(state.area);   // search: gemeente / provincie
+  }
 });
 
 syncDatasetButtons(initialState.dataset);
 showView(initialState.view);
 initList();   // after showView so a #view=list start renders visible
 applyScope(initialState.scope, { initial: true });
+initSearch();

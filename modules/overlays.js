@@ -446,3 +446,34 @@ export async function initOverlays({ enabled: startEnabled = true } = {}) {
 
   map.on('zoomend', () => swapToTier(resolveZoomTier(map.getZoom())));
 }
+
+// ── Focus (search, deep links) ───────────────────────────────────────────────
+
+/**
+ * Nederland scope: zooms to a provincie (PV..) or gemeente (GM..) and opens its panel.
+ * Gemeenten land at least on the gemeente tier so their outline is on the map.
+ */
+export async function focusNederlandArea(code) {
+  const c = String(code ?? '').trim().toUpperCase();
+  const isProvince = /^PV\d{2}$/.test(c);
+  if (!isProvince && !/^GM\d{4}$/.test(c)) return null;
+  let geo;
+  try { geo = await loadGeoJSON(isProvince ? './data/provinces.json' : GEMEENTE_URL); } catch { return null; }
+  const feature = geo?.features?.find(f => String(f.properties?.statcode ?? '').trim().toUpperCase() === c);
+  if (!feature) return null;
+  const rawCode = feature.properties.statcode;
+  const name    = feature.properties?.statnaam ?? c;
+  const map     = getMap();
+  const bounds  = L.geoJSON(feature).getBounds();
+  if (bounds.isValid()) {
+    const fitZoom = map.getBoundsZoom(bounds, false, L.point(48, 48));
+    const zoom = isProvince
+      ? Math.min(fitZoom, ZOOM_MUNICIPALITY - 1)
+      : Math.min(Math.max(fitZoom, ZOOM_MUNICIPALITY), ZOOM_BUURT - 1);
+    map.setView(bounds.getCenter(), zoom);
+  }
+  if (!isProvince) { activeGemeente = rawCode; activeGemeenteName = name; }
+  const data = (isProvince ? provinceData : municipalityData).find(d => d.regionCode === rawCode) ?? null;
+  import('./panel.js').then(({ showPanel }) => showPanel({ name, code: rawCode, data }));
+  return { code: c, name };
+}
