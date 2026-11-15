@@ -10,7 +10,7 @@
 import { ORIGIN_GROUPS, HK, HERKOMST_TABLE, HERKOMST_YEAR, HERKOMST_TOTALS } from './herkomst.js';
 import { PC4_GROUP_KEYS } from './herkomst-pc4.js';
 
-/** Two-letter hash code per detailed group (Nederland is a broad group already). */
+/** Two-letter hash code per detailed group (Nederland: see NEDERLAND below). */
 const CODES = Object.freeze({
   euZuid: 'ez', euMoe: 'em', euOverig: 'eo', euNietEu: 'en', turkije: 'tr', marokko: 'ma', egypte: 'eg',
   subSahara: 'ss', suriname: 'sr', cariben: 'ca', noordAmerika: 'na', latAmerika: 'la', indonesie: 'id',
@@ -30,17 +30,22 @@ const EXTRA_GROUPS = Object.freeze([
  * Detailed groups: key → { label, code, key: metric key, group: the herkomst.js group,
  * wijk: true when the share also exists per wijk/buurt (estimated via postcode, herkomst-pc4.js) }.
  */
-export const DETAIL_GROUPS = Object.freeze(Object.fromEntries([...ORIGIN_GROUPS, ...EXTRA_GROUPS].filter(g => CODES[g.key]).map(g =>
-  [g.key, Object.freeze({ label: g.label, code: CODES[g.key], key: `hk_${g.key}`, group: g, wijk: PC4_GROUP_KEYS.includes(g.key) })])));
-/** Every detailed metric key: origin metrics, under the same positive-only guard as the broad ones. */
-export const DETAIL_KEYS = Object.freeze(Object.values(DETAIL_GROUPS).map(d => d.key));
+export const DETAIL_GROUPS = Object.freeze(Object.fromEntries([
+  // v0.26.0: Nederland (Nederlandse achtergrond) uses the kerncijfers share `originDutchPct`,
+  // which CBS publishes per gemeente, wijk and buurt (direct): nothing to fetch or estimate.
+  ['nederland', Object.freeze({ label: 'Nederland', long: 'Nederland (Nederlandse achtergrond)', code: 'nl', key: 'originDutchPct', group: null, wijk: true, direct: true })],
+  ...[...ORIGIN_GROUPS, ...EXTRA_GROUPS].filter(g => CODES[g.key]).map(g =>
+    [g.key, Object.freeze({ label: g.label, code: CODES[g.key], key: `hk_${g.key}`, group: g, wijk: PC4_GROUP_KEYS.includes(g.key) })]),
+]));
+/** Every fetched/estimated detailed metric key (`hk_<group>`): origin metrics, under the same positive-only guard. */
+export const DETAIL_KEYS = Object.freeze(Object.values(DETAIL_GROUPS).filter(d => !d.direct).map(d => d.key));
 
 const ODATA = 'https://opendata.cbs.nl/ODataApi/odata';
 
 /** One query: every gemeente, the latest year, Totaal plus the group's keys. */
 export function buildGemeenteGroupUrl(groupKey, year = HERKOMST_YEAR) {
   const d = DETAIL_GROUPS[groupKey];
-  if (!d) return null;
+  if (!d?.group) return null;
   const keys = [HK.total, ...d.group.plus, ...d.group.minus];
   const filter = `startswith(RegioS,'GM') and Geslacht eq '${HERKOMST_TOTALS.Geslacht}' and Leeftijd eq '${HERKOMST_TOTALS.Leeftijd}'`
     + ` and Geboorteland eq '${HERKOMST_TOTALS.Geboorteland}' and Perioden eq '${year}JJ00'`
@@ -61,7 +66,7 @@ export function parseGemeenteGroupRows(rows, groupKey) {
     by.get(code)[k] = num(r.Bevolking_1);
   }
   const out = new Map();
-  if (!d) return out;
+  if (!d?.group) return out;
   for (const [code, counts] of by) {
     const total = counts[HK.total];
     let v = 0, ok = total > 0;
@@ -81,6 +86,7 @@ export function getGemeenteGroup(groupKey) { return loaded.get(groupKey) ?? null
 /** Fetches (once per page) the share of `groupKey` per gemeente; rejects when CBS fails (retried on the next call). */
 export function loadGemeenteGroup(groupKey, { fetcher = globalThis.fetch?.bind(globalThis) } = {}) {
   if (loaded.has(groupKey)) return Promise.resolve(loaded.get(groupKey));
+  if (DETAIL_GROUPS[groupKey]?.direct) return Promise.resolve(new Map());   // Nederland: already in the area values
   if (pending.has(groupKey)) return pending.get(groupKey);
   const url = buildGemeenteGroupUrl(groupKey);
   if (!url) return Promise.reject(new Error(`onbekende groep ${groupKey}`));

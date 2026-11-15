@@ -101,7 +101,7 @@ describe('Jouw situatie (opleidingsniveau, bijstand)', () => {
     assert.ok(r.find(x => x.code === 'A').score > r.find(x => x.code === 'B').score);
     assert.ok(!explain(r.find(x => x.code === 'B')).minus.some(f => f.theme === 'situatie'), 'never a minus');
   });
-  it('round-trips as a `j` segment and stays out of shared links unless ticked', () => {
+  it('round-trips as a `j` segment and stays out of links unless ticked in "Deellink maken"', () => {
     for (const s of [{ edu: 'laag', income: 'bijstand' }, { edu: 'hoog' }, { income: 'm7500', share: true }, { edu: 'basis', income: 'hoger' }]) {
       const a = normalizeAnswers({ sfeer: 40, situatie: s });
       assert.deepEqual(decodeAnswers(encodeAnswers(a)).situatie, a.situatie);
@@ -109,7 +109,11 @@ describe('Jouw situatie (opleidingsniveau, bijstand)', () => {
     const priv = encodeAnswers({ sfeer: 40, situatie: { edu: 'laag', income: 'bijstand' } });
     assert.equal(priv, 's40.jl0');
     assert.equal(shareableScore(priv), 's40');
-    assert.equal(shareableScore('s40.jl0x'), 's40.jl0x');
+    assert.equal(shareableScore('s40.jl0x'), 's40', 'old x flag ignored');
+    assert.deepEqual(decodeAnswers('s40.jl0x').situatie, { edu: 'laag', income: 'bijstand' });
+    assert.equal(shareableScore(priv, { education: true }), 's40.jl');
+    assert.equal(shareableScore(priv, { income: true }), 's40.j0');
+    assert.equal(shareableScore(priv, { education: true, income: true }), priv);
     assert.equal(restoreLocalScore('s40', priv), priv, 'local choice survives a reload');
     for (const bad of ['j', 'jx', 'jq', 'jbl', 'j-l', 'j9', 'j0b', 'jl12', 'j0l']) assert.equal(decodeAnswers(`s40.${bad}`).situatie, null, bad);
   });
@@ -199,12 +203,12 @@ describe('Jouw situatie sliders (income, education; W7)', () => {
     assert.ok(!('avgIncome' in eduOnly.targets) && themeOf(eduOnly, 'welvaart').metrics.some(m => m.key === 'avgIncome' && m.pref === 'higher'));
   });
   it('old hashes and the old bijstand field still decode', () => {
-    assert.deepEqual(decodeAnswers('jlb').situatie, { edu: 'laag', income: 'bijstand', share: false });
-    assert.deepEqual(decodeAnswers('jb').situatie, { edu: null, income: 'bijstand', share: false });
-    assert.deepEqual(decodeAnswers('jhbx').situatie, { edu: 'hoog', income: 'bijstand', share: true });
-    assert.deepEqual(decodeAnswers('jm').situatie, { edu: 'middelbaar', income: null, share: false });
-    assert.deepEqual(decodeAnswers('jmx').situatie, { edu: 'middelbaar', income: null, share: true });
-    assert.deepEqual(normalizeAnswers({ situatie: { bijstand: true } }).situatie, { edu: null, income: 'bijstand', share: false });
+    assert.deepEqual(decodeAnswers('jlb').situatie, { edu: 'laag', income: 'bijstand' });
+    assert.deepEqual(decodeAnswers('jb').situatie, { edu: null, income: 'bijstand' });
+    assert.deepEqual(decodeAnswers('jhbx').situatie, { edu: 'hoog', income: 'bijstand' });
+    assert.deepEqual(decodeAnswers('jm').situatie, { edu: 'middelbaar', income: null });
+    assert.deepEqual(decodeAnswers('jmx').situatie, { edu: 'middelbaar', income: null });
+    assert.deepEqual(normalizeAnswers({ situatie: { bijstand: true } }).situatie, { edu: null, income: 'bijstand' });
     assert.equal(normalizeAnswers({ situatie: { bijstand: true, income: 'm5000' } }).situatie.income, 'm5000', 'an explicit band wins');
     assert.equal(encodeAnswers(decodeAnswers('jlb')), 'jl0', 're-encodes in the new form');
     assert.ok(!('bijstand' in normalizeAnswers({ situatie: { edu: 'laag' } }).situatie), 'bijstand is gone from the model');
@@ -234,8 +238,12 @@ describe('Jouw situatie sliders (income, education; W7)', () => {
 });
 
 describe('Gemeenschap: detailed origin group for gemeenten (85458NED)', () => {
-  it('offers the herkomst.js groups except Nederland, each with a unique two-letter code', () => {
-    assert.equal(Object.keys(DETAIL_GROUPS).length, ORIGIN_GROUPS.length - 1 + 3);   // + Polen, Duitsland, België (v0.25.0)
+  it('offers the herkomst.js groups (Nederland first, v0.26.0), each with a unique two-letter code', () => {
+    assert.equal(Object.keys(DETAIL_GROUPS).length, ORIGIN_GROUPS.length + 3);   // + Polen, Duitsland, België (v0.25.0)
+    assert.equal(Object.keys(DETAIL_GROUPS)[0], 'nederland');
+    assert.deepEqual([DETAIL_GROUPS.nederland.key, DETAIL_GROUPS.nederland.code, DETAIL_GROUPS.nederland.direct], ['originDutchPct', 'nl', true]);
+    assert.ok(!DETAIL_KEYS.includes('originDutchPct'), 'nothing to fetch for Nederland');
+    assert.equal(buildGemeenteGroupUrl('nederland'), null);
     assert.ok(DETAIL_GROUPS.suriname && DETAIL_GROUPS.turkije && DETAIL_GROUPS.marokko);
     const codes = Object.values(DETAIL_GROUPS).map(d => d.code);
     assert.equal(new Set(codes).size, codes.length);
@@ -243,24 +251,29 @@ describe('Gemeenschap: detailed origin group for gemeenten (85458NED)', () => {
     for (const k of DETAIL_KEYS) assert.ok(ORIGIN_KEYS.includes(k), 'detailed keys are origin keys');
   });
   it('round-trips in the hash; old g segments parse unchanged; unknown codes are dropped whole', () => {
-    for (const g of [{ detail: 'suriname', pct: 10 }, { group: 'buitenEuropa', detail: 'marokko', pct: 20, share: true }, { group: 'nederland', pct: 5 }]) {
+    for (const g of [{ detail: 'suriname', pct: 10 }, { group: 'buitenEuropa', detail: 'marokko', pct: 20, share: true }, { group: 'nederland', pct: 5 }, { detail: 'nederland', pct: 30 }]) {
       const a = normalizeAnswers({ gemeenschap: g });
       assert.deepEqual(decodeAnswers(encodeAnswers(a)).gemeenschap, a.gemeenschap);
     }
-    assert.equal(encodeAnswers({ gemeenschap: { detail: 'suriname', pct: 10, share: true } }), 'ghsr10x');
-    assert.deepEqual(decodeAnswers('gd10x').gemeenschap, { group: 'nederland', pct: 10, share: true });
-    assert.deepEqual(decodeAnswers('gbhtr20').gemeenschap, { group: 'buitenEuropa', detail: 'turkije', pct: 20, share: false });
+    assert.equal(encodeAnswers({ gemeenschap: { detail: 'suriname', pct: 10, share: true } }), 'ghsr10');
+    assert.deepEqual(decodeAnswers('gd10x').gemeenschap, { detail: 'nederland', pct: 10 });
+    assert.deepEqual(decodeAnswers('gbhtr20').gemeenschap, { detail: 'turkije', pct: 20 });
     for (const bad of ['ghzz10', 'gqhsr10', 'ghsr0', 'ghsr-10', 'gh10', 'ghsrl10']) assert.equal(decodeAnswers(bad).gemeenschap, null, bad);
     assert.equal(shareableScore('s40.ghsr10'), 's40');
   });
-  it('the detailed share counts for gemeenten; the broad group only where it is missing (wijk/buurt)', () => {
+  it('an old broad group next to a detailed one is dropped: one factor, the detailed share', () => {
     const p = answersToPreset({ gemeenschap: { group: 'buitenEuropa', detail: 'suriname', pct: 20 } });
-    const gem = themeOf(p, 'gemeenschap');
-    assert.deepEqual(gem.metrics.map(m => [m.key, m.pref]), [['hk_suriname', 'higher'], ['nonWesternPct', 'higher']]);
-    const gm = resolvePreset(p, new Set(['avgIncome', 'nonWesternPct', 'hk_suriname'])).filter(f => f.theme === 'gemeenschap');
-    assert.deepEqual(gm.map(f => f.key), ['hk_suriname']);
+    assert.deepEqual(themeOf(p, 'gemeenschap').metrics.map(m => [m.key, m.pref]), [['hk_suriname', 'higher']]);
     const wk = resolvePreset(p, new Set(['avgIncome', 'nonWesternPct'])).filter(f => f.theme === 'gemeenschap');
-    assert.deepEqual(wk.map(f => f.key), ['nonWesternPct']);
+    assert.deepEqual(wk, []);
+  });
+  it('Nederland counts at gemeente, wijk and buurt level and loads nothing', async () => {
+    const p = answersToPreset({ gemeenschap: { detail: 'nederland' } });
+    assert.deepEqual(resolvePreset(p, new Set(['avgIncome', 'originDutchPct'])).filter(f => f.theme === 'gemeenschap').map(f => [f.key, f.pref]), [['originDutchPct', 'higher']]);
+    assert.deepEqual(missingDetailGroups(p), []);
+    let calls = 0;
+    assert.equal((await loadGemeenteGroup('nederland', { fetcher: () => { calls++; } })).size, 0);
+    assert.equal(calls, 0);
   });
   it('a detailed group alone is skipped at wijk/buurt level, not replaced by a broad group', () => {
     const p = answersToPreset({ gemeenschap: { detail: 'suriname' } });
@@ -276,7 +289,7 @@ describe('Gemeenschap: detailed origin group for gemeenten (85458NED)', () => {
     assert.ok(!resolvePreset(forged, ALL).some(f => f.key === 'hk_turkije'));
   });
   it('describes both groups with their level', () => {
-    assert.match(describeAnswers({ gemeenschap: { group: 'buitenEuropa', detail: 'suriname' } }), /nabijheid gemeenschap: Suriname \(gemeenten; wijk\/buurt geschat via postcode\) \/ Buiten Europa \(wijk\/buurt\)/);
+    assert.match(describeAnswers({ gemeenschap: { group: 'buitenEuropa', detail: 'suriname' } }), /nabijheid gemeenschap: Suriname \(gemeenten; wijk\/buurt geschat via postcode\)$/);
   });
 });
 

@@ -13,6 +13,9 @@
 // herkomst-gemeente.js), the opt-in step "Jouw situatie" (opleiding and, since
 // v0.26.0, an income slider → positive "vergelijkbare situatie" factors) and a 5-step
 // importance scale per theme (IMPORTANCE, hash segment `i`).
+// v0.26.0: Gemeenschap is one detailed group (Nederland included, the broad
+// groups are gone); nothing sensitive goes into a link unless the user ticks
+// it in "Deellink maken" (shareableAnswers / shareableScore).
 import { STANDAARD, GELIJK, THEME_LABELS, ORIGIN_KEYS } from './presets.js';
 import { DETAIL_GROUPS } from './herkomst-gemeente.js';
 
@@ -22,20 +25,17 @@ const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 export const STEPS = Object.freeze(['levensfase', 'budget', 'vervoer', 'sfeer', 'veiligheid', 'situatie', 'gemeenschap']);
 
 /**
- * Gemeenschap (§5): the CBS origin groups the kerncijfers (86165NED) give per
- * wijk and buurt. The factor is the chosen group's share, always `higher`.
+ * Old broad groups (hash letter after `g`, before v0.26.0). Only read, never
+ * written: Nederland maps to the detailed group Nederland, Europa and Buiten
+ * Europa to no group (a broad group is no longer offered).
  */
-export const GEMEENSCHAP_GROUPS = Object.freeze({
-  nederland:    Object.freeze({ label: 'Nederland',         key: 'originDutchPct' }),
-  europa:       Object.freeze({ label: 'Europa (excl. NL)', key: 'originEuropePct' }),
-  buitenEuropa: Object.freeze({ label: 'Buiten Europa',     key: 'nonWesternPct' }),
-});
+const OLD_BROAD = Object.freeze({ d: 'nederland', e: null, b: null });
 /** Gemeenschap weight as a share (%) of the total weight: default modest, never above the cap. */
 export const GEMEENSCHAP_DEFAULT_PCT = 10;
 export const GEMEENSCHAP_MIN_PCT = 5;
 export const GEMEENSCHAP_MAX_PCT = 30;
 export const GEMEENSCHAP_LABEL = 'Nabijheid gemeenschap';
-/** Detailed groups (gemeenten only, CBS 85458NED); re-exported for the UI. */
+/** The groups of the step (herkomst-gemeente.js; Nederland first); re-exported for the UI. */
 export { DETAIL_GROUPS };
 
 /**
@@ -157,24 +157,24 @@ export const EMPTY_ANSWERS = Object.freeze({
 });
 
 /**
- * { group, pct, share } or null. Anything that is not one known group with a
- * positive weight is dropped (null = off); the weight is clamped to
- * GEMEENSCHAP_MIN_PCT–GEMEENSCHAP_MAX_PCT, so a zero, negative or huge weight
- * can never come through. There is no direction field: the factor is `higher`.
+ * { detail, pct } or null. Anything that is not one known group with a
+ * positive weight is dropped (null = off, "Geen specifieke groep"); the weight
+ * is clamped to GEMEENSCHAP_MIN_PCT–GEMEENSCHAP_MAX_PCT, so a zero, negative or
+ * huge weight can never come through. There is no direction field: the factor
+ * is `higher`. An old broad `group: 'nederland'` becomes the group Nederland;
+ * the old broad Europa / Buiten Europa give no group.
  */
 export function normalizeGemeenschap(g) {
   if (!g || typeof g !== 'object') return null;
-  // A broad group (wijk/buurt and gemeente), a detailed group (gemeenten only), or both.
-  const group = Object.hasOwn(GEMEENSCHAP_GROUPS, g.group) ? g.group : null;
-  const detail = Object.hasOwn(DETAIL_GROUPS, g.detail) ? g.detail : null;
-  if (!group && !detail) return null;
+  const detail = Object.hasOwn(DETAIL_GROUPS, g.detail) ? g.detail : g.group === 'nederland' ? 'nederland' : null;
+  if (!detail) return null;
   const raw = g.pct == null ? GEMEENSCHAP_DEFAULT_PCT : g.pct;
   if (!isNum(raw) || raw <= 0) return null;
-  return { group, ...(detail ? { detail } : {}), pct: Math.round(clamp(raw, GEMEENSCHAP_MIN_PCT, GEMEENSCHAP_MAX_PCT)), share: g.share === true };
+  return { detail, pct: Math.round(clamp(raw, GEMEENSCHAP_MIN_PCT, GEMEENSCHAP_MAX_PCT)) };
 }
 
 /**
- * { edu, income, share } or null (nothing chosen). Only known level and band
+ * { edu, income } or null (nothing chosen). Only known level and band
  * keys. The v0.23.0 field `bijstand: true` (no longer in the model) becomes
  * the income band "bijstand" when no band is set.
  */
@@ -183,7 +183,7 @@ export function normalizeSituatie(s) {
   const edu = Object.hasOwn(SITUATIE_EDU, s.edu) ? s.edu : null;
   const income = Object.hasOwn(SITUATIE_INCOME, s.income) ? s.income : s.bijstand === true ? 'bijstand' : null;
   if (!edu && !income) return null;
-  return { edu, income, share: s.share === true };
+  return { edu, income };
 }
 
 /** Cleans any answers-like object into the canonical shape (unknown values dropped). */
@@ -350,16 +350,12 @@ export const APPLY = Object.freeze({
     if (!g) return;
     const others = [...d.themes.values()].reduce((s, t) => s + (t.key !== 'gemeenschap' && t.weight > 0 && t.metrics.size ? t.weight : 0), 0);
     if (!(others > 0)) return;
-    const metrics = new Map();
-    const det = g.detail ? DETAIL_GROUPS[g.detail] : null;
-    // Detailed group: gemeenten (85458NED); per wijk/buurt only the groups herkomst-pc4.js estimates
-    // via postcode (DETAIL_GROUPS[…].wijk); for the others the factor has no data there and is skipped.
-    if (det) metrics.set(det.key, { key: det.key, pref: 'higher', label: `${GEMEENSCHAP_LABEL} (${det.label})` });
-    // Broad group: with a detailed group next to it, only where the detailed share is missing (wijk/buurt).
-    if (g.group) {
-      const grp = GEMEENSCHAP_GROUPS[g.group];
-      metrics.set(grp.key, { key: grp.key, pref: 'higher', label: `${GEMEENSCHAP_LABEL} (${grp.label})`, ...(det ? { unless: det.key } : {}) });
-    }
+    const det = DETAIL_GROUPS[g.detail];
+    if (!det) return;
+    // One metric. Nederland: kerncijfers share per gemeente, wijk and buurt. Other groups: gemeenten
+    // (85458NED); per wijk/buurt only the groups herkomst-pc4.js estimates via postcode
+    // (DETAIL_GROUPS[…].wijk); for the others the factor has no data there and is skipped.
+    const metrics = new Map([[det.key, { key: det.key, pref: 'higher', label: `${GEMEENSCHAP_LABEL} (${det.label})` }]]);
     d.themes.set('gemeenschap', {
       key: 'gemeenschap', label: GEMEENSCHAP_LABEL,
       weight: Math.round((others * g.pct / (100 - g.pct)) * 10) / 10,
@@ -445,18 +441,18 @@ export function guardOrigin(preset) {
 //   b<h|k>[i<n>][p<n>][x] budget        v<f|o|a|l>…     vervoer
 //   s<0-100>            sfeer           c<in|gw|…>…     veiligheid chips
 //   w<theme letter><n>… slider weights
-//   g<d|e|b><5-30>[x]   gemeenschap: group, weight in % of the total, x = "deel ook
-//                       gemeenschap" ticked. No sign, no direction: the format
-//                       cannot express scoring a group down. A 'g' segment
-//                       without x stays local (shareableScore drops it).
-//   g[d|e|b][h<cc>]<5-30>[x]  v0.23.0: h<cc> = detailed group (gemeenten only,
-//                       two-letter code from herkomst-gemeente.js); old g segments
-//                       parse unchanged. Still no sign or direction.
-//   j[p|l|m|h][0-8][x]  Jouw situatie (v0.26.0): opleiding basisschool/vmbo–mbo-1/
-//                       havo–vwo–mbo-4/hbo–wo, then the income band digit
-//                       (SITUATIE_INCOME code, 0 = bijstand). x = shared; without x
-//                       it stays local like Gemeenschap. v0.23.0 segments
-//                       j[l|m|h][b][x] still decode: b = income band bijstand.
+//   gh<cc><5-30>        gemeenschap: two-letter group code (herkomst-gemeente.js,
+//                       nl = Nederland), weight in % of the total. No sign, no
+//                       direction: the format cannot express scoring a group down.
+//                       Old forms still read: g<d|e|b>[h<cc>]<n>[x] (broad d =
+//                       Nederland, e/b = no group; a detailed group wins) and the
+//                       old share flag x, which is ignored.
+//   j[p|l|m|h][0-8]     Jouw situatie: opleiding basisschool/vmbo–mbo-1/havo–vwo–mbo-4/
+//                       hbo–wo, then the income band digit (SITUATIE_INCOME code,
+//                       0 = bijstand). v0.23.0 segments j[l|m|h][b] still decode:
+//                       b = income band bijstand. An old trailing x is ignored.
+// What goes into a link is decided by shareableAnswers(): by default no
+// Gemeenschap, opleiding or inkomen.
 //   i<theme letter><0-4>…  importance level per theme (5-step scale); wins over w.
 
 const LF = { student: 's', stel: 'p', gezin: 'g', '50plus': 'v', senior: 'r' };
@@ -464,12 +460,11 @@ const OUD = { bewoners: 'b', gebouwen: 'g' };
 const VV = { fiets: 'f', ov: 'o', auto: 'a', lopen: 'l' };
 const CR = { inbraak: 'in', geweld: 'gw', straatroof: 'sr', fiets: 'fd', auto: 'ad', vandalisme: 'vd', drugs: 'dr' };
 const TH = { veiligheid: 'v', welvaart: 'e', voorzieningen: 'z', opleiding: 'o', woningmarkt: 'm', leeftijd: 'l', nieuwbouw: 'n', budget: 'b', sfeer: 's', situatie: 't' };
-const GM = { nederland: 'd', europa: 'e', buitenEuropa: 'b' };
 const inv = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [v, k]));
 const ED = Object.fromEntries(Object.entries(SITUATIE_EDU).map(([k, e]) => [k, e.code]));
 const INC = Object.fromEntries(Object.entries(SITUATIE_INCOME).map(([k, b]) => [k, b.code]));
 const DG = Object.fromEntries(Object.entries(DETAIL_GROUPS).map(([k, d]) => [k, d.code]));
-const LF_ = inv(LF), OUD_ = inv(OUD), VV_ = inv(VV), CR_ = inv(CR), TH_ = inv(TH), GM_ = inv(GM), ED_ = inv(ED), INC_ = inv(INC), DG_ = inv(DG);
+const LF_ = inv(LF), OUD_ = inv(OUD), VV_ = inv(VV), CR_ = inv(CR), TH_ = inv(TH), ED_ = inv(ED), INC_ = inv(INC), DG_ = inv(DG);
 
 export const SCORE_RE = /^[a-z0-9.]{1,200}$/;
 export const FIXED_PRESETS = Object.freeze(['standaard', 'gelijk']);
@@ -488,9 +483,8 @@ export function encodeAnswers(answers) {
   if (w) seg.push(`w${w}`);
   const imp = Object.keys(TH).filter(k => k in a.importance).map(k => `${TH[k]}${a.importance[k]}`).join('');
   if (imp) seg.push(`i${imp}`);
-  if (a.situatie) seg.push(`j${a.situatie.edu ? ED[a.situatie.edu] : ''}${a.situatie.income ? INC[a.situatie.income] : ''}${a.situatie.share ? 'x' : ''}`);
-  const g = a.gemeenschap;
-  if (g) seg.push(`g${g.group ? GM[g.group] : ''}${g.detail ? `h${DG[g.detail]}` : ''}${g.pct}${g.share ? 'x' : ''}`);
+  if (a.situatie) seg.push(`j${a.situatie.edu ? ED[a.situatie.edu] : ''}${a.situatie.income ? INC[a.situatie.income] : ''}`);
+  if (a.gemeenschap) seg.push(`gh${DG[a.gemeenschap.detail]}${a.gemeenschap.pct}`);
   return seg.join('.');
 }
 
@@ -511,40 +505,79 @@ export function decodeAnswers(str) {
     else if (head === 'w') for (const [, t, n] of body.matchAll(/([a-z])(\d{1,3})/g)) { if (TH_[t]) out.weights[TH_[t]] = +n; }
     else if (head === 'i') for (const [, t, n] of body.matchAll(/([a-z])([0-4])/g)) { if (TH_[t]) out.importance[TH_[t]] = +n; }
     else if (head === 'j') {
-      // Current form: [edu][income digit][x]; v0.23.0 form: [l|m|h][b][x] (b = bijstand). Never both.
+      // Current form: [edu][income digit]; v0.23.0 form: [l|m|h][b] (b = bijstand). Never both. An old x is ignored.
       const m = /^([plmh])?(?:([0-8])|(b))?(x?)$/.exec(body);
-      if (m && (m[1] || m[2] || m[3])) out.situatie = { edu: m[1] ? ED_[m[1]] : null, income: m[2] ? INC_[m[2]] : m[3] ? 'bijstand' : null, share: m[4] === 'x' };
+      if (m && (m[1] || m[2] || m[3])) out.situatie = { edu: m[1] ? ED_[m[1]] : null, income: m[2] ? INC_[m[2]] : m[3] ? 'bijstand' : null };
     } else if (head === 'g') {
-      // Only "[group][h detail] + positive weight [+ x]"; any other shape (or an unknown group) is dropped whole.
+      // Only "[old broad letter][h code] + positive weight [+ old x]"; any other shape (or an unknown letter
+      // or code) is dropped whole. The old broad Nederland becomes the group Nederland; Europa / Buiten
+      // Europa alone give no group; a detailed code wins over a broad letter.
       const m = /^([a-z])?(?:h([a-z]{2}))?(\d{1,3})(x?)$/.exec(body);
-      const group = m?.[1] ? GM_[m[1]] : null, detail = m?.[2] ? DG_[m[2]] : null;
-      if (m && (m[1] ? group : true) && (m[2] ? detail : true) && (group || detail) && +m[3] > 0) {
-        out.gemeenschap = { group, detail, pct: +m[3], share: m[4] === 'x' };
-      }
+      const broadOk = m?.[1] ? Object.hasOwn(OLD_BROAD, m[1]) : true, detail = m?.[2] ? DG_[m[2]] : null;
+      const pick = detail ?? (m?.[1] ? OLD_BROAD[m[1]] : null);
+      if (m && broadOk && (m[2] ? detail : true) && pick && +m[3] > 0) out.gemeenschap = { detail: pick, pct: +m[3] };
     }
   }
   return normalizeAnswers(out);
 }
 
+// ── sharing (v0.26.0, "Deellink maken") ──────────────────────────────────────
+
+/** The sensitive parts a link may carry, all left out by default. */
+export const SHARE_PARTS = Object.freeze({
+  origin:    'Herkomst/gemeenschap',
+  education: 'Opleiding',
+  income:    'Inkomen',
+});
+export const SHARE_NONE = Object.freeze({ origin: false, education: false, income: false });
+const SHARE_COMBOS = [false, true].flatMap(origin => [false, true].flatMap(education => [false, true].map(income => ({ origin, education, income }))));
+
 /**
- * The `score` value as it may go into the URL: a Gemeenschap segment without
- * the "deel ook gemeenschap" flag is dropped (it stays in localStorage only).
- * Null when nothing is left.
+ * A copy of `answers` with the sensitive parts the user did not tick removed:
+ * `gemeenschap` (origin), `situatie.edu` (education), `situatie.income` and
+ * `situatie.bijstand` (income); `situatie` is dropped when nothing is left.
+ * Does not normalise, so a situatie field this module does not know survives.
+ * localStorage always keeps the full answers; this is only for links.
  */
-export function shareableScore(score) {
-  if (typeof score !== 'string' || !score) return null;
-  const out = score.split('.').filter(s => (s[0] !== 'g' && s[0] !== 'j') || s.endsWith('x') || FIXED_PRESETS.includes(score)).join('.');
-  return out || null;
+export function shareableAnswers(answers, { origin = false, education = false, income = false } = {}) {
+  const a = { ...(answers ?? {}) };
+  if (!origin) a.gemeenschap = null;
+  if (a.situatie && typeof a.situatie === 'object') {
+    const s = { ...a.situatie };
+    delete s.share;
+    if (!education) delete s.edu;
+    if (!income) { delete s.income; delete s.bijstand; }
+    a.situatie = Object.values(s).some(v => v != null && v !== false) ? s : null;
+  } else a.situatie = null;
+  return a;
 }
 
 /**
- * The score to use on load: when the URL score is the shared form of the
- * locally stored score (same answers, private Gemeenschap left out), the
- * stored one wins so the local Gemeenschap choice survives a reload.
+ * The `score` value as it may go into a URL with the given share choices
+ * (default: no sensitive part). 'standaard' / 'gelijk' pass unchanged; null
+ * when nothing is left or the value is unreadable.
+ */
+export function shareableScore(score, opts = SHARE_NONE) {
+  if (typeof score !== 'string' || !score) return null;
+  if (FIXED_PRESETS.includes(score)) return score;
+  if (!SCORE_RE.test(score)) return null;
+  return encodeAnswers(shareableAnswers(decodeAnswers(score), opts)) || null;
+}
+
+/** True when `urlScore` is what some link of `fullScore` carries (the same answers, sensitive parts left out or not). */
+export function isShareOf(urlScore, fullScore) {
+  if (!fullScore) return false;
+  return SHARE_COMBOS.some(o => shareableScore(fullScore, o) === (urlScore || null));
+}
+
+/**
+ * The score to use on load: when the URL score is a shared form of the
+ * locally stored score (same answers, sensitive parts left out), the stored
+ * one wins so the local choices survive a reload.
  */
 export function restoreLocalScore(urlScore, storedScore) {
   if (!storedScore || storedScore === urlScore) return urlScore ?? storedScore ?? null;
-  return shareableScore(storedScore) === (urlScore || null) ? storedScore : urlScore ?? null;
+  return isShareOf(urlScore, storedScore) ? storedScore : urlScore ?? null;
 }
 
 /**
@@ -616,9 +649,8 @@ export function describeAnswers(answers) {
   if (a.veiligheid.length) parts.push(`let op ${a.veiligheid.map(c => CRIMES[c].label.toLowerCase()).join(', ')}`);
   if (a.situatie) parts.push(`vergelijkbare situatie: ${[a.situatie.edu ? `opleiding ${SITUATIE_EDU[a.situatie.edu].short}` : '', a.situatie.income ? `inkomen ${SITUATIE_INCOME[a.situatie.income].short}` : ''].filter(Boolean).join(', ')}`);
   if (a.gemeenschap) {
-    const g = a.gemeenschap;
-    const names = [g.detail ? `${DETAIL_GROUPS[g.detail].label} (${DETAIL_GROUPS[g.detail].wijk ? 'gemeenten; wijk/buurt geschat via postcode' : 'gemeenten'})` : '', g.group ? `${GEMEENSCHAP_GROUPS[g.group].label}${g.detail ? ' (wijk/buurt)' : ''}` : ''].filter(Boolean);
-    parts.push(`${GEMEENSCHAP_LABEL.toLowerCase()}: ${names.join(' / ')}`);
+    const d = DETAIL_GROUPS[a.gemeenschap.detail];
+    parts.push(`${GEMEENSCHAP_LABEL.toLowerCase()}: ${d.label} (${d.direct ? 'gemeente, wijk en buurt' : d.wijk ? 'gemeenten; wijk/buurt geschat via postcode' : 'gemeenten'})`);
   }
   return parts.join(' · ');
 }
