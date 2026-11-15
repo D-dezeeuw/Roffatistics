@@ -8,6 +8,7 @@
 // Pure helpers are exported for the unit tests; loaders take an injectable fetcher.
 import { areaLevel, parentCode, per1000, toNumber, CRIME_CATEGORIES, CRIME_MIN_POPULATION, CRIME_MIN_POPULATION_BUURT, WIJK_YEAR } from './areas.js';
 import { withWoonscore, assignScore } from './presets.js';
+import { addPc4Shares } from './herkomst-pc4.js';
 
 export const NL_DATA_FORMAT = 1;
 export const NL_DATA_YEAR = WIJK_YEAR;
@@ -176,7 +177,7 @@ export function loadNlLevel(level, { fetcher = defaultFetcher() } = {}) {
   if (levelPromises.has(level)) return levelPromises.get(level);
   const p = (async () => {
     const parents = level === 'buurt' ? await loadNlLevel('wijk', { fetcher }) : null;
-    const raw = decodeLevel(await getJSON(NL_DATA_URLS[level], fetcher));
+    const raw = addPc4Shares(decodeLevel(await getJSON(NL_DATA_URLS[level], fetcher)));   // postcode herkomst, once loaded
     const scored = withWoonscore(raw, { parents });
     loaded[level] = scored;
     return scored;

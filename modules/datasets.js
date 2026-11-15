@@ -1,3 +1,5 @@
+import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION } from './herkomst-pc4.js';
+
 const CBS_BASE = 'https://opendata.cbs.nl/ODataApi/odata';
 
 export function buildCBSUrl(tableId, filter, select, top = null) {
@@ -140,6 +142,8 @@ const SRC = Object.freeze({
   nabij2025: Object.freeze({ id: '86270NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2025', publisher: 'CBS', url: statline('86270NED'), scope: 'Rotterdam' }),
   nabij2024: Object.freeze({ id: '86134NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2024', publisher: 'CBS', url: statline('86134NED'), scope: 'Rotterdam' }),
   geo:     Object.freeze({ id: 'PDOK', name: 'CBS wijk- en buurtkaart (gebiedsgrenzen, via PDOK)', publisher: 'CBS / PDOK', url: 'https://www.pdok.nl/introductie/-/article/cbs-wijken-en-buurten', scope: 'Rotterdam' }),
+  pc4:     Object.freeze({ id: PC4_HERKOMST_TABLE, name: 'Bevolking; geslacht, migratieachtergrond, viercijferige postcode, 1 januari', publisher: 'CBS', url: statline(PC4_HERKOMST_TABLE), scope: 'postcode' }),
+  pc6:     Object.freeze({ id: 'pc6huisnr', name: `Buurt, wijk en gemeente per postcode en huisnummer ${PC4_YEAR}`, publisher: 'CBS', url: `https://download.cbs.nl/postcode/${PC4_YEAR}-cbs_pc6huisnr.zip`, scope: 'postcode' }),
   crimeNl: Object.freeze({ id: '83648NED', name: 'Geregistreerde criminaliteit; soort misdrijf, regio', publisher: 'CBS', url: statline('83648NED'), scope: 'Nederland' }),
 });
 
@@ -468,6 +472,25 @@ const INFO = {
   },
 };
 
+// Detailed herkomst per wijk/buurt, estimated from postcode data (v0.25.0, herkomst-pc4.js).
+const PC4_DEF = 'CBS publiceert landengroepen niet per wijk of buurt, wel per viercijferige postcode. Deze app verdeelt de inwoners van elk postcodegebied over de buurten erin naar het aantal adressen per buurt, en telt buurten op tot wijken.';
+export const PC4_NOTES = Object.freeze([
+  'Schatting: binnen één postcodegebied wordt overal dezelfde mix aangenomen; een buurt die anders is dan de rest van haar postcode valt weg tegen het gemiddelde.',
+  'Adressen zijn geen inwoners: kantoren en bedrijfspanden tellen ook mee bij de verdeling.',
+  `CBS rondt de aantallen per postcode af op 5 en laat kleine aantallen weg (hier als 0 geteld). Onder ${PC4_MIN_POPULATION} geschatte inwoners: geen waarde.`,
+  'Indeling 2023 en peildatum 1 januari 2023; buurten en wijken van 2025 zonder dezelfde code in 2023 hebben geen gegevens (er wordt niets bijgeschat).',
+  'Oude CBS-indeling "migratieachtergrond" (zelfde basis als herkomst: eigen geboorteland, anders dat van de ouders); niet één op één gelijk aan de nieuwe herkomstcijfers per gemeente.',
+]);
+for (const g of PC4_GROUPS) {
+  INFO[g.metric] = {
+    description: `Geschat aandeel inwoners met herkomst ${g.label}${g.minus.length ? ' (Europa zonder Nederland, de EU en Turkije: onder meer Verenigd Koninkrijk, Oekraïne, Rusland, voormalig Joegoslavië buiten de EU)' : ''}. ${PC4_DEF} Beschrijvend: er zit geen oordeel in.`,
+    formula: `inwoners met herkomst ${g.label} / inwoners × 100, per postcode verdeeld naar adressen per buurt`,
+    source: [SRC.pc4, SRC.pc6],
+    year: `${PC4_YEAR} (geschat via postcode)`,
+    caveats: [...PC4_NOTES],
+  };
+}
+
 const freezeInfo = info => info ? { ...info, source: Object.freeze([...(info.source ?? [])]), caveats: Object.freeze([...(info.caveats ?? [])]) } : {};
 const ds = (key, label, title, unit, higherIsBetter, group, extra = {}) =>
   Object.freeze({ key, label, title, unit, higherIsBetter, group, scope: 'all', inOverall: true, ...freezeInfo(INFO[key]), ...extra });
@@ -486,6 +509,7 @@ export const DATASETS = Object.freeze({
   originEuropePct:  ds('originEuropePct',  'Europa excl. NL (%)',  'Herkomst Europa excl. NL (%)',    '%',         null,  'herkomst', { inOverall: false }),
   nonWesternPct:    ds('nonWesternPct',    'Buiten Europa (%)',    'Herkomst buiten Europa (%)',      '%',         null,  'herkomst', { inOverall: false }),
   bornAbroadPct:    ds('bornAbroadPct',    'Buitenland geboren (%)', 'In het buitenland geboren (%)', '%',         null,  'herkomst', { ...RTM, inOverall: false }),
+  ...Object.fromEntries(PC4_GROUPS.map(g => [g.metric, ds(g.metric, `${g.label} (%)`, `Herkomst ${g.label} (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'herkomst', { ...RTM, inOverall: false, estimated: true })])),
   highEdu:          ds('highEdu',          'Opleiding',            'Hoog opgeleid (%)',               '%',         true,  'bevolking'),
   avgIncome:        ds('avgIncome',        'Inkomen',              'Gem. inkomen (×€1k)',             '×€1.000',   true,  'welvaart'),
   wozValue:         ds('wozValue',         'WOZ waarde',           'Gem. WOZ waarde (×€1k)',          '×€1.000',   true,  'welvaart'),

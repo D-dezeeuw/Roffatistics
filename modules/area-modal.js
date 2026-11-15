@@ -9,6 +9,7 @@ import { loadNlAreas } from './nl-areas.js';
 import { buildAreaDetail } from './area-detail.js';
 import { formatValue } from './dashboard-data.js';
 import { originBarHtml } from './herkomst.js';
+import { loadPc4Herkomst, pc4OriginHtml } from './herkomst-pc4.js';
 import { donutSlices, arcPath } from './donut.js';
 import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
@@ -128,6 +129,8 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
   if (d.crimeTrend != null) extras.push(`<div class="area-extra"><span class="area-extra-label">Misdrijven 2025 t.o.v. 2024</span><strong class="${d.crimeTrend > 0 ? 'is-bad' : d.crimeTrend < 0 ? 'is-good' : ''}">${trendText(d.crimeTrend)}</strong></div>`);
   const origin = originBarHtml(Object.fromEntries((d.origin ?? []).map(p => [p.key, p.value])));
   if (origin) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst</span>${origin}</div>`);
+  const pc4 = d.code ? pc4OriginHtml(d.code) : '';
+  if (pc4) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst per land (geschat)</span>${pc4}</div>`);
   if (d.education) extras.push(`<div class="area-extra"><span class="area-extra-label">Opleiding</span>${eduDonutHtml(d.education)}</div>`);
   if (d.outliers.length) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Uitschieter</span><p>${d.outliers.map(e => `${esc(e.label)}: ${outlierLabel(e.outlier)}`).join(' · ')}</p></div>`);
   if (dataYears) extras.push(`<div class="area-extra"><span class="area-extra-label">Peiljaar</span><p>${esc(dataYears)} · misdrijven 2025</p></div>`);
@@ -187,7 +190,7 @@ async function render(code) {
   const peers = peersFor(code);
   let areas;
   try {
-    areas = peers === 'nederland' ? await loadNlAreas() : await loadRotterdamAreas();
+    [areas] = await Promise.all([peers === 'nederland' ? loadNlAreas() : loadRotterdamAreas(), loadPc4Herkomst().catch(() => null)]);
   } catch {
     areas = { wijken: [], buurten: [] };
   }

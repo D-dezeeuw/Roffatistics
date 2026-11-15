@@ -145,7 +145,7 @@ describe('Jouw situatie (opleidingsniveau, bijstand)', () => {
 
 describe('Gemeenschap: detailed origin group for gemeenten (85458NED)', () => {
   it('offers the herkomst.js groups except Nederland, each with a unique two-letter code', () => {
-    assert.equal(Object.keys(DETAIL_GROUPS).length, ORIGIN_GROUPS.length - 1);
+    assert.equal(Object.keys(DETAIL_GROUPS).length, ORIGIN_GROUPS.length - 1 + 3);   // + Polen, Duitsland, België (v0.25.0)
     assert.ok(DETAIL_GROUPS.suriname && DETAIL_GROUPS.turkije && DETAIL_GROUPS.marokko);
     const codes = Object.values(DETAIL_GROUPS).map(d => d.code);
     assert.equal(new Set(codes).size, codes.length);
@@ -186,7 +186,7 @@ describe('Gemeenschap: detailed origin group for gemeenten (85458NED)', () => {
     assert.ok(!resolvePreset(forged, ALL).some(f => f.key === 'hk_turkije'));
   });
   it('describes both groups with their level', () => {
-    assert.match(describeAnswers({ gemeenschap: { group: 'buitenEuropa', detail: 'suriname' } }), /nabijheid gemeenschap: Suriname \(gemeenten\) \/ Buiten Europa \(wijk\/buurt\)/);
+    assert.match(describeAnswers({ gemeenschap: { group: 'buitenEuropa', detail: 'suriname' } }), /nabijheid gemeenschap: Suriname \(gemeenten; wijk\/buurt geschat via postcode\) \/ Buiten Europa \(wijk\/buurt\)/);
   });
 });
 

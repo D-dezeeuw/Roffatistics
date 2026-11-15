@@ -1742,3 +1742,11 @@ footer {
 #legend.legend-collapsed { min-width: 0; }
 #legend.legend-collapsed .legend-head { margin-bottom: 0; }
 #legend.legend-collapsed > :not(.legend-head) { display: none !important; }
+
+/* Herkomst per land, geschat via postcode (area modal, v0.25.0) */
+.pc4-origin { list-style: none; margin: 0.2rem 0 0; padding: 0; display: grid; gap: 0.2rem; }
+.pc4-origin li { display: grid; grid-template-columns: 9.5rem 1fr 3.2rem; align-items: center; gap: 0.5rem; font-size: 0.72rem; }
+.pc4-origin-bar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.pc4-origin-bar i { display: block; height: 100%; }
+.pc4-origin-val { text-align: right; font-variant-numeric: tabular-nums; }
+.pc4-origin-note { margin-top: 0.35rem; font-size: 0.66rem; color: var(--text-muted); }

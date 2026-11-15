@@ -1,3 +1,4 @@
+import { PC4_KEYS } from '../modules/herkomst-pc4.js';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { extractAreaValues, mergeYearValues, WIJK_COLUMNS as C } from '../modules/areas.js';
@@ -50,7 +51,7 @@ describe('herkomst layers (wijk/buurt, 86165NED)', () => {
     }
     assert.equal(DATASETS.bornAbroadPct.scope, 'rotterdam');
     const g = groupDatasets().find(x => x.key === 'herkomst');
-    assert.deepEqual(g.datasets.map(d => d.key), ['originDutchPct', 'originEuropePct', 'nonWesternPct', 'bornAbroadPct']);
+    assert.deepEqual(g.datasets.map(d => d.key), ['originDutchPct', 'originEuropePct', 'nonWesternPct', 'bornAbroadPct', ...PC4_KEYS]);
     assert.equal(g.scope, 'all');
   });
   it('Nederland view gets NL and Europa shares from 70072ned', () => {

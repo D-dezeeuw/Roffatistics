@@ -181,3 +181,76 @@ describe('Gemeenschap: Uitleg', () => {
     assert.match(s.text, /Deel ook gemeenschap/);
   });
 });
+
+// v0.25.0: detailed groups per wijk/buurt (postcode estimate) and three new detailed groups.
+import { PC4_KEYS, PC4_GROUPS } from '../modules/herkomst-pc4.js';
+import { DETAIL_GROUPS } from '../modules/wizard-model.js';
+// A detailed group next to a broad one gives two `higher` metrics; the broad one only where the detailed share is missing.
+const assertPositivePair = (p, msg) => {
+  const ms = originMetrics(p);
+  assert.ok(ms.length <= 2, msg);
+  if (ms.length === 2) assert.ok(ms[1].unless === ms[0].key, msg);
+  assertPositiveOnly({ ...p, themes: p.themes.map(t => ({ ...t, metrics: t.metrics.filter(m => !m.unless) })) }, msg);
+};
+
+describe('Gemeenschap: postcode-estimated groups keep every §5 guard', () => {
+  it('every postcode key is an origin key; no fixed preset uses one', () => {
+    for (const k of PC4_KEYS) assert.ok(ORIGIN_KEYS.includes(k), k);
+    for (const p of [STANDAARD, GELIJK, ...Object.values(PRESETS)]) assert.ok(!p.themes.some(t => t.metrics.some(m => PC4_KEYS.includes(m.key))), p.id);
+  });
+  it('each detailed group alone gives one `higher` factor in Gemeenschap, whatever junk is added', () => {
+    for (const detail of Object.keys(DETAIL_GROUPS)) {
+      for (const extra of [{}, { pref: 'lower' }, { weight: -50 }, { avoid: true }]) {
+        const p = answersToPreset({ gemeenschap: { detail, ...extra } });
+        assertPositiveOnly(p, `${detail} ${JSON.stringify(extra)}`);
+        assert.deepEqual(originMetrics(p).map(m => [m.key, m.pref]), [[DETAIL_GROUPS[detail].key, 'higher']]);
+      }
+    }
+  });
+  it('guardOrigin and resolvePreset strip lower / target / filter on a postcode key', () => {
+    const evil = {
+      id: 'x', label: 'x', shrink: false, minCoverage: 0,
+      themes: [{ key: 'veiligheid', label: 'V', weight: 10, metrics: [{ key: 'crimeRate', pref: 'lower' }, { key: 'hk_polen', pref: 'lower' }] },
+        { key: 'gemeenschap', label: 'G', weight: 10, metrics: [{ key: 'hk_suriname', pref: 'target' }, { key: 'hk_turkije', pref: 'higher', w: -1 }] }],
+      targets: { hk_suriname: { ideal: 0, tolerance: 1 } },
+      filters: [{ key: 'hk_marokko', max: 1 }],
+    };
+    assertPositiveOnly(guardOrigin(evil), 'guard');
+    assert.equal(originMetrics(guardOrigin(evil)).length, 0);
+    const f = resolvePreset(evil, new Set([...ALL, ...PC4_KEYS]));
+    assert.ok(!f.some(x => PC4_KEYS.includes(x.key)), JSON.stringify(f));
+    const areas = [{ code: 'BU1', values: { crimeRate: 10, hk_marokko: 30 } }, { code: 'BU2', values: { crimeRate: 20, hk_marokko: 0 } }];
+    assert.ok(scoreWithPreset(areas, evil).results.every(r => !r.filtered));
+  });
+  it('at wijk/buurt the estimated share is a plus only, never a minus, and replaces the broad group', () => {
+    const wk = (code, sr) => ({ code, values: { hk_suriname: sr, nonWesternPct: 40, crimeRate: 50, avgIncome: 30, highEdu: 30 } });
+    const { results, factors } = scoreWithPreset([wk('WK1', 20), wk('WK2', 8), wk('WK3', 1)], answersToPreset({ gemeenschap: { group: 'buitenEuropa', detail: 'suriname', pct: 30 } }));
+    assert.deepEqual(factors.filter(f => f.theme === 'gemeenschap').map(f => [f.key, f.pref]), [['hk_suriname', 'higher']]);
+    assert.ok(!explain(results.find(r => r.code === 'WK3')).minus.some(r => r.theme === 'gemeenschap'));
+    assert.ok(explain(results.find(r => r.code === 'WK1')).plus.some(r => r.theme === 'gemeenschap'));
+  });
+  it('new codes round-trip; old hashes decode unchanged; the private choice stays out of the link', () => {
+    for (const detail of ['polen', 'duitsland', 'belgie', ...PC4_GROUPS.map(g => g.key)]) {
+      const a = normalizeAnswers({ gemeenschap: { detail, pct: 15 } });
+      assert.deepEqual(decodeAnswers(encodeAnswers(a)).gemeenschap, a.gemeenschap, detail);
+    }
+    assert.equal(encodeAnswers({ gemeenschap: { detail: 'polen', pct: 10 } }), 'ghpl10');
+    assert.equal(shareableScore('s30.ghpl10'), 's30');
+    assert.equal(shareableScore('s30.ghpl10x'), 's30.ghpl10x');
+    assert.deepEqual(decodeAnswers('gd10x').gemeenschap, { group: 'nederland', pct: 10, share: true });
+    assert.deepEqual(decodeAnswers('ghsr10x').gemeenschap, { group: null, detail: 'suriname', pct: 10, share: true });
+    assert.deepEqual(decodeAnswers('gbhtr20').gemeenschap, { group: 'buitenEuropa', detail: 'turkije', pct: 20, share: false });
+    for (const bad of ['ghpl-10', 'ghpl0', 'ghplx10', 'ghpll10']) assert.equal(decodeAnswers(bad).gemeenschap, null, bad);
+  });
+  it('fuzz: no gh… string can produce a negative weight on any detailed key', () => {
+    const codes = Object.values(DETAIL_GROUPS).map(d => d.code);
+    const junk = 'abcdefghijklmnopqrstuvwxyz0123456789.-';
+    let seed = 11;
+    const rnd = n => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };
+    for (let i = 0; i < 3000; i++) {
+      let s = `g${rnd(2) ? 'bdeh'[rnd(4)] : ''}h${codes[rnd(codes.length)]}`;
+      for (let j = rnd(5); j > 0; j--) s += junk[rnd(junk.length)];
+      assertPositivePair(presetFromScore(s), s);
+    }
+  });
+});

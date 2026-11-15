@@ -294,7 +294,8 @@ export const APPLY = Object.freeze({
     if (!(others > 0)) return;
     const metrics = new Map();
     const det = g.detail ? DETAIL_GROUPS[g.detail] : null;
-    // Detailed group: data only for gemeenten; at wijk/buurt the factor has no data and is skipped.
+    // Detailed group: gemeenten (85458NED); per wijk/buurt only the groups herkomst-pc4.js estimates
+    // via postcode (DETAIL_GROUPS[…].wijk); for the others the factor has no data there and is skipped.
     if (det) metrics.set(det.key, { key: det.key, pref: 'higher', label: `${GEMEENSCHAP_LABEL} (${det.label})` });
     // Broad group: with a detailed group next to it, only where the detailed share is missing (wijk/buurt).
     if (g.group) {
@@ -549,7 +550,7 @@ export function describeAnswers(answers) {
   if (a.situatie) parts.push(`vergelijkbare situatie: ${[a.situatie.edu ? `opleiding ${SITUATIE_EDU[a.situatie.edu].short}` : '', a.situatie.bijstand ? 'bijstand' : ''].filter(Boolean).join(', ')}`);
   if (a.gemeenschap) {
     const g = a.gemeenschap;
-    const names = [g.detail ? `${DETAIL_GROUPS[g.detail].label} (gemeenten)` : '', g.group ? `${GEMEENSCHAP_GROUPS[g.group].label}${g.detail ? ' (wijk/buurt)' : ''}` : ''].filter(Boolean);
+    const names = [g.detail ? `${DETAIL_GROUPS[g.detail].label} (${DETAIL_GROUPS[g.detail].wijk ? 'gemeenten; wijk/buurt geschat via postcode' : 'gemeenten'})` : '', g.group ? `${GEMEENSCHAP_GROUPS[g.group].label}${g.detail ? ' (wijk/buurt)' : ''}` : ''].filter(Boolean);
     parts.push(`${GEMEENSCHAP_LABEL.toLowerCase()}: ${names.join(' / ')}`);
   }
   return parts.join(' · ');

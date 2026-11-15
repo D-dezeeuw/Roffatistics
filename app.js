@@ -21,6 +21,8 @@ import { loadGemeenteGroup, missingDetailGroups } from './modules/herkomst-gemee
 import { presetFromScore, scoreTitle }    from './modules/wizard-model.js';
 import { initWizard }                     from './modules/wizard.js';
 import { peekRotterdamAreas }             from './modules/areas.js';
+import { peekNlAreas }                    from './modules/nl-areas.js';
+import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, presetUsesPc4 } from './modules/herkomst-pc4.js';
 
 // ── Slot A (primary) ─────────────────────────────────────────────────────────
 setValue('panel.visible',          false);
@@ -262,6 +264,11 @@ function syncLegendExtras(key) {
 }
 
 async function activateDataset(key) {
+  // Postcode-estimated herkomst (v0.25.0): the file loads on first use only.
+  if (isPc4Key(key) && !isPc4Loaded()) {
+    await loadPc4Herkomst().catch(err => console.warn('herkomst per postcode:', err));
+    if (getState().dataset !== key) return;
+  }
   const mode = getState().crime;
   const base = datasetFor(key, mode);
   const ds = base.unit === 'score' ? { ...base, title: scoreTitle(getState().score, base.title) } : base;   // "Woonscore · jouw wensen"
@@ -365,6 +372,8 @@ function applyPersonalScore(score) {
       if (DATASETS[getState().dataset]?.unit === 'score') activateDataset(getState().dataset);
     }).catch(() => { /* CBS unavailable */ });
   }
+  // A detailed group also counts per wijk/buurt via the postcode estimate: load it; onPc4Loaded rescores.
+  if (presetUsesPc4(preset) && !isPc4Loaded()) loadPc4Herkomst().catch(() => { /* file missing: the factor is skipped there */ });
   const rd = peekRotterdamAreas();
   if (rd) {
     assignScore(rd.wijken, 'woonscore');
@@ -374,6 +383,18 @@ function applyPersonalScore(score) {
   if (gemeenteRows.length) { gemeenteRows = rowsWithWoonscore(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); }
   rescoreNlAreas();   // NL wijken/buurten of the drill-down, when loaded
 }
+
+// Postcode herkomst landed: add the shares to every loaded wijk/buurt, then rescore if the personal preset uses them.
+onPc4Loaded(() => {
+  const rd = peekRotterdamAreas();
+  if (rd) { addPc4Shares(rd.wijken); addPc4Shares(rd.buurten); }
+  const nl = peekNlAreas();
+  addPc4Shares(nl.wijken); addPc4Shares(nl.buurten);
+  if (presetUsesPc4(presetFromScore(getState().score))) {
+    applyPersonalScore(getState().score);
+    if (DATASETS[getState().dataset]?.unit === 'score') activateDataset(getState().dataset);
+  }
+});
 
 onStateChange(({ state, changed, source }) => {
   if (changed.includes('score')) {

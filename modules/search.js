@@ -3,6 +3,7 @@
 // Matching lives in fuzzy.js; this module is the dialog and the state hand-off.
 import { getState, setState } from './state.js';
 import { createSearcher } from './fuzzy.js';
+import { isPostcodeQuery } from './postcode.js';
 
 export const RECENT_KEY   = 'roffatistics.recentSearches';
 export const RECENT_MAX   = 5;
@@ -17,7 +18,7 @@ export const LEVEL_LABELS = Object.freeze({
 
 /** Newest first, unique by code, at most RECENT_MAX. */
 export function pushRecent(list, item) {
-  const entry = { code: item.code, name: item.name, level: item.level, scope: item.scope };
+  const entry = { code: item.code, name: item.name, level: item.level, scope: item.scope, ...(item.meta ? { meta: item.meta } : {}) };
   return [entry, ...(Array.isArray(list) ? list : []).filter(r => r && r.code !== item.code)].slice(0, RECENT_MAX);
 }
 
@@ -50,6 +51,24 @@ export function resolveSelection(item, state) {
   };
 }
 
+const POSTCODE_LEVEL = Object.freeze({ buurt: 'buurt', wijk: 'wijk', gemeente: 'gemeente' });
+
+/**
+ * A resolved postcode (herkomst-pc4.resolvePostcode) → a search item:
+ * { code, name, level, scope, meta, postcode }. Rotterdam wijken/buurten go to
+ * the Rotterdam scope, everything else to Nederland. `nameOf(code)` can supply
+ * a better name (the search index knows gemeenten). Null without a hit.
+ */
+export function postcodeItem(hit, nameOf = () => null) {
+  if (!hit?.code) return null;
+  const rtm = /^(WK|BU)0599/.test(hit.code);
+  return {
+    code: hit.code, name: nameOf(hit.code) ?? hit.name, level: hit.level,
+    scope: rtm ? 'rotterdam' : 'nederland', postcode: hit.pc4,
+    meta: `Postcode ${hit.pc4} · ${POSTCODE_LEVEL[hit.level] ?? hit.level} met de meeste adressen`,
+  };
+}
+
 /** Splits `text` into [{ text, hit }] parts for the given [start, end) ranges. */
 export function splitHighlight(text, ranges = []) {
   const parts = [];
@@ -69,7 +88,9 @@ let els = null;
 let search = null;          // createSearcher() result, once the index is loaded
 let indexLoad = null;
 let nameByCode = new Map();
-let rows = [];              // [{ item, ranges, alias }] currently listed
+let rows = [];
+let pcIndex = null;          // { ix, resolve } once the postcode crosswalk is loaded
+let pcLoad = null;              // [{ item, ranges, alias }] currently listed
 let active = -1;
 let returnFocus = null;
 
@@ -93,6 +114,16 @@ function ensureIndex() {
       });
   }
   return indexLoad;
+}
+
+// Postcode search (v0.25.0): the crosswalk (data/nl/pc4-gwb-2023.json) loads on the first postcode typed.
+function ensurePostcodes() {
+  if (!pcLoad) {
+    pcLoad = import('./herkomst-pc4.js')
+      .then(m => m.loadPc4Crosswalk().then(ix => { pcIndex = { ix, resolve: m.resolvePostcode }; if (isOpen()) render(); }))
+      .catch(err => { pcLoad = null; console.warn('Postcodes unavailable:', err); });
+  }
+  return pcLoad;
 }
 
 const isOpen = () => els && !els.modal.hidden;
@@ -132,15 +163,20 @@ function render() {
     rows = recent.map(item => ({ item, ranges: [], alias: null }));
     els.heading.textContent = recent.length ? 'Recent gezocht' : '';
     els.heading.hidden = !recent.length;
-    setHint(recent.length ? '' : 'Typ een wijk, buurt, gemeente of provincie.');
-  } else if (!search) {
-    rows = [];
-    els.heading.hidden = true;
-    setHint('Zoekindex laden…');
+    setHint(recent.length ? '' : 'Typ een wijk, buurt, gemeente, provincie of postcode.');
   } else {
-    rows = search(query, { scope: getState().scope, limit: RESULT_LIMIT });
+    const pc = isPostcodeQuery(query);
+    if (pc) ensurePostcodes();
+    const pcItem = pc && pcIndex ? postcodeItem(pcIndex.resolve(query, pcIndex.ix), c => nameByCode.get(c) ?? null) : null;
     els.heading.hidden = true;
-    setHint(rows.length ? '' : `Geen gebied gevonden voor “${query.trim()}”.`);
+    if (!search && !pcItem) {
+      rows = [];
+      setHint(pc && !pcIndex ? 'Postcodes laden…' : 'Zoekindex laden…');
+    } else {
+      const found = search ? search(query, { scope: getState().scope, limit: RESULT_LIMIT }) : [];
+      rows = [...(pcItem ? [{ item: pcItem, ranges: [], alias: null }] : []), ...found].slice(0, RESULT_LIMIT);
+      setHint(rows.length ? '' : pc && pcIndex ? `Postcode ${query.trim()} niet gevonden.` : `Geen gebied gevonden voor “${query.trim()}”.`);
+    }
   }
   rows.forEach((row, i) => els.list.append(renderRow(row, i)));
   els.input.setAttribute('aria-expanded', rows.length ? 'true' : 'false');
@@ -177,8 +213,8 @@ function renderRow({ item, ranges, alias }, i) {
   const meta = document.createElement('span');
   meta.className = 'search-result-meta';
   const parentName = item.parent ? nameByCode.get(item.parent) : null;
-  meta.textContent = LEVEL_LABELS[item.level] ?? item.level;
-  if (parentName && item.level === 'buurt') meta.textContent += ` · ${parentName}`;
+  meta.textContent = item.meta ?? LEVEL_LABELS[item.level] ?? item.level;
+  if (parentName && item.level === 'buurt' && !item.meta) meta.textContent += ` · ${parentName}`;
   li.dataset.level = item.level;
 
   li.append(name, meta);

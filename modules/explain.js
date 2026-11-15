@@ -7,6 +7,7 @@
 // scrolled to that entry ('score', 'crime-mode', 'nodata' for the general parts).
 import { DATASETS, groupDatasets, datasetFor } from './datasets.js';
 import { ORIGIN_GROUPS, HERKOMST_TABLE, HERKOMST_FIRST_YEAR, HERKOMST_YEAR } from './herkomst.js';
+import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION } from './herkomst-pc4.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -113,16 +114,25 @@ export const GENERAL_SECTIONS = Object.freeze([
     title: 'Herkomst: landengroepen (heel Rotterdam)',
     paragraphs: [
       'Herkomst volgt de CBS-definitie (sinds 2022): het eigen geboorteland; voor wie in Nederland is geboren het geboorteland van de moeder, of als zij ook in Nederland is geboren dat van de vader. Herkomst zegt dus iets over waar iemand of diens ouders zijn geboren, niet over nationaliteit, taal, religie of hoe iemand zich voelt. Kleinkinderen van migranten met twee in Nederland geboren ouders tellen als herkomst Nederland.',
-      `Het Dashboard toont de bevolking van heel Rotterdam op 1 januari ${HERKOMST_YEAR} naar herkomstgroep, de grootste herkomstlanden en de groei sinds ${HERKOMST_FIRST_YEAR} (CBS ${HERKOMST_TABLE}). Per wijk en buurt levert CBS alleen Nederland, Europa (exclusief Nederland) en buiten Europa, plus wie in het buitenland is geboren; landengroepen per wijk bestaan niet als open data.`,
+      `Het Dashboard toont de bevolking van heel Rotterdam op 1 januari ${HERKOMST_YEAR} naar herkomstgroep, de grootste herkomstlanden en de groei sinds ${HERKOMST_FIRST_YEAR} (CBS ${HERKOMST_TABLE}). Per wijk en buurt levert CBS alleen Nederland, Europa (exclusief Nederland) en buiten Europa, plus wie in het buitenland is geboren; landengroepen per wijk bestaan niet als open data; een schatting via de postcode staat hieronder.`,
       'De groepen sluiten elkaar uit en tellen precies op tot het totaal. Samenstelling: ' + ORIGIN_GROUPS.map(g => `${g.label}: ${g.composition}.`).join(' '),
       'Kanttekeningen: CBS rekent Turkije en de Kaukasische en Centraal-Aziatische landen tot Azië. CBS levert van Noord-Afrika alleen Marokko en Egypte apart; Algerije, Tunesië, Libië en Soedan zitten daardoor in "Afrika bezuiden de Sahara" (in Rotterdam een kleine groep naast onder meer Kaapverdië en Somalië). De top 15 noemt alleen landen die CBS apart publiceert (45 landen); verzamelposten als "voormalig Joegoslavië" en "voormalige Sovjet-Unie" overlappen hun opvolgers en blijven buiten de top. De groei is het verschil tussen de aantallen op 1 januari en zegt niets over de oorzaak (migratie, geboorte, verhuizing, sterfte).',
+    ],
+  },
+  {
+    id: 'herkomst-postcode',
+    title: `Herkomst per wijk en buurt: geschat via postcode (${PC4_YEAR})`,
+    paragraphs: [
+      `CBS publiceert landengroepen niet per wijk of buurt, wel per viercijferige postcode (CBS ${PC4_HERKOMST_TABLE}, 1 januari ${PC4_YEAR}). De lagen ${PC4_GROUPS.map(g => g.label).join(', ')} in de groep Herkomst schatten het aandeel per wijk en buurt: de inwoners van elk postcodegebied worden verdeeld over de buurten erin naar het aantal adressen per buurt (CBS-bestand postcode en huisnummer met buurt, wijk en gemeente ${PC4_YEAR}), en buurten tellen op tot wijken. Het detailblok in een gebied en de wizardstap Gemeenschap gebruiken dezelfde schatting.`,
+      `Grenzen van de methode: binnen één postcodegebied wordt overal dezelfde mix aangenomen, dus verschillen tussen buurten met dezelfde postcode vallen weg. Adressen zijn geen inwoners: kantoren en bedrijfspanden tellen bij de verdeling mee. CBS rondt elk aantal per postcode af op 5 en laat kleine aantallen weg (hier als 0 geteld); onder ${PC4_MIN_POPULATION} geschatte inwoners toont de kaart geen waarde. De indeling is die van ${PC4_YEAR}: wijken en buurten van 2025 zonder dezelfde code in ${PC4_YEAR} (nieuw of opnieuw ingedeeld) krijgen geen gegevens, er wordt niets bijgeschat.`,
+      `De tabel gebruikt de oude CBS-indeling "migratieachtergrond", met dezelfde basis als herkomst (eigen geboorteland, anders dat van de ouders). Turkije valt daarin onder Europa; "Europa buiten de EU" is hier daarom Europa min EU min Turkije. De cijfers zijn een schatting en niet één op één gelijk aan de nieuwere herkomstcijfers per gemeente.`,
     ],
   },
   {
     id: 'gemeenschap',
     title: 'Jouw score: nabijheid gemeenschap',
     paragraphs: [
-      'In de wizard "Vind jouw ideale woonplek" is de laatste stap (Gemeenschap) optioneel en standaard uit; de Woonscore (Standaard) en "Gelijk gewogen" gebruiken herkomst nooit. Kies je er wel een groep, dan telt het aandeel inwoners van die groep (CBS-kerncijfers per wijk en buurt: Nederland, Europa excl. NL of buiten Europa) als plus mee, met een gewicht dat jij kiest (standaard 10% van het totaal, hoogstens 30%). Waar een niveau dat cijfer niet heeft, valt de factor weg en tellen de andere thema\'s naar verhouding zwaarder.',
+      'In de wizard "Vind jouw ideale woonplek" is de laatste stap (Gemeenschap) optioneel en standaard uit; de Woonscore (Standaard) en "Gelijk gewogen" gebruiken herkomst nooit. Kies je er wel een groep, dan telt het aandeel inwoners van die groep (CBS-kerncijfers per wijk en buurt: Nederland, Europa excl. NL of buiten Europa; een land of landengroep per gemeente, en voor onder meer Suriname, Turkije en Marokko ook per wijk en buurt, geschat via de postcode) als plus mee, met een gewicht dat jij kiest (standaard 10% van het totaal, hoogstens 30%). Waar een niveau dat cijfer niet heeft, valt de factor weg en tellen de andere thema\'s naar verhouding zwaarder.',
       'Wat het niet doet: er is geen optie om een groep te vermijden of lager te laten wegen, ook niet via een aangepaste link, en een gebied staat nooit als zwak punt in de lijst omdat er minder mensen van een groep wonen. Het resultaat heet "nabijheid gemeenschap" en is geen etnische score van een gebied; het zijn totalen per gebied, niets over personen.',
       'Je score wordt in je browser berekend en er wordt niets verstuurd. Je keuze wordt op dit apparaat onthouden; in een gedeelde link staat ze alleen als je "Deel ook gemeenschap" aanvinkt.',
       'Specifieke herkomstgroep (zoals Suriname, Turkije of Marokko): CBS levert die per gemeente (tabel 85458NED, laatste jaar), niet per wijk of buurt. Op de Nederland-kaart telt dan het aandeel van die groep per gemeente. Op wijk- en buurtniveau telt de specifieke groep niet mee en wordt hij niet vervangen door een brede groep; wie dat wil kiest daarnaast zelf een brede groep, die dan alleen voor wijken en buurten telt.',

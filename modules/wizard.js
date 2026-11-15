@@ -23,6 +23,7 @@ import {
   SITUATIE_EDU, SITUATIE_LABEL, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance,
 } from './wizard-model.js';
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
+import { loadPc4Herkomst, presetUsesPc4 } from './herkomst-pc4.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -97,10 +98,10 @@ function stepBody(key) {
     <label class="wiz-field" id="wiz-q">Specifieke herkomstgroep <small>(alleen per gemeente, Nederland-kaart)</small>
       <select data-field="gemDetail">
         <option value="">Geen specifieke groep</option>
-        ${Object.entries(DETAIL_GROUPS).map(([k, d]) => `<option value="${esc(k)}"${g?.detail === k ? ' selected' : ''}>${esc(d.label)}</option>`).join('')}
+        ${Object.entries(DETAIL_GROUPS).map(([k, d]) => `<option value="${esc(k)}"${g?.detail === k ? ' selected' : ''}>${esc(d.label)}${d.wijk ? ' · ook per wijk/buurt (geschat)' : ''}</option>`).join('')}
       </select></label>
     <p class="wiz-hint wiz-note"><strong>Let op:</strong> per wijk en buurt levert CBS geen specifieke herkomstgroepen. Op wijk- en buurtniveau telt een specifieke groep daarom <strong>niet</strong> mee; we vervangen hem niet stilletjes door een brede groep. Wil je op wijk- en buurtniveau wel een factor, kies dan hieronder ook een brede groep.</p>
-    <p class="wiz-q" id="wiz-q2">${g?.detail ? 'Brede groep voor wijken en buurten (optioneel)' : 'Of een brede groep (wijk, buurt en gemeente)'}</p>
+    <p class="wiz-q" id="wiz-q2">${g?.detail ? (DETAIL_GROUPS[g.detail]?.wijk ? 'Brede groep voor wijken en buurten zonder postcodecijfers (optioneel)' : 'Brede groep voor wijken en buurten (optioneel)') : 'Of een brede groep (wijk, buurt en gemeente)'}</p>
     <div class="wiz-opts" role="group" aria-labelledby="wiz-q2">${Object.entries(GEMEENSCHAP_GROUPS).map(([k, grp]) => optBtn('gemGroup', k, grp.label, g?.group === k)).join('')}${optBtn('gemGroup', '', 'Geen brede groep', !g?.group)}</div>
     ${g ? `
     ${impSlider('data-field="gemLevel"', level, 'Hoe belangrijk', 1)}
@@ -190,6 +191,8 @@ async function resultHtml() {
   const kind = scoreKind(state.score);
   // A detailed Gemeenschap group is fetched on demand; app.js rescores when it lands (same promise, earlier handler).
   await Promise.all(missingDetailGroups(getPersonalPreset()).map(g => loadGemeenteGroup(g).catch(() => null)));
+  // Wijk/buurt shares of a detailed group (postcode estimate): app.js adds them and rescores before this resolves.
+  if (presetUsesPc4(getPersonalPreset())) await loadPc4Herkomst().catch(() => null);
   const { level, items } = await resultItems();
   const withScores = items.map(i => {
     const r = scoreResult('woonscore', i.code);

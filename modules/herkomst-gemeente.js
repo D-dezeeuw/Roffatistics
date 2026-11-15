@@ -8,17 +8,30 @@
 // so at wijk/buurt level the factor has no data and is skipped (score.js /
 // presets.js drop factors without data); nothing substitutes a broad group.
 import { ORIGIN_GROUPS, HK, HERKOMST_TABLE, HERKOMST_YEAR, HERKOMST_TOTALS } from './herkomst.js';
+import { PC4_GROUP_KEYS } from './herkomst-pc4.js';
 
 /** Two-letter hash code per detailed group (Nederland is a broad group already). */
 const CODES = Object.freeze({
   euZuid: 'ez', euMoe: 'em', euOverig: 'eo', euNietEu: 'en', turkije: 'tr', marokko: 'ma', egypte: 'eg',
   subSahara: 'ss', suriname: 'sr', cariben: 'ca', noordAmerika: 'na', latAmerika: 'la', indonesie: 'id',
   middenOosten: 'mo', zuidAzie: 'za', oostAzie: 'oa', azieOverig: 'ao', oceanie: 'oc',
+  polen: 'pl', duitsland: 'de', belgie: 'be',
 });
 
-/** Detailed groups: key → { label, code, key: metric key, group: the herkomst.js group }. */
-export const DETAIL_GROUPS = Object.freeze(Object.fromEntries(ORIGIN_GROUPS.filter(g => CODES[g.key]).map(g =>
-  [g.key, Object.freeze({ label: g.label, code: CODES[g.key], key: `hk_${g.key}`, group: g })])));
+// v0.25.0: three single countries 83503NED has per postcode, also published
+// per gemeente in 85458NED (same keys). Not part of the ORIGIN_GROUPS partition.
+const EXTRA_GROUPS = Object.freeze([
+  Object.freeze({ key: 'polen', label: 'Polen', plus: Object.freeze(['H008718']), minus: Object.freeze([]) }),
+  Object.freeze({ key: 'duitsland', label: 'Duitsland', plus: Object.freeze(['H008592']), minus: Object.freeze([]) }),
+  Object.freeze({ key: 'belgie', label: 'België', plus: Object.freeze(['H008552']), minus: Object.freeze([]) }),
+]);
+
+/**
+ * Detailed groups: key → { label, code, key: metric key, group: the herkomst.js group,
+ * wijk: true when the share also exists per wijk/buurt (estimated via postcode, herkomst-pc4.js) }.
+ */
+export const DETAIL_GROUPS = Object.freeze(Object.fromEntries([...ORIGIN_GROUPS, ...EXTRA_GROUPS].filter(g => CODES[g.key]).map(g =>
+  [g.key, Object.freeze({ label: g.label, code: CODES[g.key], key: `hk_${g.key}`, group: g, wijk: PC4_GROUP_KEYS.includes(g.key) })])));
 /** Every detailed metric key: origin metrics, under the same positive-only guard as the broad ones. */
 export const DETAIL_KEYS = Object.freeze(Object.values(DETAIL_GROUPS).map(d => d.key));
 
