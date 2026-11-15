@@ -68,21 +68,39 @@ describe('style.css', () => {
   });
 });
 
-describe('contrast (WCAG AA, 4.5:1 for small text)', () => {
-  const hex = name => stripped.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`, 'i'))[1];
+describe('contrast (WCAG AA, 4.5:1 for small text), both themes', () => {
+  const noComments = css.replace(/\/\*[\s\S]*?\*\//g, '');   // keeps the quoted theme ids
+  const block = sel => noComments.match(new RegExp(`${sel}\\s*\\{([^}]*)\\}`))[1];
+  const themes = {
+    rotterdam: block(':root\\[data-theme="rotterdam"\\]'),
+    klassiek:  block(':root\\[data-theme="klassiek"\\]'),
+  };
   const lum = h => {
     const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255)
       .map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-  // #22202c ≈ the 'geen data' bar: NO_DATA_COLOR (#4b4658) at 35 % over the card surface.
-  const surfaces = { base: hex('--bg-base'), surface: hex('--bg-surface'), alt: hex('--bg-surface-alt'), selected: '#241a3a', nodataBar: '#22202c' };
 
-  for (const [name, bg] of Object.entries(surfaces)) {
-    it(`muted and primary text pass on ${name}`, () => {
-      assert.ok(ratio(hex('--text-muted'), bg) >= 4.5, `muted on ${name}: ${ratio(hex('--text-muted'), bg).toFixed(2)}`);
-      assert.ok(ratio(hex('--text-primary'), bg) >= 4.5);
+  for (const [theme, css] of Object.entries(themes)) {
+    const hex = name => css.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`, 'i'))[1];
+    // --nodata-bar ≈ the 'geen data' bar: NO_DATA_COLOR (#4b4658) at 35 % over the card surface.
+    const surfaces = { base: '--bg-base', surface: '--bg-surface', alt: '--bg-surface-alt', selected: '--row-selected', nodataBar: '--nodata-bar' };
+    for (const [name, token] of Object.entries(surfaces)) {
+      it(`${theme}: muted and primary text pass on ${name}`, () => {
+        const bg = hex(token);
+        assert.ok(ratio(hex('--text-muted'), bg) >= 4.5, `muted on ${name}: ${ratio(hex('--text-muted'), bg).toFixed(2)}`);
+        assert.ok(ratio(hex('--text-primary'), bg) >= 4.5);
+      });
+    }
+    it(`${theme}: white text passes on both stops of --gradient-accent`, () => {
+      const stops = css.match(/--gradient-accent:\s*linear-gradient\([^;]*/)[0].match(/#[0-9a-f]{6}/gi);
+      if (theme === 'klassiek') return;   // the original palette, kept as it was
+      for (const s of stops) assert.ok(ratio('#ffffff', s) >= 4.5, s);
     });
   }
+
+  it('makes rotterdam the default (no data-theme attribute)', () => {
+    assert.match(noComments, /:root,\s*:root\[data-theme="rotterdam"\]\s*\{/);
+  });
 });

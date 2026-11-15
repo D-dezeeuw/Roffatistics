@@ -1,9 +1,15 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="nl" data-theme="rotterdam">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Roffatistics</title>
+  <meta name="theme-color" content="#111923" />
+  <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <!-- Theme before first paint (modules/theme.js: same key, ids and default). -->
+  <script>try{var t=localStorage.getItem('roffatistics.theme');document.documentElement.dataset.theme=t==='klassiek'||t==='rotterdam'?t:'rotterdam'}catch(e){}</script>
 
   <script type="importmap">
   {
@@ -19,9 +25,11 @@
 </head>
 <body>
 
+  <div id="app-loader" class="app-loader is-visible is-indeterminate" aria-live="polite" role="status"><div class="app-loader__ring"><svg class="app-loader__progress" viewBox="0 0 120 120" aria-hidden="true"><circle class="app-loader__track" cx="60" cy="60" r="54"/><circle class="app-loader__bar" cx="60" cy="60" r="54"/></svg><div class="app-loader__disc"><img class="app-loader__logo" src="assets/logo.svg" alt=""></div></div><p class="app-loader__label"></p></div>
+
   <nav id="topnav" aria-label="Hoofdnavigatie">
     <div class="nav-left">
-      <button type="button" class="nav-title" aria-haspopup="dialog" aria-controls="splash" title="Over Roffatistics (titelscherm)">Roffatistics</button>
+      <button type="button" class="nav-title" aria-haspopup="dialog" aria-controls="splash" title="Over Roffatistics (titelscherm)"><img class="nav-logo" src="assets/logo.svg" alt="" width="22" height="22"><span class="nav-title-text">Roffatistics</span></button>
       <label class="scope-label">
         <span class="sr-only">Gebied</span>
         <select class="scope-select" aria-label="Gebied">
@@ -379,6 +387,7 @@
 
   <div id="splash" class="splash" role="dialog" aria-modal="true" aria-labelledby="splash-title" aria-describedby="splash-tagline" hidden>
     <div class="splash-card">
+      <img class="splash-logo" src="assets/logo.svg" alt="" width="72" height="72">
       <h1 id="splash-title" class="splash-title">Roffatistics</h1>
       <p id="splash-tagline" class="splash-tagline">Rotterdam in cijfers &mdash; open data van het CBS en de politie (kerncijfers 2025, misdrijven 2025), van provincie tot buurt.</p>
       <ul class="splash-features">
