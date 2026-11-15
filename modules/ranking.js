@@ -40,7 +40,7 @@ export function scoreAreas(areas, datasets) {
     pct[ds.key] = percentileScores(vals, true);
     if (ds.higherIsBetter === true || ds.higherIsBetter === false) {
       scores[ds.key] = ds.higherIsBetter ? pct[ds.key] : pct[ds.key].map(p => (p == null ? null : 100 - p));
-      if (vals.some(isNum)) possibleKeys.push(ds.key);
+      if (vals.some(isNum) && ds.inOverall !== false) possibleKeys.push(ds.key);
     }
   }
   return areas.map((a, i) => {
@@ -50,7 +50,7 @@ export function scoreAreas(areas, datasets) {
       rowPct[ds.key] = pct[ds.key][i];
       const s = scores[ds.key] ? scores[ds.key][i] : null;
       rowScores[ds.key] = s;
-      if (s != null) { sum += s; used++; }
+      if (s != null && ds.inOverall !== false) { sum += s; used++; }
     }
     return {
       code: a.code, name: a.name, values: a.values ?? {},

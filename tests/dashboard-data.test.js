@@ -114,7 +114,7 @@ describe('wijk crime (47018NED)', () => {
   });
   it('mergeWijkCrime fills crimeRate and totalCrimes by padded code, leaves others untouched', () => {
     const areas = [area('WK059901', 'Stadscentrum', { population: 42565, crimeRate: null }), area('WK059902', 'X', { population: 10, crimeRate: null })];
-    const out = mergeWijkCrime(areas, [{ WijkenEnBuurten: 'WK059901  ', GeregistreerdeMisdrijven_1: 9731 }]);
+    const out = mergeWijkCrime(areas, [{ WijkenEnBuurten: 'WK059901  ', Perioden: '2025JJ00', SoortMisdrijf: '0.0.0 ', GeregistreerdeMisdrijven_1: 9731 }]);
     assert.equal(out[0].values.crimeRate, 228.6);
     assert.equal(out[0].values.totalCrimes, 9731);
     assert.equal(out[1], areas[1]);

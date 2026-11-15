@@ -115,14 +115,60 @@ export function normalizeCrime(rows) {
 // One entry per choropleth dataset in the Layers dropdown. `higherIsBetter`
 // drives ranking direction: true = high values rank first as "good",
 // false = low values are good (crime), null = neutral (no judgement).
+// `group` places it under a heading in the Layers dropdown (DATASET_GROUPS).
+// `scope: 'rotterdam'` = only the wijk/buurt tables have it; the Nederland
+// view hides those layers. `inOverall: false` keeps a dataset out of the
+// Ranglijst Totaalscore (the crime sub-layers would otherwise weigh crime 5×).
+const ds = (key, label, title, unit, higherIsBetter, group, extra = {}) =>
+  Object.freeze({ key, label, title, unit, higherIsBetter, group, scope: 'all', inOverall: true, ...extra });
+const RTM = { scope: 'rotterdam' };
+
 export const DATASETS = Object.freeze({
-  population:    Object.freeze({ key: 'population',    label: 'Bevolking',        title: 'Inwoners',                   unit: 'aantal',     higherIsBetter: null  }),
-  avgIncome:     Object.freeze({ key: 'avgIncome',     label: 'Inkomen',          title: 'Gem. inkomen (×€1k)',        unit: '×€1.000',    higherIsBetter: true  }),
-  crimeRate:     Object.freeze({ key: 'crimeRate',     label: 'Criminaliteit',    title: 'Misdrijven per 1.000 inw.',  unit: 'per 1.000',  higherIsBetter: false }),
-  highEdu:       Object.freeze({ key: 'highEdu',       label: 'Opleiding',        title: 'Hoog opgeleid (%)',          unit: '%',          higherIsBetter: true  }),
-  wozValue:      Object.freeze({ key: 'wozValue',      label: 'WOZ waarde',       title: 'Gem. WOZ waarde (×€1k)',     unit: '×€1.000',    higherIsBetter: true  }),
-  pop65plus:     Object.freeze({ key: 'pop65plus',     label: '65+ (%)',          title: '65+ (%)',                    unit: '%',          higherIsBetter: null  }),
-  nonWesternPct: Object.freeze({ key: 'nonWesternPct', label: 'Buiten Europa (%)', title: 'Herkomst buiten Europa (%)', unit: '%',          higherIsBetter: null  }),
+  population:       ds('population',       'Bevolking',            'Inwoners',                        'aantal',    null,  'bevolking'),
+  density:          ds('density',          'Bevolkingsdichtheid',  'Inwoners per km²',                'per km²',   null,  'bevolking'),
+  pop65plus:        ds('pop65plus',        '65+ (%)',              '65+ (%)',                         '%',         null,  'bevolking'),
+  nonWesternPct:    ds('nonWesternPct',    'Buiten Europa (%)',    'Herkomst buiten Europa (%)',      '%',         null,  'bevolking'),
+  highEdu:          ds('highEdu',          'Opleiding',            'Hoog opgeleid (%)',               '%',         true,  'bevolking'),
+  avgIncome:        ds('avgIncome',        'Inkomen',              'Gem. inkomen (×€1k)',             '×€1.000',   true,  'welvaart'),
+  wozValue:         ds('wozValue',         'WOZ waarde',           'Gem. WOZ waarde (×€1k)',          '×€1.000',   true,  'welvaart'),
+  ownerOccupiedPct: ds('ownerOccupiedPct', 'Koopwoningen (%)',     'Koopwoningen (%)',                '%',         null,  'welvaart', RTM),
+  rentalPct:        ds('rentalPct',        'Huurwoningen (%)',     'Huurwoningen (%)',                '%',         null,  'welvaart', RTM),
+  welfarePer1000:   ds('welfarePer1000',   'Bijstand',             'Bijstand per 1.000 inw.',         'per 1.000', false, 'welvaart', RTM),
+  crimeRate:        ds('crimeRate',        'Criminaliteit',        'Misdrijven per 1.000 inw.',       'per 1.000', false, 'veiligheid'),
+  crimeBurglary:    ds('crimeBurglary',    'Woninginbraak',        'Woninginbraak per 1.000 inw.',    'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
+  crimeBike:        ds('crimeBike',        'Fietsendiefstal',      'Fietsendiefstal per 1.000 inw.',  'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
+  crimePickpocket:  ds('crimePickpocket',  'Zakkenrollerij',       'Zakkenrollerij per 1.000 inw.',   'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
+  crimeViolence:    ds('crimeViolence',    'Geweldsmisdrijven',    'Geweld per 1.000 inw.',           'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
+  distGP:           ds('distGP',           'Afstand huisarts',     'Afstand tot huisarts (km)',       'km',        false, 'voorzieningen', RTM),
+  distSupermarket:  ds('distSupermarket',  'Afstand supermarkt',   'Afstand tot grote supermarkt (km)', 'km',      false, 'voorzieningen', RTM),
 });
 
 export const DATASET_KEYS = Object.freeze(Object.keys(DATASETS));
+
+export const DATASET_GROUPS = Object.freeze([
+  Object.freeze({ key: 'bevolking',     label: 'Bevolking' }),
+  Object.freeze({ key: 'welvaart',      label: 'Welvaart & wonen' }),
+  Object.freeze({ key: 'veiligheid',    label: 'Veiligheid' }),
+  Object.freeze({ key: 'voorzieningen', label: 'Voorzieningen' }),
+]);
+
+/**
+ * Datasets per dropdown section, in DATASET_GROUPS order, each section in
+ * DATASET_KEYS order: [{ key, label, scope, datasets: [dataset…] }]. Empty
+ * sections are dropped; a dataset with an unknown group lands in the last one.
+ * `scope` is 'rotterdam' when every dataset in the section is Rotterdam-only.
+ */
+export function groupDatasets(datasets = DATASETS, groups = DATASET_GROUPS) {
+  const known = new Set(groups.map(g => g.key));
+  const last = groups[groups.length - 1]?.key;
+  return groups.map(g => {
+    const list = Object.values(datasets).filter(d => (known.has(d.group) ? d.group : last) === g.key);
+    return { key: g.key, label: g.label, scope: list.length && list.every(d => d.scope === 'rotterdam') ? 'rotterdam' : 'all', datasets: list };
+  }).filter(g => g.datasets.length);
+}
+
+/** True when `key` has data in the given scope ('rotterdam' | 'nederland'). */
+export function datasetInScope(key, scope) {
+  const d = DATASETS[key];
+  return !!d && (scope === 'rotterdam' || d.scope !== 'rotterdam');
+}

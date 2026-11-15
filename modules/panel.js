@@ -7,6 +7,13 @@ function pct(v)  { return v  != null ? `${v.toFixed(1)}%`          : '—'; }
 function euro(v) { return v  != null ? `€${v.toLocaleString('nl-NL')}k` : '—'; }
 function num(v)  { return v  != null ? v.toLocaleString('nl-NL')        : '—'; }
 function sign(v) { return v  != null ? (v >= 0 ? `+${v.toLocaleString('nl-NL')}` : v.toLocaleString('nl-NL')) : '—'; }
+function rate(v) { return v  != null ? `${v.toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} /1k inw.` : '—'; }
+function km(v)   { return v  != null ? `${v.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} km` : '—'; }
+function trend(v) {
+  if (v == null) return '—';
+  const t = Math.abs(v).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return `${v > 0 ? '+' : v < 0 ? '−' : '±'}${t}% t.o.v. 2024`;
+}
 
 export function formatPanelData(data) {
   return {
@@ -28,32 +35,30 @@ export function formatPanelData(data) {
     pop65plus:           pct(data?.pop65plus),
     migrationBalance:    sign(data?.migrationBalance),
     nonWesternPct:       pct(data?.nonWesternPct),
+    // Rotterdam wijk/buurt only (86165NED, police 47018NED)
+    dataYears:           data?.dataYears || '—',
+    ownerOccupiedPct:    pct(data?.ownerOccupiedPct),
+    rentalPct:           pct(data?.rentalPct),
+    welfarePer1000:      rate(data?.welfarePer1000),
+    crimeTrend:          trend(data?.crimeTrend),
+    crimeBurglary:       rate(data?.crimeBurglary),
+    crimeBike:           rate(data?.crimeBike),
+    crimePickpocket:     rate(data?.crimePickpocket),
+    crimeViolence:       rate(data?.crimeViolence),
+    distGP:              km(data?.distGP),
+    distSupermarket:     km(data?.distSupermarket),
   };
 }
+
+/** Every panel field key (the spektrum bindings are `panel.<key>` and `panel2.<key>`). */
+export const PANEL_FIELDS = Object.freeze(Object.keys(formatPanelData(null)));
 
 async function setSlot(prefix, name, code, data) {
   const { setValue } = await import('spektrum');
   const fmt = formatPanelData(data);
   setValue(`${prefix}.name`,              name ?? '');
   setValue(`${prefix}.code`,              code ?? '');
-  setValue(`${prefix}.population`,        fmt.population);
-  setValue(`${prefix}.density`,           fmt.density);
-  setValue(`${prefix}.avgIncome`,         fmt.avgIncome);
-  setValue(`${prefix}.crimeRate`,         fmt.crimeRate);
-  setValue(`${prefix}.totalCrimes`,       fmt.totalCrimes);
-  setValue(`${prefix}.catVermogen`,       fmt.catVermogen);
-  setValue(`${prefix}.catDiefstalInbraak`, fmt.catDiefstalInbraak);
-  setValue(`${prefix}.catVernieling`,     fmt.catVernieling);
-  setValue(`${prefix}.catGeweld`,         fmt.catGeweld);
-  setValue(`${prefix}.catMishandeling`,   fmt.catMishandeling);
-  setValue(`${prefix}.lowEdu`,            fmt.lowEdu);
-  setValue(`${prefix}.medEdu`,            fmt.medEdu);
-  setValue(`${prefix}.highEdu`,           fmt.highEdu);
-  setValue(`${prefix}.wozValue`,          fmt.wozValue);
-  setValue(`${prefix}.totalJobs`,         fmt.totalJobs);
-  setValue(`${prefix}.pop65plus`,         fmt.pop65plus);
-  setValue(`${prefix}.migrationBalance`,  fmt.migrationBalance);
-  setValue(`${prefix}.nonWesternPct`,     fmt.nonWesternPct);
+  for (const [key, text] of Object.entries(fmt)) setValue(`${prefix}.${key}`, text);
 }
 
 export async function showPanel({ name, code, data }) {

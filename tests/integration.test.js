@@ -9,7 +9,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_COLUMNS } from '../modules/datasets.js';
 import { formatPanelData } from '../modules/panel.js';
-import { WIJK_COLUMNS, WIJK_SELECT, WIJK_TABLE, extractAreaValues, normalizeAreaCode } from '../modules/areas.js';
+import { WIJK_COLUMNS, WIJK_SELECT, WIJK_TABLE, WIJK_FALLBACK_TABLE, extractAreaValues, mergeYearValues, normalizeAreaCode, buildBuurtCrimeUrl, aggregateCrime, buildCityWozUrl, parseCityWoz } from '../modules/areas.js';
 // Filters copied from app.js; the demographics select and column map come from modules/datasets.js
 const CBS_FILTER   = "startswith(RegioS,'PV') and Perioden eq '2023JJ00'";
 const CRIME_FILTER = "startswith(RegioS,'PV') and Perioden eq '2023JJ00' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000')";
@@ -119,13 +119,28 @@ describe('CBS API — municipality demographics (sample of 5)', { timeout: 20000
 // ── Rotterdam wijken (Kerncijfers wijken en buurten) ─────────────────────────
 
 describe('CBS API — Rotterdam wijken', { timeout: 15000 }, () => {
-  it(`${WIJK_TABLE} returns all mapped columns for WK0599 wijken`, async () => {
-    const rows = await fetchCBS(WIJK_TABLE, "startswith(WijkenEnBuurten,'WK0599')", WIJK_SELECT);
+  it(`${WIJK_TABLE} + ${WIJK_FALLBACK_TABLE} return all mapped columns; the fallback fills income and education`, async () => {
+    const [rows, old] = await Promise.all([WIJK_TABLE, WIJK_FALLBACK_TABLE].map(t => fetchCBS(t, "startswith(WijkenEnBuurten,'WK0599')", WIJK_SELECT)));
     assert.ok(rows.length >= 20, `expected ~21 Rotterdam wijken, got ${rows.length}`);
-    for (const col of Object.values(WIJK_COLUMNS)) assert.ok(col in rows[0], `missing column ${col}`);
-    const centrum = rows.find(r => normalizeAreaCode(r.WijkenEnBuurten) === 'WK059901');
-    const v = extractAreaValues(centrum);
-    assert.ok(v.population > 10000, 'Rotterdam Centrum population');
-    assert.ok(v.avgIncome > 10 && v.wozValue > 100 && v.highEdu > 0, 'income, WOZ and education filled');
+    for (const r of [rows[0], old[0]]) for (const col of Object.values(WIJK_COLUMNS)) assert.ok(col in r, `missing column ${col}`);
+    const pick = list => list.find(r => normalizeAreaCode(r.WijkenEnBuurten) === 'WK059901');
+    const v = extractAreaValues(pick(rows));
+    assert.ok(v.population > 10000 && v.wozValue > 100 && v.ownerOccupiedPct > 0 && v.distGP > 0, '2025 population, WOZ, housing, distance');
+    const { values, years } = mergeYearValues(pick(rows), pick(old));
+    assert.ok(values.avgIncome > 10 && values.highEdu > 0, 'income and education filled');
+    if (v.avgIncome == null) assert.equal(years.avgIncome, 2024);
+  });
+  it('47018NED returns 2025 + 2024 crime for the Rotterdam buurten in one query', async () => {
+    const res = await fetch(buildBuurtCrimeUrl());
+    assert.ok(res.ok);
+    const agg = aggregateCrime((await res.json()).value);
+    assert.ok(agg.size >= 80, `expected ~91 buurten, got ${agg.size}`);
+    assert.ok([...agg.values()].some(c => c.total > 0 && c.totalPrev > 0 && c.crimeViolence > 0));
+  });
+  it('85036NED has the 2026 Rotterdam WOZ total', async () => {
+    const res = await fetch(buildCityWozUrl());
+    const woz = parseCityWoz((await res.json()).value);
+    assert.equal(woz.year, 2026);
+    assert.ok(woz.value > 300);
   });
 });

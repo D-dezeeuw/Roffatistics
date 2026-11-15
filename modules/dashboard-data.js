@@ -45,18 +45,42 @@ export function cityValue(areas, key) {
   return key === 'population' ? sumOf(areas, key) : weightedMean(areas, key);
 }
 
-export const KPI_KEYS = Object.freeze(['population', 'avgIncome', 'highEdu', 'wozValue', 'pop65plus', 'nonWesternPct']);
+export const KPI_KEYS = Object.freeze(['population', 'avgIncome', 'highEdu', 'wozValue', 'ownerOccupiedPct', 'welfarePer1000', 'crimeRate', 'pop65plus', 'nonWesternPct']);
 const KPI_LABELS = {
   population: 'Inwoners', avgIncome: 'Gem. inkomen', highEdu: 'Hbo/wo', wozValue: 'Gem. WOZ',
+  ownerOccupiedPct: 'Koopwoningen', welfarePer1000: 'Bijstand', crimeRate: 'Misdrijven',
   pop65plus: '65+', nonWesternPct: 'Herkomst buiten Europa',
 };
 
-/** [{ key, label, value, text }] for the KPI row. */
-export function cityKpis(areas) {
+/**
+ * [{ key, label, value, text, note? }] for the KPI row. With `city` (the
+ * gemeente row as an area: { values, years }) a KPI takes CBS' own gemeente
+ * figure when it has one, else the population-weighted wijk value. A value
+ * from an older year than `baseYear` gets that year in its label; the WOZ
+ * label always names its year so it reads next to the 2026 city KPI.
+ */
+export function cityKpis(areas, city = null, baseYear = 2025) {
   return KPI_KEYS.map(key => {
-    const value = cityValue(areas, key);
-    return { key, label: KPI_LABELS[key], value, text: formatValue(value, key) };
+    const own = num(city?.values?.[key]);
+    const value = own ?? cityValue(areas, key);
+    const year = own != null ? (city?.years?.[key] ?? baseYear) : null;
+    let label = KPI_LABELS[key];
+    if (year && (year !== baseYear || key === 'wozValue')) label += ` ${year}`;
+    return { key, label, value, text: formatValue(value, key), ...(own != null ? { note: 'CBS gemeentecijfer' } : {}) };
   });
+}
+
+/**
+ * KPI for the newest city WOZ (85036NED): { key: 'woz2026', label, value, text, note }
+ * or null without a figure. `woz` = { value (×€1,000), year, peildatum, table }.
+ */
+export function cityWozKpi(woz) {
+  const v = num(woz?.value);
+  if (v == null) return null;
+  return {
+    key: `woz${woz.year}`, label: `WOZ ${woz.year} · gemeente`, value: v,
+    text: formatValue(v, 'wozValue'), note: `CBS ${woz.table}, peildatum ${woz.peildatum}`,
+  };
 }
 
 // ── Number formatting (nl-NL) ────────────────────────────────────────────────
@@ -83,6 +107,8 @@ export function formatValue(v, key) {
   if (unit === '×€1.000')   return `€ ${formatNumber(Math.round(n * 1000 / 100) * 100)}`;
   if (unit === '%')         return `${formatNumber(n, 1)}%`;
   if (unit === 'per 1.000') return `${formatNumber(n, 1)} per 1.000 inw.`;
+  if (unit === 'km')        return `${formatNumber(n, 1)} km`;
+  if (unit === 'per km²')   return `${formatNumber(n)} per km²`;
   if (key === 'population') return `${formatNumber(n)} inw.`;
   return formatNumber(n, 1);
 }
@@ -92,6 +118,7 @@ export function formatTick(v, key) {
   const unit = DATASETS[key]?.unit;
   if (unit === '×€1.000') return `€${formatNumber(v, 1)}k`;
   if (unit === '%')       return `${formatNumber(v, 1)}%`;
+  if (unit === 'km')      return `${formatNumber(v, 1)} km`;
   if (Math.abs(v) >= 10000) return `${formatNumber(v / 1000, 1)}k`;
   return formatNumber(v, 1);
 }
