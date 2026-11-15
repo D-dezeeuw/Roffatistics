@@ -4,7 +4,7 @@
 // One hash format: the link is the address-bar hash of state.js (serializeHash /
 // parseHash: scope, view, dataset, crime, area, score) plus a few one-shot
 // view keys in the same URLSearchParams form, read once on load and then
-// dropped from the address bar by state.js:
+// dropped from the address bar by state.js (dtab=jouw is address-bar state, W19):
 //   map=<lat>,<lng>,<zoom>   map centre and zoom (the zoom sets the map level)
 //   modal=1                  the area detail modal was open for `area`
 //   lvl=<level>              Ranglijst level (wijken, buurten, provincies, gemeenten)
@@ -38,6 +38,7 @@ export const SHARE_GROUPS = Object.freeze([
     { key: 'list',    label: 'Ranglijst: niveau, rangschikking en sortering' },
     { key: 'basemap', label: 'Achtergrondkaart' },
     { key: 'theme',   label: 'Kleurthema' },
+    { key: 'dtab',    label: 'Dashboardtabblad (Algemeen of Jouw dashboard)' },
   ].map(Object.freeze)) }),
   Object.freeze({ id: 'wensen', label: 'Jouw wensen', sensitive: false, parts: Object.freeze([
     { key: 'answers', label: 'Je antwoorden: levenstype, budget, vervoer, sfeer, veiligheid, bouwstijl en hoe belangrijk' },
@@ -61,7 +62,7 @@ export function availableParts(snap = {}) {
   const sens = st.score ? sensitivePresent(st.score) : { origin: false, education: false, income: false };
   return {
     view: !!st.view, scope: !!st.scope, dataset: !!st.dataset, map: !!snap.map, area: !!st.area,
-    list: !!snap.list, basemap: !!snap.basemap, theme: !!snap.theme, answers: !!st.score, ...sens,
+    list: !!snap.list, basemap: !!snap.basemap, theme: !!snap.theme, dtab: st.dtab === 'jouw', answers: !!st.score, ...sens,
   };
 }
 
@@ -106,6 +107,7 @@ export function buildShareHash(snap = {}, options = {}) {
   }
   if (o.basemap && Object.hasOwn(BASEMAPS, snap.basemap ?? '')) p.set('basemap', snap.basemap);
   if (o.theme && Object.hasOwn(THEMES, snap.theme ?? '')) p.set('theme', snap.theme);
+  if (o.dtab && core.has('dtab')) p.set('dtab', core.get('dtab'));
   const s = String(p);
   return s ? `#${s}` : '';
 }
@@ -164,6 +166,7 @@ export function partSummary(snap = {}, key) {
     case 'list':    return snap.list ? [snap.list.level, snap.list.sort ? `sortering ${snap.list.sort.column} ${snap.list.sort.dir === 'desc' ? '↓' : '↑'}` : ''].filter(Boolean).join(', ') : '';
     case 'basemap': return BASEMAPS[snap.basemap]?.label ?? '';
     case 'theme':   return THEMES[snap.theme]?.label ?? '';
+    case 'dtab':    return st.dtab === 'jouw' ? 'Jouw dashboard' : 'Algemeen';
     case 'answers': return st.score ? '' : 'nog niet ingevuld';
     default:        return st.score && sensitivePresent(st.score)[key] ? '' : 'niet ingevuld';
   }

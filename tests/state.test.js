@@ -12,7 +12,7 @@ const memStorage = (init = {}) => {
 
 describe('state helpers', () => {
   it('defaults to Rotterdam, map view, Woonscore', () => {
-    assert.deepEqual(DEFAULT_STATE, { scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate', score: null });
+    assert.deepEqual(DEFAULT_STATE, { scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate', score: null, dtab: 'algemeen' });
   });
 
   it('sanitizePatch drops invalid values', () => {

@@ -56,3 +56,24 @@ without one each panel shows the city or national overview.
 A panel whose data is missing for the scope shows "Niet beschikbaar voor dit
 niveau" and keeps its grid cell. The crime-mode toggle and per-dataset bar
 charts are gone: the map and the Ranglijst already rank every layer.
+
+## Jouw dashboard (W19, 15 Nov 2026)
+
+Operator: after the wizard, offer a customised dashboard in an extra, blue tab.
+Tabs "Algemeen" | "Jouw dashboard" (state `dtab`, hash `dtab=jouw`, shareable
+under Weergave). Same 6 × 3 grid and panel components; layout from
+`personalDashboardSpec(answers, preset)` (`modules/dashboard-personal.js`).
+
+| Row | When | Panels |
+|---|---|---|
+| Jouw woonplek | always first | Jouw top 10 (match %), Jouw score vs Standaard (rise / fall most), Wat jij belangrijk vindt (weight per theme) |
+| Veiligheid · jouw punten | chips, or vervoer fiets/auto | your crime types: top 10 vs average, best 5 + your top 5, Misdrijven totaal |
+| Levenstype | levenstype chosen | type metrics (gezin: kids, school, kinderopvang; solo onder de mensen: horeca, density, centre, single; solo rustig: water, quiet; student/stel/50+/senior: age band, care) + an Algemeen age panel |
+| Wonen en budget | budget or bouwstijl | koop with ceiling: share of areas within budget + WOZ histogram, your matches within budget, bouwstijl of your top 10 (or WOZ en eigendom); huur: rental share |
+| Vervoer en sfeer | vervoer ov/fiets/lopen/auto or sfeer | station, bike theft, shops/GP, horeca/density/centre: top 10 vs average, best 5, distribution |
+| Jouw situatie | opt-in opleiding / inkomen | your education level share, income near your band, Opleidingsmix or Inkomen |
+| Nabijheid gemeenschap | opt-in only | highest shares of your chosen group (never lowest), your top 10 vs average, per wereldregio |
+
+Rows 2–6 are ordered by the importance given in the wizard; skipped or "Niet
+belangrijk" categories fall back to Algemeen rows (Leeftijd, Criminaliteit,
+Opleiding, Welvaart & wonen, Voorzieningen). Herkomst is never a fallback.

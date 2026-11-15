@@ -18,6 +18,14 @@
   --panel-w:        320px;
   --font-ui:        -apple-system, 'Segoe UI', sans-serif;
   --font-data:      'JetBrains Mono', 'Fira Mono', monospace;
+  /* Jouw dashboard (W19): one blue token set for both themes (Rotterdam, Klassiek).
+     accent = bars and borders (4.1:1 on --bg-base, >= 3:1 for graphics);
+     accent-deep = fills under white text (5.9:1); text = blue text on dark surfaces (>= 8:1). */
+  --personal-accent:      #2f7bd8;
+  --personal-accent-rgb:  47, 123, 216;
+  --personal-accent-deep: #1f63b8;
+  --personal-text:        #8cbcf5;
+  --personal-tint:        rgba(47, 123, 216, 0.12);
 }
 
 :root,
@@ -1600,6 +1608,31 @@ footer {
 .dp-axis { stroke: rgba(var(--accent-rgb), 0.35); stroke-width: 1; }
 .dp-dot { fill: var(--dp-s1); fill-opacity: 0.75; cursor: pointer; }
 .dp-dot.is-selected { fill: var(--dp-s2); fill-opacity: 1; stroke: var(--text-primary); stroke-width: 1.5; }
+/* ── Dashboard tabs + the blue Jouw dashboard (W19) ── */
+.dash-tabs { display: flex; gap: 0.35rem; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(var(--accent-rgb), 0.25); }
+.dash-tab {
+  font: inherit; font-size: 0.8rem; font-weight: 600; padding: 0.4rem 0.9rem; margin-bottom: -1px; cursor: pointer;
+  color: var(--text-muted); background: transparent; border: 1px solid transparent; border-radius: 6px 6px 0 0;
+}
+.dash-tab:hover { color: var(--text-primary); }
+.dash-tab.is-active { color: var(--text-primary); border-color: rgba(var(--accent-rgb), 0.35); border-bottom-color: var(--bg-base); background: var(--bg-surface); }
+.dash-tab-jouw { color: var(--personal-text); }
+.dash-tab-jouw.is-active { color: #fff; background: var(--personal-accent-deep); border-color: var(--personal-accent-deep); }
+.dash-tab:focus-visible { outline: 2px solid var(--personal-text); outline-offset: 2px; }
+.dash-head-personal h2 { color: var(--personal-text); }
+.dash-btn-personal { background: var(--personal-accent-deep); color: #fff; border-color: var(--personal-accent-deep); }
+.dash-personal-hint { border-color: rgba(var(--personal-accent-rgb), 0.5); background: var(--personal-tint); }
+.dash-board.is-personal { --dp-s1: var(--personal-accent); --dp-s2: var(--personal-text); --dp-s3: #4a6a90; }
+.dash-board.is-personal .dash-cat { color: var(--personal-text); }
+.dash-board.is-personal .dash-panel { border-color: rgba(var(--personal-accent-rgb), 0.4); }
+.dash-board.is-personal .dash-panel-head { background: var(--personal-tint); margin: -0.2rem -0.3rem 0; padding: 0.2rem 0.3rem; border-radius: 4px; }
+.dash-board.is-personal .dp-hist { border-bottom-color: rgba(var(--personal-accent-rgb), 0.45); }
+.dash-board.is-personal .dp-hist-col { background: rgba(var(--personal-accent-rgb), 0.5); }
+.dash-board.is-personal .dp-hist-col.is-ref { background: var(--personal-accent); }
+.dash-board.is-personal .dp-hist-col.is-mark { background: var(--personal-text); }
+.dash-board.is-personal .dp-li[data-code]:hover, .dash-board.is-personal .dp-li[data-code]:focus-visible { background: rgba(var(--personal-accent-rgb), 0.2); }
+.dash-board.is-personal .dp-axis { stroke: rgba(var(--personal-accent-rgb), 0.45); }
+
 @media (max-width: 1100px) { .dash-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) { .dash-board { grid-template-columns: minmax(0, 1fr); } }
 
