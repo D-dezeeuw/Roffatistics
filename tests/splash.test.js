@@ -60,15 +60,15 @@ describe('splashTarget: search result → Ranglijst state', () => {
     assert.equal(t.area, 'BU05990110');
     assert.equal(t.modal, 'BU05990110');
   });
-  it('gemeente: Nederland scope, Gemeenten, no modal', () => {
+  it('gemeente: Nederland scope, Gemeenten, opens its modal (15 Nov 2026)', () => {
     assert.deepEqual(splashTarget({ code: 'GM0363', level: 'gemeente', scope: 'nederland' }),
-      { view: 'list', scope: 'nederland', level: 'gemeenten', area: 'GM0363', highlight: 'GM0363', modal: null });
+      { view: 'list', scope: 'nederland', level: 'gemeenten', area: 'GM0363', highlight: 'GM0363', modal: 'GM0363' });
   });
   it('provincie: Nederland scope, Provincies', () => {
     const t = splashTarget({ code: 'PV27', level: 'provincie', scope: 'nederland' });
     assert.equal(t.level, 'provincies');
     assert.equal(t.highlight, 'PV27');
-    assert.equal(t.modal, null);
+    assert.equal(t.modal, 'PV27');
   });
   it('NL wijk/buurt (postcode): its gemeente row in the list, the modal for the area itself', () => {
     for (const code of ['WK036305', 'BU03630501']) {

@@ -14,7 +14,7 @@ import { initSearch }                     from './modules/search.js';
 import { initDashboard }                  from './modules/dashboard.js';
 import { initExplain }                    from './modules/explain.js';
 import { initCrimeToggles }               from './modules/crime-mode.js';
-import { initAreaModal, openAreaModal, COMPARE_EVENT } from './modules/area-modal.js';
+import { initAreaModal, openAreaModal, COMPARE_EVENT, DRILL_EVENT, setNationalAreas } from './modules/area-modal.js';
 import { initSpacePan }                   from './modules/space-pan.js';
 import { rowsWithWoonscore, setPersonalPreset, assignScore } from './modules/presets.js';
 import { loadGemeenteGroup, missingDetailGroups } from './modules/herkomst-gemeente.js';
@@ -103,7 +103,7 @@ const atDrillTier = (tier = getActiveTier()) => tier === 'wijk' || tier === 'buu
 const provincesReady = fetchCBS(CBS_TABLE, CBS_FILTER, CBS_SELECT)
   .then(raw => {
     provinceRows = rowsWithWoonscore(normalizeProvinces(raw));
-    setProvinceData(provinceRows); setNationalRows('provincie', provinceRows);
+    setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); setNationalAreas('provincie', provinceRows);
     if (getState().scope === 'nederland') return activateDataset(getState().dataset);
   })
   .catch(() => { /* CBS unavailable — map renders with flat fill, no legend */ });
@@ -114,7 +114,7 @@ fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
     await provincesReady;
     const crimeLookup = Object.fromEntries(normalizeCrime(crimeRaw).map(r => [r.regionCode, r]));
     provinceRows = rowsWithWoonscore(provinceRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] })));
-    setProvinceData(provinceRows); setNationalRows('provincie', provinceRows);
+    setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); setNationalAreas('provincie', provinceRows);
     // Re-colour: the Woonscore (and crime layers) change once crime is merged.
     if (getState().scope === 'nederland' && !atGemeenteTier()) activateDataset(getState().dataset);
   })
@@ -143,14 +143,14 @@ function refreshMunicipalityView() {
 fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
   .then(rawGM => {
     gemeenteRows = rowsWithWoonscore(withRegionShares(normalizeProvinces(rawGM).filter(r => r.regionCode)));   // regions: once loaded
-    setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows);
+    setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows);
     refreshMunicipalityView();
     // Merge municipality crime in the background.
     return fetchCBS('83648NED', GM_CRIME_FILTER, CRIME_SELECT, undefined, undefined, 2000)
       .then(crimeRawGM => {
         const crimeLookup = Object.fromEntries(normalizeCrime(crimeRawGM).map(r => [r.regionCode, r]));
         gemeenteRows = rowsWithWoonscore(gemeenteRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] })));
-        setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows);
+        setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows);
         refreshMunicipalityView();
       })
       .catch(() => { /* crime unavailable at gemeente level */ });
@@ -194,6 +194,15 @@ document.querySelector('.panel-details-btn')?.addEventListener('click', e => {
 document.querySelector('.panel-drill-btn')?.addEventListener('click', () => {
   const code = getActiveGemeente();
   if (getState().scope === 'nederland' && code) drillIntoGemeente(code);
+});
+
+// Modal "Wijken en buurten" on a gemeente: show the map, then zoom into its wijken (as .panel-drill-btn).
+document.addEventListener(DRILL_EVENT, async ({ detail: { code } }) => {
+  if (!code) return;
+  const toMap = getState().view !== 'map';
+  setState({ area: code, view: 'map', scope: 'nederland' }, { source: 'map' });   // 'map': no focus before the drill
+  if (toMap) await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));   // map size back first
+  drillIntoGemeente(code);
 });
 
 // Modal "Vergelijk": show the area on the map, pinned, so the next click fills slot B.
@@ -316,7 +325,7 @@ async function activateDataset(key) {
   // World regions per gemeente (v0.28.0): the static file loads on first use, then joins the gemeente rows.
   if (isRegionMetric(key) && !isRegioLoaded()) {
     await loadGemeenteRegio().catch(err => console.warn('herkomst per regio:', err));
-    if (isRegioLoaded() && gemeenteRows.length) { gemeenteRows = withRegionShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); }
+    if (isRegioLoaded() && gemeenteRows.length) { gemeenteRows = withRegionShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
     if (getState().dataset !== key) return;
   }
   const mode = getState().crime;
@@ -431,8 +440,8 @@ function applyPersonalScore(score) {
     assignScore(rd.wijken, 'woonscore');
     assignScore(rd.buurten, 'woonscore', { parents: rd.wijken });
   }
-  if (provinceRows.length) { provinceRows = rowsWithWoonscore(provinceRows); setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); }
-  if (gemeenteRows.length) { gemeenteRows = rowsWithWoonscore(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); }
+  if (provinceRows.length) { provinceRows = rowsWithWoonscore(provinceRows); setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); setNationalAreas('provincie', provinceRows); }
+  if (gemeenteRows.length) { gemeenteRows = rowsWithWoonscore(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
   rescoreNlAreas();   // NL wijken/buurten of the drill-down, when loaded
 }
 

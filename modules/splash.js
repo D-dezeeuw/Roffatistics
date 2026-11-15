@@ -46,7 +46,7 @@ export function splashTarget(item) {
     return { ...base, scope: 'nederland', level: 'gemeenten', area: gm, highlight: gm, modal: code };
   }
   const level = code.startsWith('GM') ? 'gemeenten' : 'provincies';
-  return { ...base, scope: 'nederland', level, area: code, highlight: code };
+  return { ...base, scope: 'nederland', level, area: code, highlight: code, modal: code };
 }
 
 /** The state patches that show `target`: an `area: null` first when re-picking the current area (so it still changes). */

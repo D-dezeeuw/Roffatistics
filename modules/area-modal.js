@@ -1,10 +1,10 @@
-// Area detail modal: a wijk or buurt in full. Opened from a Ranglijst row, a
+// Area detail modal: a wijk, buurt, gemeente or provincie in full. Opened from a Ranglijst row, a
 // dashboard bar/slice, the panel's "Details" button, or any [data-area-modal]
 // element (buurten list, parent wijk link). The figures come from
 // area-detail.js (pure); this file builds the markup and runs the dialog.
 
 import { getState, setState, onStateChange, serializeHash } from './state.js';
-import { loadRotterdamAreas, areaPanelData } from './areas.js';
+import { loadRotterdamAreas, areaPanelData, getAreaIndex } from './areas.js';
 import { loadNlAreas, gemeenteOf } from './nl-areas.js';
 import { buildAreaDetail } from './area-detail.js';
 import { formatValue } from './dashboard-data.js';
@@ -16,10 +16,48 @@ import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
 import { outlierLabel } from './scale.js';
 import { scoreKind, scoreLabel } from './wizard-model.js';
+import { scoreResult } from './presets.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
-const LEVEL_LABEL = { wijk: 'Wijk', buurt: 'Buurt' };
+const LEVEL_LABEL = { wijk: 'Wijk', buurt: 'Buurt', gemeente: 'Gemeente', provincie: 'Provincie' };
+const LEVEL_PLURAL = { wijk: 'wijken', buurt: 'buurten', gemeente: 'gemeenten', provincie: 'provincies' };
+
+/** Codes the modal opens: wijk/buurt (WK/BU) and, since 15 Nov 2026, gemeente/provincie (GM/PV). */
+export const isModalCode = code => /^(WK|BU|GM|PV)/.test(String(code ?? ''));
+/** True for a national gemeente (GM…) or provincie (PV…) code. */
+export const isNationalCode = code => /^(GM|PV)\d+$/.test(String(code ?? ''));
+
+// National CBS rows ({ regionCode, ...values }) per level, handed over by app.js
+// next to list.js setNationalRows; `ready` resolves once a level has rows.
+const national = { gemeente: [], provincie: [] };
+const readyResolvers = {};
+const ready = Object.fromEntries(['gemeente', 'provincie'].map(l => [l, new Promise(r => { readyResolvers[l] = r; })]));
+const nationalLevel = level => (/^(gemeente|GM)/i.test(String(level)) ? 'gemeente' : 'provincie');
+
+/** Stores the national rows of `level` ('gemeente(n)' or 'provincie(s)') for the modal. */
+export function setNationalAreas(level, rows) {
+  const l = nationalLevel(level);
+  national[l] = rows ?? [];
+  if (national[l].length) readyResolvers[l]();
+}
+
+/**
+ * Pure: the area of GM/PV `code` and its peers (every gemeente or provincie)
+ * in the buildAreaDetail shape. Peers sit in `wijken` (buildAreaDetail ranks a
+ * non-buurt level there); `buurten` stays empty so no children are listed.
+ */
+export function nationalAreaSet(code, rows, { names = new Map(), result = scoreResult } = {}) {
+  const level = String(code).startsWith('GM') ? 'gemeente' : 'provincie';
+  const wijken = (rows ?? []).filter(r => r?.regionCode).map(r => ({
+    code: r.regionCode, name: names.get(r.regionCode) ?? r.regionCode, level,
+    values: r, woonscore: result('woonscore', r.regionCode),
+  }));
+  return { area: wijken.find(a => a.code === code) ?? null, areas: { wijken, buurten: [] } };
+}
+
+/** Event the app handles for "Wijken en buurten" on a gemeente: detail { code }. */
+export const DRILL_EVENT = 'area-drill';
 
 /** Event the app handles for "Vergelijk": detail { code }. */
 export const COMPARE_EVENT = 'area-compare';
@@ -101,7 +139,8 @@ export function personalScoreHtml(js, lvl, label = 'Woonscore · jouw wensen') {
 export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'rotterdam' } = {}) {
   const pt = PEER_TEXT[peers] ?? PEER_TEXT.rotterdam;
   if (!d) return '<p class="area-empty">Geen gegevens voor dit gebied.</p>';
-  const lvl = d.level === 'wijk' ? 'wijken' : 'buurten';
+  const lvl = LEVEL_PLURAL[d.level] ?? 'buurten';
+  const national = d.level === 'gemeente' || d.level === 'provincie';
   const facts = [
     d.population != null ? `${nl(d.population)} inwoners` : null,
     d.density != null ? `${nl(d.density)} inw. per km²` : null,
@@ -143,14 +182,14 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
   if (d.crimeTrend != null) extras.push(`<div class="area-extra"><span class="area-extra-label">Misdrijven 2025 t.o.v. 2024</span><strong class="${d.crimeTrend > 0 ? 'is-bad' : d.crimeTrend < 0 ? 'is-good' : ''}">${trendText(d.crimeTrend)}</strong></div>`);
   const origin = originBarHtml(Object.fromEntries((d.origin ?? []).map(p => [p.key, p.value])));
   if (origin) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst</span>${origin}</div>`);
-  const pc4 = d.code ? pc4OriginHtml(d.code) : '';
+  const pc4 = d.code && !national ? pc4OriginHtml(d.code) : '';
   if (pc4) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst per land (geschat)</span>${pc4}</div>`);
   // v0.28.0: world regions of this area (postcode estimate, eight countries), then the gemeente's own figures.
-  const pc4reg = d.code ? pc4RegionHtml(d.code) : '';
+  const pc4reg = d.code && !national ? pc4RegionHtml(d.code) : '';
   if (pc4reg) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst per regio (geschat)</span>${pc4reg}</div>`);
-  const gm = d.code ? gemeenteOf(d.code) : null;
+  const gm = d.level === 'gemeente' ? d.code : d.code ? gemeenteOf(d.code) : null;
   const reg = gm ? regionHtml(gm) : '';
-  if (reg) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst per regio · hele gemeente</span>${reg}</div>`);
+  if (reg) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst per regio${d.level === 'gemeente' ? '' : ' · hele gemeente'}</span>${reg}</div>`);
   if (d.education) extras.push(`<div class="area-extra"><span class="area-extra-label">Opleiding</span>${eduDonutHtml(d.education)}</div>`);
   if (d.outliers.length) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Uitschieter</span><p>${d.outliers.map(e => `${esc(e.label)}: ${outlierLabel(e.outlier)}`).join(' · ')}</p></div>`);
   if (dataYears) extras.push(`<div class="area-extra"><span class="area-extra-label">Peiljaar</span><p>${esc(dataYears)} · misdrijven 2025</p></div>`);
@@ -186,6 +225,7 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
     <div class="area-body">
       <div class="area-actions">
         <button type="button" class="area-btn" data-area-action="map">Toon op kaart</button>
+        ${d.level === 'gemeente' ? '<button type="button" class="area-btn" data-area-action="drill">Wijken en buurten</button>' : ''}
         ${peers === 'nederland' ? '' : '<button type="button" class="area-btn" data-area-action="compare">Vergelijk</button>'}
         <button type="button" class="area-btn" data-area-action="copy">Kopieer link</button>
       </div>
@@ -208,7 +248,23 @@ export const isAreaModalOpen = () => isOpen();
 /** Nederland scope, or any non-Rotterdam code: the national wijk/buurt set (nl-areas.js); else Rotterdam's. */
 const peersFor = code => (getState().scope === 'nederland' || !isRotterdamCode(code) ? 'nederland' : 'rotterdam');
 
+const NATIONAL_WAIT_MS = 8000;   // the splash can open a gemeente before the CBS rows arrive
+
+async function renderNational(code) {
+  const level = nationalLevel(code);
+  if (!national[level].length) await Promise.race([ready[level], new Promise(r => setTimeout(r, NATIONAL_WAIT_MS))]);
+  const index = await getAreaIndex().catch(() => []);
+  if (current !== code) return false;
+  const { area, areas } = nationalAreaSet(code, national[level], { names: new Map(index.map(e => [e.code, e.name])) });
+  const detail = buildAreaDetail(area, areas, { mode: getState().crime });
+  els.dialog.innerHTML = areaModalHtml(detail, { peers: 'nederland', personal: scoreKind(getState().score) === 'standaard' ? false : scoreLabel(getState().score) });
+  els.dialog.scrollTop = 0;
+  els.dialog.querySelector('.area-body')?.scrollTo?.(0, 0);
+  return !!area;
+}
+
 async function render(code) {
+  if (isNationalCode(code)) return renderNational(code);
   const peers = peersFor(code);
   let areas;
   try {
@@ -225,9 +281,9 @@ async function render(code) {
   return !!area;
 }
 
-/** Opens the modal for a wijk (WK…) or buurt (BU…) code; `trigger` gets focus back on close. */
+/** Opens the modal for a wijk/buurt/gemeente/provincie code (isModalCode); `trigger` gets focus back on close. */
 export async function openAreaModal(code, trigger = null) {
-  if (!/^(WK|BU)/.test(String(code ?? ''))) return false;
+  if (!isModalCode(code)) return false;
   initAreaModal();
   if (!isOpen()) returnFocus = trigger ?? document.activeElement;
   current = code;
@@ -275,6 +331,8 @@ function onAction(action, btn) {
   if (action === 'map') {
     if (getState().area === code) setState({ area: null }, { source: 'modal' });
     setState({ area: code, view: 'map', scope: peersFor(code) }, { source: 'modal' });
+  } else if (action === 'drill') {
+    document.dispatchEvent(new CustomEvent(DRILL_EVENT, { detail: { code } }));
   } else if (action === 'compare') {
     document.dispatchEvent(new CustomEvent(COMPARE_EVENT, { detail: { code } }));
   }

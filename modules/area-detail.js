@@ -76,7 +76,7 @@ export function rankWords(key, side, { level = 'buurt', mode = 'rate' } = {}) {
   else if (RANK_WORDS[key]) words = RANK_WORDS[key][side];
   else if (isCrimeDataset(key)) words = `${side === 'high' ? 'meeste' : 'minste'} ${String(ds.label).toLowerCase()}${mode === 'abs' ? '' : ' per inwoner'}`;
   else words = `${side === 'high' ? 'hoogste' : 'laagste'} ${String(ds?.title ?? key).toLowerCase()}`;
-  return words.replace('{lvl}', level === 'wijk' ? 'wijk' : 'buurt');
+  return words.replace('{lvl}', ['wijk', 'gemeente', 'provincie'].includes(level) ? level : 'buurt');
 }
 
 /**
