@@ -14,6 +14,7 @@ import { initList, setNationalRows, setListOptions } from './modules/list.js';  
 import { initSearch }                     from './modules/search.js';
 import { initDashboard }                  from './modules/dashboard.js';
 import { initExplain }                    from './modules/explain.js';
+import { initLegal }                      from './modules/legal.js';
 import { initCrimeToggles }               from './modules/crime-mode.js';
 import { initAreaModal, openAreaModal, isAreaModalOpen, COMPARE_EVENT, DRILL_EVENT, setNationalAreas } from './modules/area-modal.js';
 import { initSpacePan }                   from './modules/space-pan.js';
@@ -456,6 +457,7 @@ initLegendCollapse();
 // Schaal: Kwantiel | Lineair — recolour the map and legend from the shown set.
 document.addEventListener(SCALE_EVENT, () => activateDataset(getState().dataset));
 initExplain();
+initLegal();   // Privacy · Disclaimer · Colofon (splash footer, Uitleg foot, ☰ menu, #legal=…)
 initAreaModal();
 initComparePanel();   // after initState: a cmp in the link opens the panel
 initShare();
