@@ -368,6 +368,17 @@ export function scoreKind(score) {
   return score === 'gelijk' ? 'gelijk' : 'custom';
 }
 
+/** Name of the Woonscore for a `score` value: 'Woonscore', 'Woonscore · gelijk gewogen' or 'Woonscore · jouw wensen'. */
+export function scoreLabel(score) {
+  const kind = scoreKind(score);
+  return kind === 'custom' ? 'Woonscore · jouw wensen' : kind === 'gelijk' ? 'Woonscore · gelijk gewogen' : 'Woonscore';
+}
+
+/** Legend / Ranglijst title of the Woonscore layer: the Standaard title, or the personalised name with its range. */
+export function scoreTitle(score, standaardTitle = 'Woonscore (0–100, t.o.v. gelijke gebieden)') {
+  return scoreKind(score) === 'standaard' ? standaardTitle : `${scoreLabel(score)} (0–100)`;
+}
+
 // ── localStorage (last custom answers; the active `score` lives in state.js) ──
 
 export const ANSWERS_STORAGE_KEY = 'roffatistics.scoreAnswers';

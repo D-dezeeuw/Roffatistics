@@ -134,7 +134,7 @@ describe('wizard: hash and storage', () => {
   it('state carries score= in the hash; deep links restore it; bad values are dropped', () => {
     const s = { ...DEFAULT_STATE, score: 'lg.s30' };
     assert.equal(serializeHash(s), '#scope=rotterdam&view=map&score=lg.s30');
-    assert.deepEqual(parseHash('#score=lg.s30&dataset=jouwscore'), { dataset: 'jouwscore', score: 'lg.s30' });
+    assert.deepEqual(parseHash('#score=lg.s30&dataset=jouwscore'), { dataset: 'woonscore', score: 'lg.s30' }, 'old Jouw score links open the personalised Woonscore');
     assert.deepEqual(sanitizePatch({ score: 'x y<script>' }), {});
     assert.deepEqual(sanitizePatch({ score: null }), { score: null });
   });
@@ -183,23 +183,28 @@ describe('wizard: scoring with quantile targets and in-place layers', () => {
   it('assignScore writes values and results in place; filtered areas get null', () => {
     const list = areas.map(a => ({ ...a, values: { ...a.values } }));
     const obj = list[4];
-    assignScore(list, 'jouwscore', { preset: answersToPreset({ budget: { mode: 'koop', maxPrice: 400, hide: true } }) });
+    assignScore(list, 'woonscore', { preset: answersToPreset({ budget: { mode: 'koop', maxPrice: 400, hide: true } }) });
     assert.equal(list[4], obj, 'same object');
-    assert.equal(obj.values.jouwscore, null, 'WOZ 600 > 1.2 × 400: hidden');
-    assert.equal(obj.jouwscore.filtered, true);
-    assert.equal(typeof list[1].values.jouwscore, 'number');
-    assert.equal(scoreResult('jouwscore', 'BU1'), list[1].jouwscore);
+    assert.equal(obj.values.woonscore, null, 'WOZ 600 > 1.2 × 400: hidden');
+    assert.equal(obj.woonscore.filtered, true);
+    assert.equal(typeof list[1].values.woonscore, 'number');
+    assert.equal(scoreResult('woonscore', 'BU1'), list[1].woonscore);
+    assert.equal(scoreResult('standaard', 'BU1').filtered, false, 'Standaard comparison recorded alongside');
   });
-  it('withWoonscore / rowsWithWoonscore follow the personal preset for jouwscore', () => {
+  it('withWoonscore / rowsWithWoonscore: the Woonscore follows the active preset', () => {
+    setPersonalPreset(null);
+    const std = withWoonscore(areas);
     setPersonalPreset(answersToPreset({ sfeer: 0 }));
     const w = withWoonscore(areas);
-    assert.notDeepEqual(w.map(a => a.values.jouwscore), w.map(a => a.values.woonscore));
+    assert.notDeepEqual(w.map(a => a.values.woonscore), std.map(a => a.values.woonscore));
+    assert.ok(w.every(a => !('jouwscore' in a.values)), 'no separate Jouw score layer');
+    assert.deepEqual(w.map(a => scoreResult('standaard', a.code)?.score), std.map(a => a.woonscore?.score), 'Std column keeps the Standaard score');
     const rows = rowsWithWoonscore(areas.map(a => ({ regionCode: a.code.replace('BU', 'GM'), ...a.values })));
     assert.equal(rows.length, 5);
-    assert.ok(rows.every(r => 'jouwscore' in r && 'woonscore' in r));
+    assert.ok(rows.every(r => 'woonscore' in r && !('jouwscore' in r)));
     setPersonalPreset(null);
     const same = withWoonscore(areas);
-    assert.deepEqual(same.map(a => a.values.jouwscore), same.map(a => a.values.woonscore), 'no answers: Jouw score = Woonscore');
+    assert.deepEqual(same.map(a => a.values.woonscore), std.map(a => a.values.woonscore), 'reset: back to the Standaard values');
   });
   it('themeBreakdown sums to the score, one row per theme', () => {
     const res = scoreWithPreset(areas, answersToPreset({ sfeer: 30 })).results[2];

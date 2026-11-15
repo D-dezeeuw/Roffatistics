@@ -2,11 +2,13 @@
 // Standaard / Gelijk / Jouw score switcher in the legend. Answers, presets and
 // the hash form live in wizard-model.js (pure); this file is DOM only.
 //
-// Applying answers = setState({ score, dataset: 'jouwscore' }). app.js reacts
-// to the `score` change (setPersonalPreset + rescoring every area) before this
-// module renders the result, because app.js subscribed first.
+// Applying answers = setState({ score, dataset: 'woonscore' }): the Woonscore
+// itself is rescored with the personal weights. app.js reacts to the `score`
+// change (setPersonalPreset + rescoring every area) before this module renders
+// the result, because app.js subscribed first. The legend's Reset clears `score`.
 
-import { getState, setState, onStateChange } from './state.js';
+
+import { getState, setState, onStateChange, resetScore } from './state.js';
 import { loadRotterdamAreas, peekRotterdamAreas, getAreaIndex } from './areas.js';
 import { getRotterdamLevel } from './rotterdam.js';
 import { scoreResult, getPersonalPreset, THEME_LABELS } from './presets.js';
@@ -16,7 +18,7 @@ import { infoButton } from './explain.js';
 import {
   STEPS, LEVENSFASEN, OUD_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
-  loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK,
+  loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
   GEMEENSCHAP_GROUPS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_MIN_PCT, GEMEENSCHAP_MAX_PCT,
 } from './wizard-model.js';
 
@@ -124,12 +126,18 @@ function stepHtml(i) {
 
 // ── result markup ─────────────────────────────────────────────────────────────
 
-/** Switcher markup (legend and result): which score the map shows. */
+/** Switcher markup (legend and result): which preset the Woonscore uses. */
 export function switcherHtml(state = getState()) {
-  const active = state.dataset === 'woonscore' ? 'standaard' : state.dataset === 'jouwscore' ? (scoreKind(state.score) === 'gelijk' ? 'gelijk' : 'custom') : null;
+  const active = state.dataset === 'woonscore' ? scoreKind(state.score) : null;
   const opt = (k, label, title) => `<button type="button" class="seg-opt${active === k ? ' active' : ''}" data-score-preset="${k}" aria-pressed="${active === k}" title="${esc(title)}">${label}</button>`;
   return `<div class="seg score-switch" role="group" aria-label="Score">
     ${opt('standaard', 'Standaard', 'Woonscore: gemiddeld prettige omstandigheden')}${opt('gelijk', 'Gelijk', 'Alle cijfers met een richting even zwaar')}${opt('custom', 'Jouw score', 'Met jouw antwoorden uit de wizard')}</div>`;
+}
+
+/** Legend Reset (only while the Woonscore is personalised or Gelijk): back to the Standaard weights. */
+export function resetButtonHtml(state = getState()) {
+  if (state.dataset !== 'woonscore' || scoreKind(state.score) === 'standaard') return '';
+  return `<button type="button" class="legend-reset" data-score-reset aria-label="Reset: terug naar de standaard Woonscore" title="Terug naar de standaard Woonscore (je antwoorden blijven bewaard)">Reset</button>`;
 }
 
 async function resultItems() {
@@ -163,18 +171,18 @@ async function resultHtml() {
   const kind = scoreKind(state.score);
   const { level, items } = await resultItems();
   const withScores = items.map(i => {
-    const r = scoreResult('jouwscore', i.code);
-    return { ...i, score: r?.score ?? null, filtered: !!r?.filtered, std: scoreResult('woonscore', i.code)?.score ?? null };
+    const r = scoreResult('woonscore', i.code);
+    return { ...i, score: r?.score ?? null, filtered: !!r?.filtered, std: scoreResult('standaard', i.code)?.score ?? null };
   });
   const top = topAreas(withScores, 10);
   const stdRank = new Map(topAreas(withScores.map(i => ({ ...i, score: i.std, filtered: false })), Infinity).map(i => [i.code, i.rank]));
   const hidden = withScores.filter(i => i.filtered).length;
   const levelLabel = { wijken: 'wijken', buurten: 'buurten', gemeenten: 'gemeenten', provincies: 'provincies' }[level];
   const summary = kind === 'gelijk' ? 'Gelijk gewogen: alle cijfers met een richting tellen even zwaar.'
-    : kind === 'standaard' ? 'Geen antwoorden: Jouw score is gelijk aan de Woonscore (Standaard).'
+    : kind === 'standaard' ? 'Standaard: de Woonscore zonder jouw wensen.'
     : describeAnswers(answers) || 'Alleen eigen gewichten.';
   const list = top.length ? `<ol class="wiz-top">${top.map(i => {
-    const why = explain(scoreResult('jouwscore', i.code), { top: 3 });
+    const why = explain(scoreResult('woonscore', i.code), { top: 3 });
     const sr = stdRank.get(i.code);
     return `<li>
       <span class="wiz-top-rank">${i.rank}</span>
@@ -191,17 +199,17 @@ async function resultHtml() {
       <button type="button" class="area-close" data-wiz="close" aria-label="Sluiten">&#x2715;</button>
     </header>
     <div class="wiz-body wiz-result">
-      <div class="wiz-result-head">${switcherHtml(state)}${infoButton('jouwscore', 'Jouw score')}</div>
+      <div class="wiz-result-head">${switcherHtml(state)}${infoButton('woonscore', 'Woonscore')}</div>
       <p class="wiz-summary">${esc(summary)}</p>
       ${hidden ? `<p class="wiz-hint">${hidden} ${esc(levelLabel)} boven je budget zijn verborgen (grijs op de kaart).</p>` : ''}
       ${list}
-      <p class="wiz-hint">Match = Jouw score, 0–100 t.o.v. de andere ${esc(levelLabel)} op de kaart. Std = de Woonscore (Standaard) ter vergelijking.</p>
+      <p class="wiz-hint">Match = ${esc(scoreLabel(state.score))}, 0–100 t.o.v. de andere ${esc(levelLabel)} op de kaart. Std = de Woonscore (Standaard) ter vergelijking.</p>
       ${kind === 'custom' || kind === 'standaard' ? `<details class="wiz-tune"${kind === 'custom' ? ' open' : ''}><summary>Gewichten per thema bijstellen</summary><div class="wiz-sliders">${themeSliders()}</div></details>` : ''}
     </div>
     <footer class="wiz-foot">
       <button type="button" class="area-btn" data-wiz="restart">Antwoorden aanpassen</button>
       <div class="wiz-foot-right">
-        <button type="button" class="area-btn" data-wiz="compare">${state.dataset === 'woonscore' ? 'Terug naar Jouw score' : 'Vergelijk met Standaard'}</button>
+        <button type="button" class="area-btn" data-wiz="compare">${kind === 'standaard' ? 'Terug naar jouw wensen' : 'Vergelijk met Standaard'}</button>
         <button type="button" class="area-btn is-primary" data-wiz="map">Bekijk op kaart</button>
       </div>
     </footer>`;
@@ -219,11 +227,11 @@ async function render({ focus = null } = {}) {
   target?.focus();
 }
 
-/** Applies the answers: the map switches to Jouw score with them; empty answers = Standaard. */
+/** Applies the answers: the Woonscore is rescored with them; empty answers = Standaard. */
 function applyAnswers() {
   const s = encodeAnswers(answers);
   saveAnswers(storage(), answers);
-  setState({ score: s || null, dataset: 'jouwscore' }, { source: 'wizard' });
+  setState({ score: s || null, dataset: 'woonscore' }, { source: 'wizard' });
 }
 
 function clearStep(key) {
@@ -243,11 +251,11 @@ function go(next) {
 
 /** Picks a switcher option (legend or result). */
 export function choosePreset(kind) {
-  if (kind === 'standaard') { setState({ dataset: 'woonscore' }, { source: 'wizard' }); return; }
-  if (kind === 'gelijk') { setState({ score: 'gelijk', dataset: 'jouwscore' }, { source: 'wizard' }); return; }
+  if (kind === 'standaard') { setState({ score: null, dataset: 'woonscore' }, { source: 'wizard' }); return; }
+  if (kind === 'gelijk') { setState({ score: 'gelijk', dataset: 'woonscore' }, { source: 'wizard' }); return; }
   const cur = getState().score;
   const custom = scoreKind(cur) === 'custom' ? cur : encodeAnswers(loadAnswers(storage()) ?? answers);
-  if (custom) setState({ score: custom, dataset: 'jouwscore' }, { source: 'wizard' });
+  if (custom) setState({ score: custom, dataset: 'woonscore' }, { source: 'wizard' });
   else openWizard();   // no answers yet: ask them
 }
 
@@ -284,7 +292,7 @@ function onClick(e) {
   else if (act === 'next') go(step + 1);
   else if (act === 'restart') { step = 0; render(); }
   else if (act === 'map') { returnFocus = null; closeWizard(); setState({ view: 'map' }, { source: 'wizard' }); }
-  else if (act === 'compare') { choosePreset(getState().dataset === 'woonscore' ? 'custom' : 'standaard'); }
+  else if (act === 'compare') { choosePreset(scoreKind(getState().score) === 'standaard' ? 'custom' : 'standaard'); }
 }
 
 function onInput(e) {
@@ -361,7 +369,7 @@ export function closeWizard() {
 
 function renderLegendSwitch() {
   const slot = document.querySelector('[data-score-slot]');
-  if (slot) slot.innerHTML = switcherHtml();
+  if (slot) slot.innerHTML = `<div class="legend-score-row">${switcherHtml()}${resetButtonHtml()}</div>`;
 }
 
 /**
@@ -393,6 +401,7 @@ export function initWizard({ rows } = {}) {
   });
   document.querySelector('.wizard-btn')?.addEventListener('click', e => openWizard({ trigger: e.currentTarget }));
   document.querySelector('[data-score-slot]')?.addEventListener('click', e => {
+    if (e.target.closest('[data-score-reset]')) { resetScore(); document.querySelector('[data-score-preset="standaard"]')?.focus(); return; }
     const b = e.target.closest('[data-score-preset]');
     if (b) choosePreset(b.dataset.scorePreset);
   });

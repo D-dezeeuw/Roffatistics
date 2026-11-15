@@ -15,7 +15,7 @@ import { initCrimeToggles }               from './modules/crime-mode.js';
 import { initAreaModal, openAreaModal, COMPARE_EVENT } from './modules/area-modal.js';
 import { initSpacePan }                   from './modules/space-pan.js';
 import { rowsWithWoonscore, setPersonalPreset, assignScore } from './modules/presets.js';
-import { presetFromScore, scoreKind }     from './modules/wizard-model.js';
+import { presetFromScore, scoreTitle }    from './modules/wizard-model.js';
 import { initWizard }                     from './modules/wizard.js';
 import { peekRotterdamAreas }             from './modules/areas.js';
 
@@ -33,7 +33,7 @@ run();
 
 initSplash();
 const initialState = initState();
-setPersonalPreset(presetFromScore(initialState.score));   // before any area is scored (Jouw score layer)
+setPersonalPreset(presetFromScore(initialState.score));   // before any area is scored (the Woonscore's active preset)
 initMap();
 initSpacePan(document.getElementById('map'));   // hold Space: drag the map, never click a feature
 await initOverlays({ enabled: initialState.scope === 'nederland' });
@@ -238,7 +238,7 @@ document.addEventListener('rotterdam-level-change', async () => {
 });
 
 // Legend extras: the (i) button explains the visible layer; the crime toggle shows for crime layers,
-// the Standaard / Gelijk / Jouw score switcher for the score layers.
+// the Standaard / Gelijk / Jouw score switcher (and Reset) for the Woonscore.
 function syncLegendExtras(key) {
   const legend = document.getElementById('legend');
   legend?.classList.toggle('legend-has-crime', isCrimeDataset(key));
@@ -253,7 +253,7 @@ function syncLegendExtras(key) {
 async function activateDataset(key) {
   const mode = getState().crime;
   const base = datasetFor(key, mode);
-  const ds = key === 'jouwscore' && scoreKind(getState().score) === 'gelijk' ? { ...base, title: 'Gelijk gewogen score (0–100)' } : base;
+  const ds = base.unit === 'score' ? { ...base, title: scoreTitle(getState().score, base.title) } : base;   // "Woonscore · jouw wensen"
   syncLegendExtras(key);
   if (getState().scope === 'rotterdam') {
     const { scale, level, hasData } = applyRotterdamDataset(key, mode);
@@ -329,14 +329,14 @@ function syncDatasetButtons(key) {
     .forEach(b => b.classList.toggle('active', b.dataset.dataset === key));
 }
 
-// Jouw score: a new `score` (wizard, switcher, hash) rescores every loaded area
-// in place. Runs before the list, modal and wizard listeners (subscribed later).
+// A new `score` (wizard, switcher, Reset, hash) rescores the Woonscore of every
+// loaded area in place. Runs before the list, modal and wizard listeners (subscribed later).
 function applyPersonalScore(score) {
   setPersonalPreset(presetFromScore(score));
   const rd = peekRotterdamAreas();
   if (rd) {
-    assignScore(rd.wijken, 'jouwscore');
-    assignScore(rd.buurten, 'jouwscore', { parents: rd.wijken });
+    assignScore(rd.wijken, 'woonscore');
+    assignScore(rd.buurten, 'woonscore', { parents: rd.wijken });
   }
   if (provinceRows.length) { provinceRows = rowsWithWoonscore(provinceRows); setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); }
   if (gemeenteRows.length) { gemeenteRows = rowsWithWoonscore(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); }
@@ -345,7 +345,7 @@ function applyPersonalScore(score) {
 onStateChange(({ state, changed, source }) => {
   if (changed.includes('score')) {
     applyPersonalScore(state.score);
-    if (state.dataset === 'jouwscore' && !changed.includes('dataset') && !changed.includes('scope')) activateDataset(state.dataset);
+    if (DATASETS[state.dataset]?.unit === 'score' && !changed.includes('dataset') && !changed.includes('scope')) activateDataset(state.dataset);
   }
   if (changed.includes('view')) showView(state.view);
   if (changed.includes('scope')) { applyScope(state.scope); return; }

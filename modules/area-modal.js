@@ -12,6 +12,7 @@ import { donutSlices, arcPath } from './donut.js';
 import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
 import { outlierLabel } from './scale.js';
+import { scoreKind, scoreLabel } from './wizard-model.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -58,18 +59,25 @@ function whyHtml(ws) {
   return `<div class="area-ws-why">${ws.plus.length ? `<p class="area-ws-plus"><span>Sterk:</span> ${ws.plus.map(f => esc(f.label)).join(' · ')}</p>` : ''}${ws.minus.length ? `<p class="area-ws-minus"><span>Zwak:</span> ${ws.minus.map(f => esc(f.label)).join(' · ')}</p>` : ''}</div>`;
 }
 
-/** The "Jouw score" block: match %, rank, pluses/minuses and the points per theme. */
-export function personalScoreHtml(js, lvl) {
+/**
+ * The personalised Woonscore block (wizard answers or Gelijk): match %, rank,
+ * pluses/minuses and the points per theme. `label` names the preset.
+ */
+export function personalScoreHtml(js, lvl, label = 'Woonscore · jouw wensen') {
   if (!js) return '';
   const legend = js.themes.map((t, i) => `<li><i style="background:${themeColor(i)}"></i>${esc(t.label)} ${nl(t.points, 0)}</li>`).join('');
-  return `<div class="area-score area-jouwscore"><span class="area-score-num">${Math.round(js.score)}%</span>
-      <span>Jouw score${js.rank ? ` · <strong>#${js.rank}</strong> van ${js.of} ${lvl}` : ''}${js.filtered ? ' <span class="area-badge">boven je budget</span>' : ''}<small>match met jouw antwoorden, 0–100 t.o.v. andere ${lvl}</small></span>
-      ${infoButton('jouwscore', 'Jouw score')}</div>
+  return `<div class="area-score area-woonscore is-personal"><span class="area-score-num">${Math.round(js.score)}%</span>
+      <span>${esc(label)}${js.rank ? ` · <strong>#${js.rank}</strong> van ${js.of} ${lvl}` : ''}${js.filtered ? ' <span class="area-badge">boven je budget</span>' : ''}<small>match met jouw antwoorden, 0–100 t.o.v. andere ${lvl}</small></span>
+      ${infoButton('woonscore', 'Woonscore')}</div>
     ${whyHtml(js)}
     ${js.themes.length ? `<div class="area-ws-themes">${themeBarHtml(js.themes)}<ul class="score-theme-legend">${legend}</ul></div>` : ''}`;
 }
 
-/** Full dialog body for a buildAreaDetail() result; `personal` adds the Jouw score block first. */
+/**
+ * Full dialog body for a buildAreaDetail() result. `personal` (a label such as
+ * "Woonscore · jouw wensen", or false) shows the Woonscore as the personalised
+ * block: d.woonscore then holds the active preset's result.
+ */
 export function areaModalHtml(d, { dataYears = '', personal = false } = {}) {
   if (!d) return '<p class="area-empty">Geen gegevens voor dit gebied.</p>';
   const lvl = d.level === 'wijk' ? 'wijken' : 'buurten';
@@ -87,12 +95,11 @@ export function areaModalHtml(d, { dataYears = '', personal = false } = {}) {
         ${infoButton('score', 'Totaalscore')}</div>` : '';
 
   const ws = d.woonscore;
-  const woonscore = ws
+  const woonscore = personal ? personalScoreHtml(ws, lvl, typeof personal === 'string' ? personal : undefined) : ws
     ? `<div class="area-score area-woonscore"><span class="area-score-num">${Math.round(ws.score)}</span>
         <span>Woonscore${ws.rank ? ` · <strong>#${ws.rank}</strong> van ${ws.of} ${lvl}` : ''}${ws.shrunk ? ' <span class="area-badge" title="Minder dan 300 inwoners: criminaliteit en bijstand zijn naar de wijk toe getrokken">weinig inwoners</span>' : ''}<small>0–100 t.o.v. andere ${lvl}; veiligheid, welvaart, voorzieningen, opleiding en koopwoningen</small></span>
         ${infoButton('woonscore', 'Woonscore')}</div>
       ${whyHtml(ws)}` : '';
-  const jouw = personal ? personalScoreHtml(d.jouwscore, lvl) : '';
 
   const chips = d.notable.length
     ? `<section class="area-sec"><h3>Opvallend</h3><ul class="area-chips">${d.notable.map(e =>
@@ -140,7 +147,7 @@ export function areaModalHtml(d, { dataYears = '', personal = false } = {}) {
         <button type="button" class="area-btn" data-area-action="compare">Vergelijk</button>
         <button type="button" class="area-btn" data-area-action="copy">Kopieer link</button>
       </div>
-      ${jouw}${woonscore}${overall}${chips}
+      ${woonscore}${overall}${chips}
       ${extras.length ? `<section class="area-sec"><div class="area-extras">${extras.join('')}</div></section>` : ''}
       ${table}${children}
     </div>`;
@@ -158,7 +165,7 @@ async function render(code) {
   const areas = await loadRotterdamAreas();
   const area = areas.wijken.find(a => a.code === code) ?? areas.buurten.find(a => a.code === code);
   const detail = buildAreaDetail(area, areas, { mode: getState().crime });
-  els.dialog.innerHTML = areaModalHtml(detail, { dataYears: area ? areaPanelData(area).dataYears : '', personal: getState().dataset === 'jouwscore' });
+  els.dialog.innerHTML = areaModalHtml(detail, { dataYears: area ? areaPanelData(area).dataYears : '', personal: scoreKind(getState().score) === 'standaard' ? false : scoreLabel(getState().score) });
   els.dialog.scrollTop = 0;
   els.dialog.querySelector('.area-body')?.scrollTo?.(0, 0);
   return !!area;

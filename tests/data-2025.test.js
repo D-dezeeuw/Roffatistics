@@ -195,7 +195,7 @@ describe('new layers and dropdown groups', () => {
   it('groups every dataset into the six sections, in order', () => {
     const groups = groupDatasets();
     assert.deepEqual(groups.map(g => g.label), ['Score', 'Bevolking', 'Herkomst', 'Welvaart & wonen', 'Veiligheid', 'Voorzieningen']);
-    assert.deepEqual(groups.find(g => g.key === 'score').datasets.map(d => d.key), ['woonscore', 'jouwscore']);
+    assert.deepEqual(groups.find(g => g.key === 'score').datasets.map(d => d.key), ['woonscore']);
     assert.deepEqual(groups.flatMap(g => g.datasets.map(d => d.key)).sort(), [...DATASET_KEYS].sort());
     assert.deepEqual(groups.find(g => g.key === 'veiligheid').datasets.map(d => d.key), ['crimeRate', 'crimeBurglary', 'crimeBike', 'crimePickpocket', 'crimeViolence',
       'crimeStreetRobbery', 'crimeThreat', 'crimeVehicle', 'crimeShoplifting', 'crimeVandalism', 'crimeDrugs']);

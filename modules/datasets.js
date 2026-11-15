@@ -397,7 +397,7 @@ const INFO = {
     caveats: [CRIME_SUB_NOTE, 'Gaat om door de politie ontdekte handel: het cijfer volgt ook waar de politie actief zoekt, niet alleen hoeveel er wordt gehandeld.', CRIME_MIN_NOTE, CRIME_CELL_NOTE],
   },
   woonscore: {
-    description: 'Eén cijfer van 0 tot 100 voor hoe prettig je er gemiddeld woont, vergeleken met gelijke gebieden: gemeenten met gemeenten, wijken met wijken, buurten met buurten. 100 = het beste gebied van de lijst, 0 = het slechtste. Opgebouwd uit veiligheid (35), welvaart (20), voorzieningen (25), opleiding (10) en koopwoningen (10). Smaakkwesties zoals drukte, leeftijd, herkomst en de WOZ-waarde tellen niet mee.',
+    description: 'Eén cijfer van 0 tot 100 voor hoe prettig je er gemiddeld woont, vergeleken met gelijke gebieden: gemeenten met gemeenten, wijken met wijken, buurten met buurten. 100 = het beste gebied van de lijst, 0 = het slechtste. Opgebouwd uit veiligheid (35), welvaart (20), voorzieningen (25), opleiding (10) en koopwoningen (10). Smaakkwesties zoals drukte, leeftijd, herkomst en de WOZ-waarde tellen niet mee. Met "Vind jouw ideale woonplek" pas je de gewichten aan je eigen wensen aan (levensfase, budget, vervoer, drukte, misdrijven); de kaart toont dan "Woonscore · jouw wensen". Reset in de legenda zet hem terug op Standaard.',
     formula: 'per cijfer de percentielscore binnen de lijst (omgedraaid bij lager = beter); Woonscore = 100 × Σ gewicht × score / Σ gewicht over de cijfers met data. Een themagewicht wordt verdeeld over de cijfers van dat thema die er zijn.',
     source: [SRC.kwb2025, SRC.crime, SRC.regio, SRC.crimeNl],
     year: '2023–2025 (zie de onderliggende cijfers)',
@@ -406,16 +406,7 @@ const INFO = {
       'In de Nederland-weergave zijn er minder cijfers (misdrijven totaal, inkomen, opleiding); de gewichten worden dan herverdeeld.',
       'Weinig inwoners: bij buurten worden criminaliteit en bijstand naar de wijk toe getrokken (gewicht inwoners / (inwoners + 300)), zodat een paar incidenten in een kleine buurt de score niet domineren.',
       'Een gebied met data voor minder dan 60% van het gewicht krijgt geen score (onvoldoende data).',
-    ],
-  },
-  jouwscore: {
-    description: 'Jouw eigen score van 0 tot 100, met de gewichten uit "Vind jouw ideale woonplek": je levensfase, budget, vervoer, de gewenste drukte en de misdrijven die voor jou het zwaarst wegen. Zonder antwoorden is hij gelijk aan de Woonscore. Ook hier vergelijkt de score gelijke gebieden met elkaar.',
-    formula: 'zoals de Woonscore: 100 × Σ gewicht × score / Σ gewicht. Wensen als budget en drukte zijn een doelwaarde: hoe dichter het gebied erbij zit, hoe hoger de score (0 op twee toleranties afstand). Drukte en afstand tot het centrum zijn relatief: "rustig" betekent rustig voor een gebied in deze lijst.',
-    source: [SRC.kwb2025, SRC.crime, SRC.regio, SRC.crimeNl],
-    year: '2023–2025 (zie de onderliggende cijfers)',
-    caveats: [
-      'Het budget is een ruwe vuistregel: een hypotheek van ongeveer 4,5 × het bruto huishoudinkomen, vergeleken met de gemiddelde WOZ-waarde. Echte vraagprijzen liggen vaak hoger.',
-      '"Verberg duidelijk te duur" maakt gebieden met een gemiddelde WOZ boven 1,2 × je budget grijs.',
+      'Jouw wensen: budget en drukte zijn een doelwaarde (hoe dichter erbij, hoe hoger; 0 op twee toleranties afstand) en relatief binnen de lijst. Het budget is een ruwe vuistregel (ongeveer 4,5 × het bruto huishoudinkomen, vergeleken met de gemiddelde WOZ-waarde); "Verberg duidelijk te duur" maakt gebieden met een WOZ boven 1,2 × je budget grijs.',
       'Je antwoorden blijven in je browser (localStorage) en in de link; er wordt niets verstuurd.',
     ],
   },
@@ -484,7 +475,6 @@ const RTM = { scope: 'rotterdam' };
 
 export const DATASETS = Object.freeze({
   woonscore:        ds('woonscore',        'Woonscore',            'Woonscore (0–100, t.o.v. gelijke gebieden)', 'score', true, 'score', { inOverall: false }),
-  jouwscore:        ds('jouwscore',        'Jouw score',           'Jouw score (0–100, jouw gewichten)', 'score', true, 'score', { inOverall: false }),
   population:       ds('population',       'Bevolking',            'Inwoners',                        'aantal',    null,  'bevolking'),
   density:          ds('density',          'Bevolkingsdichtheid',  'Inwoners per km²',                'per km²',   null,  'bevolking'),
   pop15to24:        ds('pop15to24',        '15–24 jaar (%)',       '15 tot 25 jaar (%)',              '%',         null,  'bevolking', { ...RTM, inOverall: false }),

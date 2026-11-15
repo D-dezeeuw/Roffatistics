@@ -1,4 +1,6 @@
 import { getMap } from './map.js';
+import { DATASETS } from './datasets.js';
+import { createScoreLabels } from './score-labels.js';
 import { buildScale, getScaleMethod, outlierLabel, OUTLIER_COLOR } from './scale.js';
 
 const ZOOM_NATIONAL     = 6;
@@ -56,6 +58,7 @@ const layers   = { national: null, province: null, municipality: null, buurt: nu
 let activeTier = null;
 let provinceData     = [];
 let municipalityData = [];
+let scoreLabels = null;      // score stamps (score-labels.js)
 let activeColorState = null; // { lookup, scale } — set by applyDataset
 let activeGemeente     = null; // GM code of the last clicked gemeente
 let activeGemeenteName = null; // display name of the last clicked gemeente
@@ -120,7 +123,26 @@ export function applyDataset(data, valueKey, method = getScaleMethod()) {
     });
   }
 
+  stampScores(valueKey, lookup);
   return { min: scale.min, max: scale.max, scale };
+}
+
+/**
+ * Score stamps for the shown NL level: gemeenten at the municipality tier,
+ * provincies at the province tier; none at the buurt tier (gemeente fill off),
+ * at the national tier or for a non-score layer.
+ */
+function stampScores(valueKey, lookup) {
+  const lvl = activeTier === 'municipality' ? 'gemeente' : activeTier === 'province' ? 'provincie' : null;
+  const layer = lvl === 'gemeente' ? layers.municipality : lvl === 'provincie' ? layers.province : null;
+  if (!enabled || !layer || DATASETS[valueKey]?.unit !== 'score') { scoreLabels?.clear(); return; }
+  scoreLabels ??= createScoreLabels(getMap());
+  const items = [];
+  layer.eachLayer(fl => {
+    const code = fl.feature?.properties?.statcode;
+    if (code) items.push({ code: `${lvl}:${code}`, geometry: fl.feature.geometry, value: lookup[code] });
+  });
+  scoreLabels.set(items, lvl);
 }
 
 function restoreStyle(code) {
@@ -383,6 +405,7 @@ function removeAllTierLayers() {
   }
   activeTier  = null;
   pendingTier = null;
+  scoreLabels?.clear();
 }
 
 /** Shows (Nederland scope) or hides (Rotterdam scope) the province/gemeente/buurt tiers. */
@@ -407,6 +430,7 @@ async function swapToTier(tier) {
     return;
   }
   isSwapping = true;
+  scoreLabels?.clear();   // the next applyDataset (tier-change) stamps the new level
   try {
     await _doSwap(tier);
   } finally {

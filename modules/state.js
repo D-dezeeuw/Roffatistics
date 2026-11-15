@@ -9,9 +9,11 @@ export const SCOPES = Object.freeze(['rotterdam', 'nederland']);
 export const VIEWS  = Object.freeze(['map', 'dashboard', 'list']);
 export const SCOPE_STORAGE_KEY = 'roffatistics.scope';
 export const CRIME_STORAGE_KEY = 'roffatistics.crime';
-/** Active Jouw score preset (#score=…, see wizard-model.js); restored when the hash has none. */
+/** Active Woonscore preset (#score=…, see wizard-model.js); restored when the hash has none. */
 export const SCORE_STORAGE_KEY = 'roffatistics.score';
 const SCORE_RE = /^[a-z0-9.]{1,120}$/;
+/** Retired layer keys still accepted in links: `jouwscore` is now the Woonscore with the `score` preset (v0.22.0). */
+export const LEGACY_DATASETS = Object.freeze({ jouwscore: 'woonscore' });
 // crime: 'rate' (per 1.000 inwoners) | 'abs' (registered offences); see datasets.js datasetFor().
 export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate', score: null });
 
@@ -22,7 +24,8 @@ export function sanitizePatch(patch = {}) {
   const out = {};
   if (SCOPES.includes(patch.scope))         out.scope   = patch.scope;
   if (VIEWS.includes(patch.view))           out.view    = patch.view;
-  if (DATASET_KEYS.includes(patch.dataset)) out.dataset = patch.dataset;
+  const dataset = LEGACY_DATASETS[patch.dataset] ?? patch.dataset;
+  if (DATASET_KEYS.includes(dataset))       out.dataset = dataset;
   if (CRIME_MODES.includes(patch.crime))    out.crime   = patch.crime;
   if ('score' in patch) {
     const sc = patch.score == null ? '' : String(patch.score).trim().toLowerCase();
@@ -114,6 +117,11 @@ function writeHash() {
   if (typeof location === 'undefined' || typeof history === 'undefined') return;
   const next = serializeHash(state);
   if (location.hash !== next) history.replaceState(null, '', next);
+}
+
+/** Back to the Standaard Woonscore (legend "Reset"): clears `score`; the saved wizard answers stay. */
+export function resetScore({ source = 'reset' } = {}) {
+  return setState({ score: null }, { source });
 }
 
 /** Reads hash + localStorage, writes the canonical hash and follows later hash edits. */

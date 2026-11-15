@@ -142,7 +142,9 @@ export function scoreWithPreset(areas, preset = DEFAULT_PRESET, { parents = null
   return { factors, results };
 }
 
-// ── Score layers: Woonscore (Standaard) and Jouw score (wizard preset) ─────────
+// ── The Woonscore layer: one score, scored with the active preset ─────────────
+// Standaard by default; the wizard (`score` in the state, #score=…) or the
+// Gelijk switch replaces the preset and every area is rescored in place.
 
 /** Labels of every theme a preset can use (Standaard plus the wizard's themes). */
 export const THEME_LABELS = Object.freeze({
@@ -151,19 +153,28 @@ export const THEME_LABELS = Object.freeze({
   gemeenschap: 'Nabijheid gemeenschap',
 });
 
-/** Score layer key → the preset it uses; `jouwscore` follows setPersonalPreset(). */
+/** The active preset of the Woonscore (setPersonalPreset(null) = Standaard). */
 let personalPreset = STANDAARD;
 export function setPersonalPreset(preset) { personalPreset = preset ?? STANDAARD; }
 export function getPersonalPreset() { return personalPreset; }
-const presetFor = key => (key === 'jouwscore' ? personalPreset : PRESETS[DEFAULT_PRESET]);
-export const SCORE_KEYS = Object.freeze(['woonscore', 'jouwscore']);
+const presetFor = key => (key === 'woonscore' ? personalPreset : PRESETS[DEFAULT_PRESET]);
+/** The score layer keys (one since v0.22.0: the Woonscore follows the active preset). */
+export const SCORE_KEYS = Object.freeze(['woonscore']);
 
 /**
- * Last score.js result per layer and area code (codes are unique across
- * levels: PV/GM/WK/BU), for the Ranglijst breakdown column and the wizard.
+ * Last score.js result per area code (codes are unique across levels:
+ * PV/GM/WK/BU): `woonscore` with the active preset (Ranglijst breakdown,
+ * wizard top 10) and `standaard` with the Standaard preset (the wizard's
+ * "Std" comparison column).
  */
-export const SCORE_RESULTS = Object.freeze({ woonscore: new Map(), jouwscore: new Map() });
+export const SCORE_RESULTS = Object.freeze({ woonscore: new Map(), standaard: new Map() });
 export function scoreResult(key, code) { return SCORE_RESULTS[key]?.get(code) ?? null; }
+
+/** Records the Standaard results of `areas` ({ code, values }) for the comparison column. */
+function recordStandaard(areas, results, preset, parents) {
+  const std = preset === STANDAARD ? results : scoreWithPreset(areas, STANDAARD, { parents }).results;
+  for (const r of std) SCORE_RESULTS.standaard.set(r.code, r);
+}
 
 /**
  * Scores `list` with the preset of layer `key` and writes it IN PLACE:
@@ -182,14 +193,14 @@ export function assignScore(list, key, { parents = null, preset = presetFor(key)
     a[key] = r;
     if (r) SCORE_RESULTS[key]?.set(a.code, r);
   }
+  if (key === 'woonscore' && list?.length) recordStandaard(list, results, preset, parentMap);
   return results;
 }
 
 /**
- * Rotterdam areas with both score layers added (new objects; the input is
- * untouched): values.woonscore / values.jouwscore and the score.js results
- * `woonscore` / `jouwscore`. `parents` = the wijken when scoring buurten
- * (shrinkage toward the parent wijk).
+ * Rotterdam areas with the Woonscore added (new objects; the input is
+ * untouched): values.woonscore and the score.js result `woonscore`.
+ * `parents` = the wijken when scoring buurten (shrinkage toward the parent wijk).
  */
 export function withWoonscore(areas, { parents = null } = {}) {
   const list = (areas ?? []).map(a => ({ ...a, values: { ...a.values } }));
@@ -197,18 +208,21 @@ export function withWoonscore(areas, { parents = null } = {}) {
   return list;
 }
 
-/** National CBS rows ({ regionCode, ...values }) with `woonscore` and `jouwscore` fields among their peers. */
+/** National CBS rows ({ regionCode, ...values }) with a `woonscore` field among their peers. */
 export function rowsWithWoonscore(rows) {
   const list = rows ?? [];
   const out = list.map(r => ({ ...r }));
+  const areas = list.map(r => ({ code: r.regionCode, values: r }));
   for (const key of SCORE_KEYS) {
-    const { results } = scoreWithPreset(list.map(r => ({ code: r.regionCode, values: r })), presetFor(key));
+    const preset = presetFor(key);
+    const { results } = scoreWithPreset(areas, preset);
     const byCode = new Map(results.map(r => [r.code, r]));
     for (const row of out) {
       const r = byCode.get(row.regionCode) ?? null;
       row[key] = r && !r.filtered ? r.score : null;
       if (r) SCORE_RESULTS[key].set(row.regionCode, r);
     }
+    if (areas.length) recordStandaard(areas, results, preset, null);
   }
   return out;
 }

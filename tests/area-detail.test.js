@@ -193,7 +193,7 @@ describe('Woonscore in the area detail', () => {
   });
 });
 
-describe('Jouw score in the area modal (W3)', async () => {
+describe('Personalised Woonscore in the area modal (W3, v0.22.0)', async () => {
   const { personalScoreHtml, themeBarHtml } = await import('../modules/area-modal.js');
   it('renders match %, rank, why and the theme bar; nothing without a result', () => {
     const html = personalScoreHtml({ score: 81.6, rank: 2, of: 14, filtered: false, plus: [{ label: 'Rust' }], minus: [{ label: 'Fietsendiefstal' }], themes: [{ theme: 'sfeer', label: 'Sfeer', points: 40 }, { theme: 'veiligheid', label: 'Veiligheid', points: 41.6 }] }, 'wijken');
@@ -202,6 +202,8 @@ describe('Jouw score in the area modal (W3)', async () => {
     assert.match(html, /Sterk:<\/span> Rust/);
     assert.match(html, /Zwak:<\/span> Fietsendiefstal/);
     assert.match(html, /score-themes/);
+    assert.match(html, /Woonscore · jouw wensen/);
+    assert.match(personalScoreHtml({ score: 50, plus: [], minus: [], themes: [] }, 'wijken', 'Woonscore · gelijk gewogen'), /Woonscore · gelijk gewogen/);
     assert.equal(personalScoreHtml(null, 'wijken'), '');
     assert.equal(themeBarHtml([]), '');
   });

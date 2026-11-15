@@ -5,7 +5,8 @@ import { getMap } from './map.js';
 import { addKeyboardNav } from './overlays.js';
 import { loadRotterdamAreas, toNumber, areaPanelData } from './areas.js';
 import { buildScale, getScaleMethod, outlierLabel, NO_DATA_COLOR, OUTLIER_COLOR } from './scale.js';
-import { datasetValue } from './datasets.js';
+import { datasetValue, DATASETS } from './datasets.js';
+import { createScoreLabels } from './score-labels.js';
 import { formatValue } from './dashboard-data.js';
 
 export { NO_DATA_COLOR };
@@ -74,6 +75,7 @@ let activeArea = null;   // area object last shown in slot A
 let pinnedArea = null;   // area object pinned for compare
 const layers = { mask: null, outline: null, wijk: null, buurt: null };
 let zoomHandlerBound = false;
+let labels = null;       // score stamps (score-labels.js), made on first use
 
 const byCode = code => areas && (areas.wijken.find(a => a.code === code) ?? areas.buurten.find(a => a.code === code));
 
@@ -179,6 +181,19 @@ function recolor() {
     if (level === 'buurt' && scales.buurt.isOutlier(valueOf(a))) outliers.push(fl);
   });
   outliers.forEach(fl => fl.bringToFront());   // red borders not hidden under neighbouring strokes
+  stampScores(level === 'buurt' ? 'buurt' : 'wijk', level === 'buurt' ? buurtLookup : wijkLookup);
+}
+
+/** Score layers: the rounded score on every area of the level whose fill is shown; other layers: none. */
+function stampScores(lvl, lookup) {
+  if (DATASETS[dataset]?.unit !== 'score' || !enabled) { labels?.clear(); return; }
+  labels ??= createScoreLabels(getMap());
+  const items = [];
+  layers[lvl].eachLayer(fl => {
+    const code = fl.feature.properties.statcode;
+    items.push({ code, geometry: fl.feature.geometry, value: valueOf(lookup.get(code)) });
+  });
+  labels.set(items, lvl);
 }
 
 /**
@@ -205,6 +220,7 @@ export function disableRotterdam() {
   level = null;
   const map = getMap();
   for (const l of Object.values(layers)) if (l && map.hasLayer(l)) map.removeLayer(l);
+  labels?.clear();
   pinnedArea = null;
 }
 

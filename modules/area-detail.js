@@ -196,7 +196,6 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
     entries, notable,
     overall: overallRank(area.code, peers, mode),
     woonscore: woonscoreDetail(area, peers),
-    jouwscore: woonscoreDetail(area, peers, 'jouwscore'),
     crimeTrend: isNum(v.crimeTrend) ? v.crimeTrend : null,
     origin: originSplit(v),
     education: areaEducationMix(area),

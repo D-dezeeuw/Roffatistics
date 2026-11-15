@@ -155,8 +155,8 @@ describe('Gemeenschap: shared link only with "deel ook gemeenschap"', () => {
     assert.equal(shareableScore('gb15'), null);
     assert.equal(shareableScore('s30.gb15x'), 's30.gb15x');
     assert.equal(shareableScore('gelijk'), 'gelijk');
-    assert.equal(serializeHash({ ...DEFAULT_STATE, dataset: 'jouwscore', score: 's30.gd10' }), '#scope=rotterdam&view=map&dataset=jouwscore&score=s30');
-    assert.equal(serializeHash({ ...DEFAULT_STATE, dataset: 'jouwscore', score: 'gd10' }), '#scope=rotterdam&view=map&dataset=jouwscore');
+    assert.equal(serializeHash({ ...DEFAULT_STATE, score: 's30.gd10' }), '#scope=rotterdam&view=map&score=s30');
+    assert.equal(serializeHash({ ...DEFAULT_STATE, score: 'gd10' }), '#scope=rotterdam&view=map');
     assert.match(serializeHash({ ...DEFAULT_STATE, score: 's30.gd10x' }), /score=s30\.gd10x$/);
   });
   it('localStorage keeps the private choice and a reload restores it', () => {

@@ -9,6 +9,13 @@ import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
 import { openAreaModal, themeBarHtml } from './area-modal.js';
 import { scoreResult, themeBreakdown } from './presets.js';
+import { scoreKind, scoreTitle } from './wizard-model.js';
+
+/** The Woonscore follows the active preset: personalised title and a `personal` flag (header tooltip, note). */
+function withScorePreset(ds) {
+  const score = getState().score;
+  return ds?.unit === 'score' && scoreKind(score) !== 'standaard' ? { ...ds, title: scoreTitle(score, ds.title), personal: scoreKind(score) } : ds;
+}
 import { buildScale, getScaleMethod, outlierLabel, SCALE_EVENT } from './scale.js';
 import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, orderColumns, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES, rankKeyAfterDatasetChange } from './ranking.js';
 
@@ -249,7 +256,7 @@ async function doRender() {
   if (scope !== getState().scope || level !== ui.level[scope] || mode !== getState().crime) return;   // superseded
 
   // Crime datasets carry the title/unit of the current crime mode (datasetFor).
-  const datasets = ALL_DATASETS.filter(d => areas.some(a => typeof a.values?.[d.key] === 'number')).map(d => datasetFor(d.key, mode));
+  const datasets = ALL_DATASETS.filter(d => areas.some(a => typeof a.values?.[d.key] === 'number')).map(d => withScorePreset(datasetFor(d.key, mode)));
   const has = key => datasets.some(d => d.key === key);
   // A dataset without data on this level cannot rank anything: fall back to the total score.
   const wanted = ui.rankKey === 'overall' ? null : DATASETS[ui.rankKey];
@@ -257,7 +264,7 @@ async function doRender() {
   const ranked = rankRows(scoreAreas(areas, datasets), rankKey, datasets);
   const rows = applyRankMode(sortRows(ranked, ui.sort.column, ui.sort.dir), { mode: ui.rankMode, column: ui.sort.column, datasets });
   const hidden = ALL_DATASETS.filter(d => !has(d.key)).map(d => d.label);
-  const rankDs = rankKey === 'overall' ? null : datasetFor(rankKey, mode);
+  const rankDs = rankKey === 'overall' ? null : withScorePreset(datasetFor(rankKey, mode));
   const follows = sortDrivesRank(ui.rankMode, ui.sort.column);
   const sortDs = follows && ui.sort.column !== 'overall' ? datasets.find(d => d.key === ui.sort.column) : null;
 
@@ -273,7 +280,8 @@ async function doRender() {
   else if (follows) notes.push(`Rang volgt de sortering op de score, ${ui.sort.dir === 'desc' ? 'hoogste' : 'laagste'} eerst.`);
   if (sortDs) { /* the score note above replaces the basis note */ }
   else if (!rankDs) notes.push('Score = percentiel 0–100 binnen de lijst, gemiddeld over de datasets met een richting.');
-  else if (rankDs.key === 'jouwscore') notes.push('Gerangschikt op Jouw score: 0–100 binnen de lijst, gewogen met je antwoorden uit "Vind jouw ideale woonplek". Gebieden boven je budget (als je die verbergt) staan zonder rang onderaan. De kolom Opbouw toont de punten per thema.');
+  else if (rankDs.personal === 'gelijk') notes.push('Gerangschikt op de Woonscore · gelijk gewogen: 0–100 binnen de lijst, alle cijfers met een richting even zwaar. Reset in de legenda van de kaart zet hem terug op Standaard.');
+  else if (rankDs.personal) notes.push(`Gerangschikt op de ${rankDs.title.replace(/ \(0–100\)$/, '')}: 0–100 binnen de lijst, gewogen met je antwoorden uit "Vind jouw ideale woonplek". Gebieden boven je budget (als je die verbergt) staan zonder rang onderaan. De kolom Opbouw toont de punten per thema. Reset in de legenda van de kaart zet hem terug op Standaard.`);
   else if (rankDs.unit === 'score') notes.push('Gerangschikt op de Woonscore: 0–100 binnen de lijst, gewogen over veiligheid (35), welvaart (20), voorzieningen (25), opleiding (10) en koopwoningen (10). De kolom Opbouw toont de punten per thema.');
   else if (rankDs.higherIsBetter == null) notes.push(`Gerangschikt op ${rankDs.title}, hoogste waarde eerst; score = percentiel 0–100 van die waarde.`);
   else notes.push(`Score = percentiel 0–100 op ${rankDs.title} alleen (${rankDs.higherIsBetter ? 'hoger' : 'lager'} is beter).`);
