@@ -6,13 +6,16 @@ import { getState, getShareOptions, setShareOptions } from './state.js';
 import { getMap, getActiveBasemap } from './map.js';
 import { getListOptions } from './list.js';
 import { isAreaModalOpen } from './area-modal.js';
-import { SHARE_GROUPS, SENSITIVE_KEYS, availableParts, defaultShareOptions, buildShareUrl, partSummary } from './share-link.js';
+import { SHARE_GROUPS, SENSITIVE_KEYS, availableParts, defaultShareOptions, buildShareUrl, partSummary, sensitivePresent } from './share-link.js';
+import { scoreKind } from './wizard-model.js';
+import { canShareFiles, snapshotFileName, personalMapAllowed } from './snapshot.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let els = null;
 let snap = null;          // the screen as it was when the dialog opened
 let returnFocus = null;
+let image = null;         // { file, objectUrl } of the last "Maak afbeelding"
 
 /** The current screen: app state plus the map, Ranglijst, modal, basemap and theme. */
 export function currentSnapshot() {
@@ -62,6 +65,7 @@ function syncSensitive() {
 
 /** A changed tick makes the shown link stale: hide it until it is made again. */
 function invalidate() {
+  clearImage();
   if (els.url.hidden) return;
   els.url.hidden = true;
   els.url.value = '';
@@ -93,6 +97,75 @@ async function nativeShare() {
   catch (err) { if (err?.name !== 'AbortError') els.status.textContent = 'Delen lukte niet; kopieer de link hierboven.'; }
 }
 
+// ── Snapshot image (W29): snapshot.js (pure) + snapshot-render.js (canvas) ──
+
+function clearImage() {
+  if (image?.objectUrl) URL.revokeObjectURL(image.objectUrl);
+  image = null;
+  if (!els) return;
+  els.preview.hidden = true;
+  els.preview.removeAttribute('src');
+  els.imageActs.hidden = true;
+}
+
+/** Name of the selected area: the open modal's heading, a gemeente name, else ''. */
+async function areaNameFor(code) {
+  if (!code) return '';
+  const head = isAreaModalOpen() ? document.getElementById('area-modal-title')?.textContent?.trim() : '';
+  if (head) return head;
+  if (/^GM/.test(code)) { try { return (await import('./overlays.js')).gemeenteName(code) || ''; } catch { return ''; } }
+  return '';
+}
+
+async function makeImage() {
+  const url = makeUrl(), o = options(), state = snap.state;
+  els.url.value = url;
+  els.url.hidden = false;
+  clearImage();
+  els.status.textContent = 'Afbeelding wordt gemaakt…';
+  els.makeImage.disabled = true;
+  try {
+    const { renderSnapshot, readViewForSnapshot } = await import('./snapshot-render.js');
+    const personal = state.dataset === 'woonscore' && scoreKind(state.score) === 'custom';
+    const allowed = personalMapAllowed({ personal, options: o, present: sensitivePresent(state.score) });
+    const area = o.area ? await areaNameFor(state.area) : '';
+    let input = readViewForSnapshot(state, area);
+    if (!allowed) input = { title: 'Woonscore', area, view: state.view, legend: null };
+    const { blob, withMap } = await renderSnapshot(input, url, { withMap: allowed });
+    const file = new File([blob], snapshotFileName({ layer: input.title.split(' · ')[0], area }), { type: 'image/png' });
+    image = { file, objectUrl: URL.createObjectURL(blob) };
+    els.preview.src = image.objectUrl;
+    els.preview.hidden = false;
+    els.imageActs.hidden = false;
+    els.shareImage.hidden = !canShareFiles(navigator, [file]);
+    els.status.textContent = !allowed
+      ? 'Afbeelding gemaakt zonder je persoonlijke kaart: die volgt uit keuzes die je niet deelt.'
+      : withMap || state.view !== 'map' ? 'Afbeelding gemaakt.' : 'Afbeelding gemaakt zonder kaart (de kaart kon niet worden gelezen).';
+  } catch (err) {
+    console.warn('Snapshot failed:', err);
+    els.status.textContent = 'De afbeelding maken lukte niet; de link hierboven werkt wel.';
+  } finally {
+    els.makeImage.disabled = false;
+  }
+}
+
+async function shareImage() {
+  if (!image) return;
+  // text, not url: with files Android drops `url` but keeps `text`.
+  try { await navigator.share({ files: [image.file], title: 'Roffatistics', text: els.url.value }); els.status.textContent = 'Gedeeld.'; }
+  catch (err) { if (err?.name !== 'AbortError') els.status.textContent = 'Delen lukte niet; download de afbeelding en kopieer de link.'; }
+}
+
+function downloadImage() {
+  if (!image) return;
+  const a = document.createElement('a');
+  a.href = image.objectUrl;
+  a.download = image.file.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 function trapFocus(e) {
   const focusables = [...els.dialog.querySelectorAll('button, input, [tabindex]:not([tabindex="-1"])')]
     .filter(el => !el.disabled && !el.hidden && el.offsetParent !== null);
@@ -120,6 +193,12 @@ function build() {
         <div class="share-actions">
           <button type="button" class="area-btn is-primary" data-share-act="copy">Link maken en kopiëren</button>
           <button type="button" class="area-btn" data-share-act="native" hidden>Delen via…</button>
+          <button type="button" class="area-btn" data-share-act="image">Maak afbeelding</button>
+        </div>
+        <img class="share-preview" alt="Voorbeeld van de afbeelding bij de link" width="1200" height="630" hidden>
+        <div class="share-actions share-image-actions" hidden>
+          <button type="button" class="area-btn is-primary" data-share-act="share-image" hidden>Delen met afbeelding</button>
+          <button type="button" class="area-btn" data-share-act="download">Download PNG</button>
         </div>
         <input type="text" class="wiz-share-url share-url" readonly aria-label="Deellink" hidden>
         <p class="wiz-hint share-status" aria-live="polite"></p>
@@ -133,6 +212,10 @@ function build() {
     url: modal.querySelector('.share-url'),
     status: modal.querySelector('.share-status'),
     native: modal.querySelector('[data-share-act="native"]'),
+    makeImage: modal.querySelector('[data-share-act="image"]'),
+    preview: modal.querySelector('.share-preview'),
+    imageActs: modal.querySelector('.share-image-actions'),
+    shareImage: modal.querySelector('[data-share-act="share-image"]'),
   };
   els.native.hidden = typeof navigator.share !== 'function';
   modal.addEventListener('click', e => {
@@ -140,6 +223,9 @@ function build() {
     const act = e.target.closest('[data-share-act]')?.dataset.shareAct;
     if (act === 'copy') copyLink();
     else if (act === 'native') nativeShare();
+    else if (act === 'image') makeImage();
+    else if (act === 'share-image') shareImage();
+    else if (act === 'download') downloadImage();
   });
   modal.addEventListener('change', e => {
     if (!e.target.dataset?.part) return;
@@ -163,6 +249,7 @@ export function openShareDialog({ trigger = null, focus = null } = {}) {
   els.url.hidden = true;
   els.url.value = '';
   els.status.textContent = '';
+  clearImage();
   els.modal.hidden = false;
   const target = (focus && els.body.querySelector(`input[data-part="${focus}"]:not(:disabled)`))
     ?? els.body.querySelector('input:not(:disabled)') ?? els.dialog.querySelector('[data-share-act="copy"]');
@@ -172,6 +259,7 @@ export function openShareDialog({ trigger = null, focus = null } = {}) {
 export function closeShareDialog() {
   if (!els || els.modal.hidden) return;
   els.modal.hidden = true;
+  clearImage();
   if (returnFocus && typeof returnFocus.focus === 'function' && document.contains(returnFocus)) returnFocus.focus();
   returnFocus = null;
 }

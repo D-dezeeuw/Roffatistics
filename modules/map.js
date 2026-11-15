@@ -65,6 +65,7 @@ export function createBasemapLayer(Leaflet, config) {
     attribution:   config.attribution,
     maxNativeZoom: config.maxNativeZoom,
     maxZoom:       MAX_ZOOM,
+    crossOrigin:   'anonymous',   // PDOK sends CORS headers; lets the snapshot (snapshot-render.js) read the tiles
   });
 }
 
@@ -145,6 +146,8 @@ export function setBasemap(id) {
 }
 
 export function getActiveBasemap() { return activeBasemap; }
+/** The MapLibre map behind a vector basemap (null for the aerial photo); used by the snapshot. */
+export function getBasemapGL() { return basemapLayer?.getMaplibreMap?.() ?? null; }
 
 function addBasemapSwitcher() {
   const Switcher = L.Control.extend({

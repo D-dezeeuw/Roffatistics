@@ -2023,6 +2023,8 @@ footer {
 .share-actions [hidden], .share-url[hidden] { display: none; }
 .share-url { width: 100%; margin-top: 0.5rem; }
 .share-status:empty { display: none; }
+.share-preview { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630; margin-top: 0.7rem; border-radius: var(--radius); border: 1px solid rgba(var(--accent-rgb), 0.3); }
+.share-preview[hidden], .share-image-actions[hidden] { display: none; }
 
 /* ─── Header hamburger menu (W24, modules/nav-menu.js) ───────────────────────
    Visible in the bar: logo, scope, Kaart/Dashboard/Ranglijst, Layers, Zoeken
