@@ -22,6 +22,7 @@ import { presetFromScore, scoreTitle }    from './modules/wizard-model.js';
 import { initWizard }                     from './modules/wizard.js';
 import { peekRotterdamAreas }             from './modules/areas.js';
 import { peekNlAreas }                    from './modules/nl-areas.js';
+import { loadBouwjaar, onBouwLoaded, addBouwShares, isBouwKey, isBouwLoaded, presetUsesBouw } from './modules/bouwjaar-pc4.js';
 import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, presetUsesPc4 } from './modules/herkomst-pc4.js';
 import { loadGemeenteRegio, isRegioLoaded, isRegionMetric, withRegionShares } from './modules/herkomst-regio.js';
 
@@ -270,6 +271,11 @@ async function activateDataset(key) {
     await loadPc4Herkomst().catch(err => console.warn('herkomst per postcode:', err));
     if (getState().dataset !== key) return;
   }
+  // Bouwstijl per wijk/buurt (v0.29.0): the postcode estimate loads on first use only.
+  if (isBouwKey(key) && !isBouwLoaded()) {
+    await loadBouwjaar().catch(err => console.warn('bouwjaar per postcode:', err));
+    if (getState().dataset !== key) return;
+  }
   // World regions per gemeente (v0.28.0): the static file loads on first use, then joins the gemeente rows.
   if (isRegionMetric(key) && !isRegioLoaded()) {
     await loadGemeenteRegio().catch(err => console.warn('herkomst per regio:', err));
@@ -382,6 +388,7 @@ function applyPersonalScore(score) {
   }
   // A detailed group also counts per wijk/buurt via the postcode estimate: load it; onPc4Loaded rescores.
   if (presetUsesPc4(preset) && !isPc4Loaded()) loadPc4Herkomst().catch(() => { /* file missing: the factor is skipped there */ });
+  if (presetUsesBouw(preset) && !isBouwLoaded()) loadBouwjaar().catch(() => { /* file missing: the factor is skipped there */ });
   const rd = peekRotterdamAreas();
   if (rd) {
     assignScore(rd.wijken, 'woonscore');
@@ -391,6 +398,18 @@ function applyPersonalScore(score) {
   if (gemeenteRows.length) { gemeenteRows = rowsWithWoonscore(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); }
   rescoreNlAreas();   // NL wijken/buurten of the drill-down, when loaded
 }
+
+// Bouwstijl landed: add the shares to every loaded wijk/buurt, then rescore if the personal preset uses them.
+onBouwLoaded(() => {
+  const rd = peekRotterdamAreas();
+  if (rd) { addBouwShares(rd.wijken); addBouwShares(rd.buurten); }
+  const nl = peekNlAreas();
+  addBouwShares(nl.wijken); addBouwShares(nl.buurten);
+  if (presetUsesBouw(presetFromScore(getState().score))) {
+    applyPersonalScore(getState().score);
+    if (DATASETS[getState().dataset]?.unit === 'score') activateDataset(getState().dataset);
+  }
+});
 
 // Postcode herkomst landed: add the shares to every loaded wijk/buurt, then rescore if the personal preset uses them.
 onPc4Loaded(() => {

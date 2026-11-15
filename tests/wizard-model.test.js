@@ -11,7 +11,7 @@ import { DATASET_KEYS } from '../modules/datasets.js';
 
 const ALL = new Set(DATASET_KEYS);
 const FULL = {
-  levensfase: 'gezin', oud: 'gebouwen', budget: { mode: 'koop', income: 80, maxPrice: null, hide: true },
+  levensfase: 'gezin', bouw: 'modern', budget: { mode: 'koop', income: 80, maxPrice: null, hide: true },
   vervoer: ['fiets', 'ov', 'auto'], sfeer: 70, veiligheid: ['inbraak', 'fiets', 'drugs'], weights: { veiligheid: 50, sfeer: 10 },
 };
 const memStorage = () => { const m = new Map(); return { getItem: k => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), m }; };
@@ -56,10 +56,39 @@ describe('wizard: answers → preset', () => {
     assert.equal(metricOf(p, 'voorzieningen', 'distSchool').w, STRESS_W);
     assert.equal(metricOf(p, 'voorzieningen', 'distKinderopvang').w, STRESS_W);
   });
-  it('"oud": bewoners → fewer 65+, gebouwen → more nieuwbouw; a senior never scores 65+ down', () => {
-    assert.equal(metricOf(answersToPreset({ levensfase: 'student', oud: 'bewoners' }), 'leeftijd', 'pop65plus').pref, 'lower');
-    assert.equal(metricOf(answersToPreset({ oud: 'gebouwen' }), 'nieuwbouw', 'newBuildPct').pref, 'higher');
-    assert.equal(metricOf(answersToPreset({ levensfase: 'senior', oud: 'bewoners' }), 'leeftijd', 'pop65plus').pref, 'higher');
+  it('bouwstijl: karakter → more pre-1945 dwellings, modern → more 2005+ (plus newBuildPct); no 65+ rule left', () => {
+    const k = answersToPreset({ bouw: 'karakter' });
+    assert.deepEqual(themeOf(k, 'nieuwbouw').metrics, [{ key: 'oldBuildPct', pref: 'higher' }]);
+    assert.equal(themeOf(k, 'nieuwbouw').label, 'Bouwstijl');
+    const m = answersToPreset({ bouw: 'modern' });
+    assert.deepEqual(themeOf(m, 'nieuwbouw').metrics, [{ key: 'modernBuildPct', pref: 'higher', w: 2 }, { key: 'newBuildPct', pref: 'higher' }]);
+    for (const lf of [null, 'student', 'stel', 'gezin']) {
+      for (const bouw of [null, 'karakter', 'modern']) {
+        const p = answersToPreset({ levensfase: lf, bouw });
+        assert.ok(!metricOf(p, 'leeftijd', 'pop65plus'), `${lf}/${bouw}: never scores 65+ down`);
+      }
+    }
+    // Young families only through levensfase Gezin.
+    assert.equal(metricOf(answersToPreset({ levensfase: 'gezin', bouw: 'modern' }), 'leeftijd', 'hhWithKidsPct').pref, 'higher');
+    assert.ok(!metricOf(answersToPreset({ levensfase: 'stel', bouw: 'modern' }), 'leeftijd', 'hhWithKidsPct'));
+    assert.equal(answersToPreset({ bouw: 'karakter', levensfase: 'student' }).themes.find(t => t.key === 'leeftijd').metrics.length, 2);
+  });
+  it('bouwstijl: old answers and links keep working', () => {
+    assert.equal(normalizeAnswers({ oud: 'gebouwen' }).bouw, 'modern');
+    assert.equal(normalizeAnswers({ oud: 'bewoners' }).bouw, null);
+    assert.ok(!('oud' in normalizeAnswers({ oud: 'gebouwen' })));
+    assert.equal(normalizeAnswers({ bouw: 'karakter', oud: 'gebouwen' }).bouw, 'karakter', 'the new field wins');
+    assert.equal(normalizeAnswers({ bouw: 'nieuw' }).bouw, null);
+    assert.equal(decodeAnswers('og').bouw, 'modern');
+    assert.equal(decodeAnswers('ob').bouw, null);
+    assert.equal(isEmptyAnswers(decodeAnswers('ob')), true);
+    assert.equal(decodeAnswers('lg.ob').levensfase, 'gezin');
+    assert.equal(decodeAnswers('ak').bouw, 'karakter');
+    assert.equal(decodeAnswers('am').bouw, 'modern');
+    assert.equal(decodeAnswers('ax').bouw, null);
+    assert.equal(encodeAnswers({ oud: 'gebouwen' }), 'am');
+    assert.equal(encodeAnswers({ bouw: 'karakter' }), 'ak');
+    assert.equal(encodeAnswers({ oud: 'bewoners' }), '');
   });
   it('koop budget: income × 4.5 → WOZ target and the optional too-expensive filter', () => {
     assert.equal(budgetCeiling({ mode: 'koop', income: 80 }), 80 * INCOME_FACTOR);
@@ -117,11 +146,11 @@ describe('wizard: hash and storage', () => {
     const s = encodeAnswers(FULL);
     assert.match(s, SCORE_RE);
     assert.deepEqual(decodeAnswers(s), normalizeAnswers(FULL));
-    assert.equal(s, 'lg.og.bki80x.vfoa.s70.cinfddr.wv50s10');
+    assert.equal(s, 'lg.am.bki80x.vfoa.s70.cinfddr.wv50s10');
   });
   it('round-trips every single-step answer', () => {
     for (const a of [{ levensfase: 'senior' }, { levensfase: '50plus' }, { budget: { mode: 'huur' } }, { budget: { mode: 'koop', maxPrice: 425 } },
-      { vervoer: ['lopen'] }, { sfeer: 0 }, { sfeer: 100 }, { veiligheid: ['vandalisme', 'straatroof'] }, { weights: { nieuwbouw: 5 } }]) {
+      { vervoer: ['lopen'] }, { sfeer: 0 }, { sfeer: 100 }, { veiligheid: ['vandalisme', 'straatroof'] }, { weights: { nieuwbouw: 5 } }, { bouw: 'karakter' }, { bouw: 'modern' }]) {
       assert.deepEqual(decodeAnswers(encodeAnswers(a)), normalizeAnswers(a), JSON.stringify(a));
     }
   });

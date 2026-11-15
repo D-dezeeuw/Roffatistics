@@ -9,6 +9,7 @@ import { DATASETS, groupDatasets, datasetFor } from './datasets.js';
 import { ORIGIN_GROUPS, HERKOMST_TABLE, HERKOMST_FIRST_YEAR, HERKOMST_YEAR } from './herkomst.js';
 import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, PC4_VALIDATION, pc4RegionComposition } from './herkomst-pc4.js';
 import { REGIONS, regionComposition } from './herkomst-regio.js';
+import { OLD_BUILD_BEFORE, MODERN_BUILD_FROM, BOUW_MIN_DWELLINGS } from './bouwjaar-pc4.js';
 
 const pc = v => `${Math.round(v * 1000) / 10}`.replace('.', ',') + '%';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -159,6 +160,15 @@ export const GENERAL_SECTIONS = Object.freeze([
       'Huishoudinkomen per maand (netto, ongeveer; van Bijstand tot meer dan € 30.000): een gebied telt als plus naarmate het gemiddelde gestandaardiseerde inkomen van CBS dichter bij het jouwe ligt. Ruwe omrekening: maandinkomen × 12 / 1,3 (een gemiddeld huishouden telt bij CBS voor ongeveer 1,3 persoon), afgekapt op de spreiding van gebieden (€ 22.000 tot € 120.000 per jaar). Het Standaard-cijfer "meer inkomen = beter" vervalt dan voor jou. Bij de standen Bijstand en ± € 500 telt ook bijstand per 1.000 inwoners als plus in plaats van als minpunt, waar dat cijfer er is.',
       'Opleiding (basisschool, vmbo – mbo-1, havo – vwo – mbo-4, hbo – wo): een groter aandeel inwoners met hetzelfde niveau telt als plus; basisschool en vmbo – mbo-1 vallen bij CBS in dezelfde groep. Het Standaard-thema Opleiding (meer hbo/wo = beter) vervalt dan voor jou.',
       'Alleen een plus: een gebied krijgt nooit minpunten voor wie er woont; bij inkomen loopt de plus alleen geleidelijk af naarmate het gemiddelde verder van het jouwe ligt. Je score wordt in je browser berekend en er wordt niets verstuurd; je opleiding en inkomen staan alleen in een link als je ze bij "Deellink maken" aanvinkt.',
+    ],
+  },
+  {
+    id: 'bouwstijl',
+    title: 'Jouw score: oudere bouw of moderne woningen',
+    paragraphs: [
+      `In de eerste stap van de wizard kies je "Oudere bouw met karakter", "Moderne woningen" of "Maakt niet uit". Oudere bouw: een gebied telt als plus naarmate meer woningen van vóór ${OLD_BUILD_BEFORE} zijn (laag Oude bouw). Moderne woningen: naarmate meer woningen van ${MODERN_BUILD_FROM} of later zijn (laag Moderne bouw), met daarnaast het CBS-aandeel woningen uit de laatste tien jaar (laag Nieuwbouw).`,
+      `CBS publiceert per wijk en buurt alleen of woningen in de laatste tien jaar zijn gebouwd. De bouwjaarklassen (vóór 1945, 1945–1965, …, 2015 en later) bestaan wel per viercijferige postcode (CBS Gegevens per postcode, ${PC4_YEAR}). De woningen van een postcode worden over de buurten erin verdeeld naar het aantal adressen per buurt: geschat via postcode. Onder ${BOUW_MIN_DWELLINGS} geschatte woningen, of voor een buurt van 2025 zonder dezelfde code in 2023, is er geen waarde en valt de factor daar weg.`,
+      'Bouwjaar is een benadering van "karakter", geen oordeel over stijl: een gerenoveerd vooroorlogs blok telt als oud, nieuwbouw in jaren-dertigstijl als modern. Of je tussen jonge gezinnen wilt wonen volgt uit je levensfase (Gezin met kinderen: meer huishoudens met kinderen); drukte of rust uit de stap Sfeer.',
     ],
   },
   {

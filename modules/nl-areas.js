@@ -9,6 +9,7 @@
 import { areaLevel, parentCode, per1000, toNumber, CRIME_CATEGORIES, CRIME_MIN_POPULATION, CRIME_MIN_POPULATION_BUURT, WIJK_YEAR } from './areas.js';
 import { withWoonscore, assignScore } from './presets.js';
 import { addPc4Shares } from './herkomst-pc4.js';
+import { addBouwShares } from './bouwjaar-pc4.js';
 import { addOmgeving, decodeNeighbours, encodeNeighbours } from './omgeving.js';
 
 export const NL_DATA_FORMAT = 1;
@@ -182,7 +183,7 @@ export function loadNlLevel(level, { fetcher = defaultFetcher() } = {}) {
   if (levelPromises.has(level)) return levelPromises.get(level);
   const p = (async () => {
     const parents = level === 'buurt' ? await loadNlLevel('wijk', { fetcher }) : null;
-    const raw = addPc4Shares(decodeLevel(await getJSON(NL_DATA_URLS[level], fetcher)));   // postcode herkomst, once loaded
+    const raw = addBouwShares(addPc4Shares(decodeLevel(await getJSON(NL_DATA_URLS[level], fetcher))));   // postcode herkomst, once loaded
     const scored = withWoonscore(raw, { parents });
     loaded[level] = scored;
     return scored;

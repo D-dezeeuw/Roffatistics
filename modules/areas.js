@@ -6,6 +6,7 @@
 // fetcher/storage so they run under node --test as well as in the browser.
 import { DATASETS, DATASET_KEYS } from './datasets.js';
 import { addPc4Shares } from './herkomst-pc4.js';
+import { addBouwShares } from './bouwjaar-pc4.js';
 import { withWoonscore } from './presets.js';
 import { adjacencyFromFeatures, addOmgeving } from './omgeving.js';
 
@@ -298,7 +299,7 @@ const YEAR_FIELD_LABELS = {
   highEdu: 'opleiding', avgIncome: 'inkomen', wozValue: 'WOZ', population: 'inwoners', density: 'dichtheid',
   pop65plus: '65+', nonWesternPct: 'herkomst', ownerOccupiedPct: 'koopwoningen', rentalPct: 'huurwoningen',
   welfarePer1000: 'bijstand', distGP: 'huisarts', distSupermarket: 'supermarkt',
-  pop15to24: '15–24', pop25to44: '25–44', pop45to64: '45–64', hhWithKidsPct: 'gezinnen', newBuildPct: 'nieuwbouw',
+  pop15to24: '15–24', pop25to44: '25–44', pop45to64: '45–64', hhWithKidsPct: 'gezinnen', newBuildPct: 'nieuwbouw', oldBuildPct: 'oude bouw', modernBuildPct: 'moderne bouw',
   distSchool: 'school', distKinderopvang: 'kinderopvang', distStation: 'station', distCafe: 'café', horeca1km: 'horeca',
 };
 
@@ -638,6 +639,7 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
     const wijkenRaw = addOmgeving(wijkenCrime, adjacencyFromFeatures(wijkGeo.features, { decimals: 5 }));
     const buurtenRaw = addOmgeving(buurtenCrime, adjacencyFromFeatures(buurtGeo.features, { decimals: 5 }));
     // Woonscore per level among its peers; buurt rates shrink toward the parent wijk.
+    addBouwShares(wijkenRaw); addBouwShares(buurtenRaw);   // bouwstijl via postcode (v0.29.0), once loaded
     addPc4Shares(wijkenRaw); addPc4Shares(buurtenRaw);   // postcode herkomst (v0.25.0), once loaded
     const wijken  = withWoonscore(wijkenRaw);
     const buurten = withWoonscore(buurtenRaw, { parents: wijkenRaw });

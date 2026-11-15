@@ -16,7 +16,7 @@ import { explain } from './score.js';
 import { openAreaModal } from './area-modal.js';
 import { infoButton } from './explain.js';
 import {
-  STEPS, LEVENSFASEN, OUD_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
+  STEPS, LEVENSFASEN, BOUW_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
   SHARE_PARTS, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS, gemeenschapOptgroups,
@@ -24,6 +24,7 @@ import {
 } from './wizard-model.js';
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
 import { loadPc4Herkomst, presetUsesPc4 } from './herkomst-pc4.js';
+import { loadBouwjaar, presetUsesBouw } from './bouwjaar-pc4.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -66,9 +67,9 @@ function stepBody(key) {
   if (key === 'levensfase') return `
     <p class="wiz-q" id="wiz-q">In welke fase van je leven zit je?</p>
     <div class="wiz-opts" role="group" aria-labelledby="wiz-q">${Object.entries(LEVENSFASEN).map(([k, l]) => optBtn('levensfase', k, l, a.levensfase === k)).join('')}</div>
-    <p class="wiz-q" id="wiz-q2">Liever geen ‘oude’ buurt? Bedoel je dan de bewoners of de gebouwen?</p>
-    <div class="wiz-opts" role="group" aria-labelledby="wiz-q2">${Object.entries(OUD_OPTIONS).map(([k, l]) => optBtn('oud', k, l, a.oud === k)).join('')}${optBtn('oud', '', 'Maakt niet uit', !a.oud)}</div>
-    <p class="wiz-hint">Jonge bewoners: minder 65-plussers. Nieuwe woningen: meer woningen jonger dan 10 jaar (alleen Rotterdam).</p>`;
+    <p class="wiz-q" id="wiz-q2">Wat voor huizen zoek je: een oudere buurt met karakter of juist moderne woningen?</p>
+    <div class="wiz-opts" role="group" aria-labelledby="wiz-q2">${Object.entries(BOUW_OPTIONS).map(([k, l]) => optBtn('bouw', k, l, a.bouw === k)).join('')}${optBtn('bouw', '', 'Maakt niet uit', !a.bouw)}</div>
+    <p class="wiz-hint">Oudere bouw: meer woningen van vóór 1945. Moderne woningen: meer woningen van 2005 of later. Per wijk en buurt, geschat via de postcode.</p>`;
   if (key === 'budget') {
     const b = a.budget ?? { mode: null };
     const ceiling = budgetCeiling(b);
@@ -234,6 +235,8 @@ async function resultHtml() {
   await Promise.all(missingDetailGroups(getPersonalPreset()).map(g => loadGemeenteGroup(g).catch(() => null)));
   // Wijk/buurt shares of a detailed group (postcode estimate): app.js adds them and rescores before this resolves.
   if (presetUsesPc4(getPersonalPreset())) await loadPc4Herkomst().catch(() => null);
+  // Bouwstijl shares per wijk/buurt (postcode estimate): same pattern, app.js rescores on load.
+  if (presetUsesBouw(getPersonalPreset())) await loadBouwjaar().catch(() => null);
   const { level, items } = await resultItems();
   const withScores = items.map(i => {
     const r = scoreResult('woonscore', i.code);

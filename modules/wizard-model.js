@@ -136,7 +136,8 @@ export const LEVENSFASEN = Object.freeze({
   '50plus': '50-plusser',
   senior:  'Senior',
 });
-export const OUD_OPTIONS = Object.freeze({ bewoners: 'Jonge bewoners', gebouwen: 'Nieuwe woningen' });
+/** Bouwstijl (v0.29.0): older buildings with character or modern dwellings. Replaces the v0.21 "oud" question. */
+export const BOUW_OPTIONS = Object.freeze({ karakter: 'Oudere bouw met karakter', modern: 'Moderne woningen' });
 export const VERVOER = Object.freeze({ fiets: 'Fiets', ov: 'OV', auto: 'Auto', lopen: 'Lopen' });
 /** Veiligheid chips → crime dataset. */
 export const CRIMES = Object.freeze({
@@ -166,7 +167,7 @@ export const AUTO_SFEER_WEIGHT = 8;
 export const STRESS_W = 3;
 
 export const EMPTY_ANSWERS = Object.freeze({
-  levensfase: null, oud: null, budget: null, vervoer: Object.freeze([]), sfeer: null, veiligheid: Object.freeze([]), weights: Object.freeze({}),
+  levensfase: null, bouw: null, budget: null, vervoer: Object.freeze([]), sfeer: null, veiligheid: Object.freeze([]), weights: Object.freeze({}),
   gemeenschap: null, situatie: null, importance: Object.freeze({}),
 });
 
@@ -216,7 +217,8 @@ export function normalizeAnswers(a = {}) {
   for (const [k, v] of Object.entries(a?.importance ?? {})) if (Object.hasOwn(THEME_LABELS, k) && k !== 'gemeenschap' && isNum(v)) importance[k] = Math.round(clamp(v, 0, IMPORTANCE.length - 1));
   return {
     levensfase: Object.hasOwn(LEVENSFASEN, a?.levensfase) ? a.levensfase : null,
-    oud: Object.hasOwn(OUD_OPTIONS, a?.oud) ? a.oud : null,
+    // v0.21–0.28 stored `oud`: 'gebouwen' (nieuwe woningen) becomes modern; 'bewoners' (jonge bewoners) is gone.
+    bouw: Object.hasOwn(BOUW_OPTIONS, a?.bouw) ? a.bouw : a?.oud === 'gebouwen' ? 'modern' : null,
     budget,
     vervoer: pick(a?.vervoer, VERVOER),
     sfeer: isNum(a?.sfeer) ? Math.round(clamp(a.sfeer, 0, 100)) : null,
@@ -231,7 +233,7 @@ export function normalizeAnswers(a = {}) {
 /** True when no step was answered and no theme weight was moved (= Standaard). */
 export function isEmptyAnswers(a) {
   const n = normalizeAnswers(a);
-  return !n.levensfase && !n.oud && !n.budget && !n.vervoer.length && n.sfeer == null && !n.veiligheid.length && !Object.keys(n.weights).length && !n.gemeenschap && !n.situatie && !Object.keys(n.importance).length;
+  return !n.levensfase && !n.bouw && !n.budget && !n.vervoer.length && n.sfeer == null && !n.veiligheid.length && !Object.keys(n.weights).length && !n.gemeenschap && !n.situatie && !Object.keys(n.importance).length;
 }
 
 /** Koop budget ceiling in ×€1.000 (the WOZ unit): max price, else income × 4.5; null otherwise. */
@@ -289,9 +291,13 @@ export const APPLY = Object.freeze({
     if (a.levensfase) for (const [key, w] of LIFE_METRICS[a.levensfase]) metric(d, 'leeftijd', key, 'higher', w, L);
     if (a.levensfase === 'gezin') { metric(d, 'voorzieningen', 'distSchool', 'lower', STRESS_W); metric(d, 'voorzieningen', 'distKinderopvang', 'lower', STRESS_W); }
     if (a.levensfase === 'senior') { metric(d, 'voorzieningen', 'distGP', 'lower', STRESS_W); metric(d, 'voorzieningen', 'distSupermarket', 'lower', 2); }
-    // "Geen oude buurt": the people (fewer 65+) or the buildings (more nieuwbouw).
-    if (a.oud === 'bewoners' && a.levensfase !== 'senior' && a.levensfase !== '50plus') metric(d, 'leeftijd', 'pop65plus', 'lower', 1, L);
-    if (a.oud === 'gebouwen') metric(d, 'nieuwbouw', 'newBuildPct', 'higher', 1, EXTRA_THEME_WEIGHTS.nieuwbouw);
+    // Bouwstijl (v0.29.0): buildings only, never the people. Living among young
+    // families comes from levensfase Gezin (hhWithKidsPct), busy vs quiet from Sfeer.
+    // Shares estimated via postcode (bouwjaar-pc4.js); modern also keeps the CBS
+    // "afgelopen tien jaar" share, which covers 2025 buurten without a 2023 code.
+    const N = EXTRA_THEME_WEIGHTS.nieuwbouw;
+    if (a.bouw === 'karakter') metric(d, 'nieuwbouw', 'oldBuildPct', 'higher', 1, N);
+    if (a.bouw === 'modern') { metric(d, 'nieuwbouw', 'modernBuildPct', 'higher', 2, N); metric(d, 'nieuwbouw', 'newBuildPct', 'higher', 1, N); }
   },
   budget(d, a) {
     const b = a.budget;
@@ -451,7 +457,8 @@ export function guardOrigin(preset) {
 // '.'-separated segments, each led by one letter; only [a-z0-9.] so the
 // value survives URLSearchParams unescaped. Unknown segments are ignored.
 // 'gelijk' / 'standaard' name a fixed preset.
-//   l<s|p|g|v|r>        levensfase      o<b|g>          oud = bewoners/gebouwen
+//   l<s|p|g|v|r>        levensfase      a<k|m>          bouwstijl = karakter/modern
+//                       (old o<b|g> still read: og = modern, ob = nothing)
 //   b<h|k>[i<n>][p<n>][x] budget        v<f|o|a|l>…     vervoer
 //   s<0-100>            sfeer           c<in|gw|…>…     veiligheid chips
 //   w<theme letter><n>… slider weights
@@ -470,7 +477,7 @@ export function guardOrigin(preset) {
 //   i<theme letter><0-4>…  importance level per theme (5-step scale); wins over w.
 
 const LF = { student: 's', stel: 'p', gezin: 'g', '50plus': 'v', senior: 'r' };
-const OUD = { bewoners: 'b', gebouwen: 'g' };
+const BOUW = { karakter: 'k', modern: 'm' };
 const VV = { fiets: 'f', ov: 'o', auto: 'a', lopen: 'l' };
 const CR = { inbraak: 'in', geweld: 'gw', straatroof: 'sr', fiets: 'fd', auto: 'ad', vandalisme: 'vd', drugs: 'dr', omgeving: 'om' };
 const TH = { veiligheid: 'v', welvaart: 'e', voorzieningen: 'z', opleiding: 'o', woningmarkt: 'm', leeftijd: 'l', nieuwbouw: 'n', budget: 'b', sfeer: 's', situatie: 't' };
@@ -478,7 +485,7 @@ const inv = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [v, k]));
 const ED = Object.fromEntries(Object.entries(SITUATIE_EDU).map(([k, e]) => [k, e.code]));
 const INC = Object.fromEntries(Object.entries(SITUATIE_INCOME).map(([k, b]) => [k, b.code]));
 const DG = Object.fromEntries(Object.entries(DETAIL_GROUPS).map(([k, d]) => [k, d.code]));
-const LF_ = inv(LF), OUD_ = inv(OUD), VV_ = inv(VV), CR_ = inv(CR), TH_ = inv(TH), ED_ = inv(ED), INC_ = inv(INC), DG_ = inv(DG);
+const LF_ = inv(LF), BOUW_ = inv(BOUW), VV_ = inv(VV), CR_ = inv(CR), TH_ = inv(TH), ED_ = inv(ED), INC_ = inv(INC), DG_ = inv(DG);
 
 export const SCORE_RE = /^[a-z0-9.]{1,200}$/;
 export const FIXED_PRESETS = Object.freeze(['standaard', 'gelijk']);
@@ -488,7 +495,7 @@ export function encodeAnswers(answers) {
   const a = normalizeAnswers(answers);
   const seg = [];
   if (a.levensfase) seg.push(`l${LF[a.levensfase]}`);
-  if (a.oud) seg.push(`o${OUD[a.oud]}`);
+  if (a.bouw) seg.push(`a${BOUW[a.bouw]}`);
   if (a.budget) seg.push(`b${a.budget.mode === 'huur' ? 'h' : 'k'}${a.budget.income != null ? `i${a.budget.income}` : ''}${a.budget.maxPrice != null ? `p${a.budget.maxPrice}` : ''}${a.budget.hide ? 'x' : ''}`);
   if (a.vervoer.length) seg.push(`v${a.vervoer.map(v => VV[v]).join('')}`);
   if (a.sfeer != null) seg.push(`s${a.sfeer}`);
@@ -509,7 +516,8 @@ export function decodeAnswers(str) {
   for (const s of str.split('.')) {
     const head = s[0], body = s.slice(1);
     if (head === 'l') out.levensfase = LF_[body] ?? null;
-    else if (head === 'o') out.oud = OUD_[body] ?? null;
+    else if (head === 'a') out.bouw = BOUW_[body] ?? null;
+    else if (head === 'o') out.bouw = body === 'g' ? 'modern' : out.bouw;   // pre-0.29 "oud": gebouwen → modern, bewoners → nothing
     else if (head === 'b') {
       const m = /^([hk])(?:i(\d{1,3}))?(?:p(\d{1,4}))?(x?)$/.exec(body);
       if (m) out.budget = { mode: m[1] === 'h' ? 'huur' : 'koop', income: m[2] ? +m[2] : null, maxPrice: m[3] ? +m[3] : null, hide: m[4] === 'x' };

@@ -1,3 +1,4 @@
+import { BOUW_SOURCE_URL, BOUW_MIN_DWELLINGS, OLD_BUILD_BEFORE, MODERN_BUILD_FROM } from './bouwjaar-pc4.js';
 import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, pc4RegionComposition, regionAtBuurt } from './herkomst-pc4.js';
 import { REGIONS, REGIO_TABLE, REGIO_YEAR, regionComposition } from './herkomst-regio.js';
 
@@ -144,6 +145,7 @@ const SRC = Object.freeze({
   nabij2024: Object.freeze({ id: '86134NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2024', publisher: 'CBS', url: statline('86134NED'), scope: 'Rotterdam' }),
   geo:     Object.freeze({ id: 'PDOK', name: 'CBS wijk- en buurtkaart (gebiedsgrenzen, via PDOK)', publisher: 'CBS / PDOK', url: 'https://www.pdok.nl/introductie/-/article/cbs-wijken-en-buurten', scope: 'Rotterdam' }),
   pc4:     Object.freeze({ id: PC4_HERKOMST_TABLE, name: 'Bevolking; geslacht, migratieachtergrond, viercijferige postcode, 1 januari', publisher: 'CBS', url: statline(PC4_HERKOMST_TABLE), scope: 'postcode' }),
+  pc4bouw: Object.freeze({ id: 'PC4-2023', name: `Gegevens per postcode (PC4) ${PC4_YEAR}, woningen naar bouwjaar`, publisher: 'CBS', url: BOUW_SOURCE_URL, scope: 'postcode' }),
   pc6:     Object.freeze({ id: 'pc6huisnr', name: `Buurt, wijk en gemeente per postcode en huisnummer ${PC4_YEAR}`, publisher: 'CBS', url: `https://download.cbs.nl/postcode/${PC4_YEAR}-cbs_pc6huisnr.zip`, scope: 'postcode' }),
   herkomst: Object.freeze({ id: REGIO_TABLE, name: 'Bevolking; herkomstland, geboorteland, leeftijd, regio, 1 januari', publisher: 'CBS', url: statline(REGIO_TABLE), scope: 'Nederland (gemeenten)' }),
   crimeNl: Object.freeze({ id: '83648NED', name: 'Geregistreerde criminaliteit; soort misdrijf, regio', publisher: 'CBS', url: statline('83648NED'), scope: 'Nederland' }),
@@ -171,6 +173,15 @@ const ageInfo = (from, to) => ({
   caveats: [TASTE_NOTE, FALLBACK_NOTE],
 });
 const CRIME_CELL_NOTE = 'De politie laat sommige kleine aantallen weg; een opgetelde categorie is pas "geen data" als alle delen ontbreken.';
+
+// Bouwstijl estimate (v0.29.0): texts shared by oldBuildPct and modernBuildPct.
+const BOUW_DEF = 'CBS publiceert per wijk en buurt alleen of woningen in de laatste tien jaar zijn gebouwd; per viercijferige postcode telt CBS de woningen per bouwjaarklasse (vóór 1945, 1945–1965, …, 2015 en later). Deze app verdeelt de woningen van elk postcodegebied over de buurten erin naar het aantal adressen per buurt, en telt buurten op tot wijken.';
+export const BOUW_NOTES = Object.freeze([
+  'Schatting: binnen één postcodegebied wordt overal dezelfde bouwjaarmix aangenomen; een nieuwbouwbuurt naast een oude kern in dezelfde postcode krijgt een gemengd cijfer.',
+  'Bouwjaar is geen bouwstijl: een gerenoveerd vooroorlogs blok telt als oud, een nieuw gebouw in oude stijl als modern. Wijken die in de oorlog verwoest zijn (zoals het centrum van Rotterdam) hebben weinig vooroorlogse woningen.',
+  `CBS rondt de aantallen per postcode af op 5 en laat kleine aantallen weg (hier als 0 geteld). Onder ${BOUW_MIN_DWELLINGS} geschatte woningen: geen waarde.`,
+  'Indeling 2023 en peiljaar 2023; buurten en wijken van 2025 zonder dezelfde code in 2023 hebben geen gegevens (er wordt niets bijgeschat).',
+]);
 
 const INFO = {
   population: {
@@ -202,7 +213,22 @@ const INFO = {
     formula: 'woningen met een bouwjaar in de afgelopen tien jaar in % van de woningvoorraad (CBS)',
     source: [SRC.kwb2025],
     year: '2025',
-    caveats: ['CBS publiceert per wijk en buurt alleen "afgelopen tien jaar" en "meer dan tien jaar geleden", geen indeling naar vooroorlogs (vóór 1945) of na 2000.', 'CBS laat het cijfer weg in gebieden met weinig woningen ("geen data").', TASTE_NOTE, FALLBACK_NOTE],
+    caveats: ['CBS publiceert per wijk en buurt alleen "afgelopen tien jaar" en "meer dan tien jaar geleden". Vooroorlogse en moderne bouw (vanaf 2005) staan in de lagen Oude bouw en Moderne bouw, geschat via postcode.', 'CBS laat het cijfer weg in gebieden met weinig woningen ("geen data").', TASTE_NOTE, FALLBACK_NOTE],
+  },
+  // Bouwstijl (v0.29.0, bouwjaar-pc4.js): building-year classes per postcode, split over buurten by addresses.
+  oldBuildPct: {
+    description: `Geschat aandeel woningen gebouwd vóór ${OLD_BUILD_BEFORE} (vooroorlogs): een maat voor "oudere bouw met karakter". ${BOUW_DEF} Beschrijvend: er zit geen oordeel in.`,
+    formula: `woningen met bouwjaar vóór ${OLD_BUILD_BEFORE} / woningen totaal × 100, per postcode verdeeld naar adressen per buurt`,
+    source: [SRC.pc4bouw, SRC.pc6],
+    year: `${PC4_YEAR} (geschat via postcode)`,
+    caveats: [...BOUW_NOTES, TASTE_NOTE],
+  },
+  modernBuildPct: {
+    description: `Geschat aandeel woningen gebouwd in ${MODERN_BUILD_FROM} of later: een maat voor "moderne woningen". ${BOUW_DEF} Beschrijvend: er zit geen oordeel in.`,
+    formula: `woningen met bouwjaar ${MODERN_BUILD_FROM} of later / woningen totaal × 100, per postcode verdeeld naar adressen per buurt`,
+    source: [SRC.pc4bouw, SRC.pc6],
+    year: `${PC4_YEAR} (geschat via postcode)`,
+    caveats: [...BOUW_NOTES, TASTE_NOTE],
   },
   pop65plus: {
     description: 'Het aandeel inwoners van 65 jaar of ouder. Hoog = een vergrijsd gebied. Beschrijvend: er zit geen oordeel in.',
@@ -563,6 +589,8 @@ export const DATASETS = Object.freeze({
   ownerOccupiedPct: ds('ownerOccupiedPct', 'Koopwoningen (%)',     'Koopwoningen (%)',                '%',         null,  'welvaart', RTM),
   rentalPct:        ds('rentalPct',        'Huurwoningen (%)',     'Huurwoningen (%)',                '%',         null,  'welvaart', RTM),
   newBuildPct:      ds('newBuildPct',      'Nieuwbouw (%)',        'Woningen jonger dan 10 jaar (%)', '%',         null,  'welvaart', { ...RTM, inOverall: false }),
+  oldBuildPct:      ds('oldBuildPct',      'Oude bouw (%)',        `Woningen van vóór ${OLD_BUILD_BEFORE} (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'welvaart', { ...RTM, inOverall: false, estimated: true }),
+  modernBuildPct:   ds('modernBuildPct',   'Moderne bouw (%)',     `Woningen van ${MODERN_BUILD_FROM} of later (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'welvaart', { ...RTM, inOverall: false, estimated: true }),
   welfarePer1000:   ds('welfarePer1000',   'Bijstand',             'Bijstand per 1.000 inw.',         'per 1.000', false, 'welvaart', RTM),
   crimeRate:        ds('crimeRate',        'Misdrijven totaal',        'Misdrijven per 1.000 inw.',       'per 1.000', false, 'veiligheid'),
   crimeBurglary:    ds('crimeBurglary',    'Woninginbraak',        'Woninginbraak per 1.000 inw.',    'per 1.000', false, 'veiligheid', { ...RTM, inOverall: false }),
