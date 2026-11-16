@@ -208,7 +208,7 @@ export function scoreDrivers(scored, selected = null, { top = 3, rows = 5 } = {}
  * the area to compare (or null), `regio` = { area: entry|null, ref: entry|null,
  * areaName, refName } from herkomst-regio.
  */
-export function buildContext({ scope = 'rotterdam', units = [], scored = units, selected = null, ref = null, regio = null, bouwLoaded = false } = {}) {
+export function buildContext({ scope = 'rotterdam', units = [], scored = units, buurten = [], selected = null, ref = null, regio = null, bouwLoaded = false } = {}) {
   const nl = scope === 'nederland';
   return {
     scope,
@@ -216,7 +216,7 @@ export function buildContext({ scope = 'rotterdam', units = [], scored = units, 
     unitWord: nl ? 'gemeenten' : 'wijken',
     unitOne: nl ? 'gemeente' : 'wijk',
     minPopulation: nl ? 0 : LIST_MIN_POPULATION,
-    units, scored,
+    units, scored, buurten,
     ref: ref ?? aggregateAreas(nl ? scored : units),
     selected: selected?.values ? selected : null,
     regio: regio ?? { area: null, ref: null },
@@ -417,17 +417,33 @@ function herkomstDiversity(ctx) {
   };
 }
 
+/**
+ * The 5 areas with the fewest crimes per 1.000 inwoners one level down:
+ * gemeenten in the Nederland scope, buurten in a city (wijken without buurten).
+ * [{ code, name, value }] plus the unit word for the caption.
+ */
+export function lowestCrime(ctx, n = 5) {
+  if (ctx.scope === 'nederland') return { word: 'gemeenten', rows: rankBy(ctx.units, 'crimeRate', { n, desc: false, minPopulation: 0 }) };
+  const buurten = rankBy(ctx.buurten, 'crimeRate', { n, desc: false, minPopulation: LIST_MIN_POPULATION });
+  if (buurten.length) return { word: 'buurten', rows: buurten };
+  return { word: ctx.unitWord, rows: rankBy(ctx.units, 'crimeRate', { n, desc: false, minPopulation: ctx.minPopulation }) };
+}
+
 function crimeRate(ctx) {
   const v = subjectValues(ctx);
   if (!isNum(v.crimeRate)) return { title: 'Misdrijven per 1.000 inwoners', caption: '', body: null };
-  const fmt = x => formatNumber(x, 1);
-  const rows = [{ label: subjectName(ctx), value: v.crimeRate, hl: true }];
-  if (ctx.selected && isNum(ctx.ref.crimeRate)) rows.push({ label: ctx.refName, value: ctx.ref.crimeRate });
+  const fmt = v => formatNumber(v, 1);
+  const own = [{ label: subjectName(ctx), value: v.crimeRate, hl: true }];
+  if (ctx.selected && isNum(ctx.ref.crimeRate)) own.push({ label: ctx.refName, value: ctx.ref.crimeRate });
+  const low = lowestCrime(ctx);
+  const lowRows = low.rows.map(r => ({ label: r.name, value: r.value }));
+  const max = Math.max(1e-9, ...[...own, ...lowRows].map(r => r.value));
   const trend = `${subjectName(ctx)} ${signedPct(v.crimeTrend)} t.o.v. 2024${ctx.selected ? ` · ${ctx.refName} ${signedPct(ctx.ref.crimeTrend)}` : ''}`;
   return {
     title: 'Misdrijven per 1.000 inwoners',
     caption: `Geregistreerde misdrijven · ${CRIME_SRC}`,
-    body: kpiHtml(fmt(v.crimeRate), `per 1.000 inwoners · ${subjectName(ctx)}`, trend) + barRowsHtml(rows, fmt),
+    body: kpiHtml(fmt(v.crimeRate), `per 1.000 inwoners · ${subjectName(ctx)}`, trend) + barRowsHtml(own, fmt, { max })
+      + (lowRows.length ? `<h4 class="dp-col-title dp-sub-title">Minste misdrijven (${esc(low.word)})</h4>${barRowsHtml(lowRows, fmt, { max })}` : ''),
   };
 }
 

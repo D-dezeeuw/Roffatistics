@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   aggregateAreas, aggregateGemeenten, gemeenteCodeOf, rankBy, topBottom, rankOf, histogram, niceHistogram,
-  ageBands, crimeBreakdown, pearson, scoreDrivers, buildContext, dashboardLayout, boardHtml, CATEGORIES, NA_TEXT,
+  ageBands, crimeBreakdown, lowestCrime, pearson, scoreDrivers, buildContext, dashboardLayout, boardHtml, CATEGORIES, NA_TEXT,
 } from '../modules/dashboard-panels.js';
 import { regionMix, sumRegioEntries, diversityIndex, regionShare } from '../modules/dashboard-herkomst.js';
 import { decodeLevel } from '../modules/nl-areas.js';
@@ -132,6 +132,19 @@ describe('dashboard layout', () => {
     assert.deepEqual(na(over), ['ws-drivers', 'age-kids', 'hk-regions', 'crime-types', 'woz-tenure', 'bouw']);
     assert.match(sel.find(r => r.key === 'leeftijd').panels[0].body, /dp-bar-ref/);
     assert.match(boardHtml(sel), /Zuid/);
+  });
+  it('crime-rate lists the 5 lowest buurten in a city and the 5 lowest gemeenten in Nederland', () => {
+    const buurten = Array.from({ length: 8 }, (_, i) => area(`BU0599000${i}`, `Buurt ${i}`, { crimeRate: 80 - i * 10, population: i === 7 ? 500 : 2000 }));
+    const city = lowestCrime(buildContext({ units: wijken, buurten }));
+    assert.equal(city.word, 'buurten');
+    assert.deepEqual(city.rows.map(r => r.name), ['Buurt 6', 'Buurt 5', 'Buurt 4', 'Buurt 3', 'Buurt 2']);   // Buurt 7: too few inhabitants
+    const panel = dashboardLayout(buildContext({ units: wijken, buurten })).find(r => r.key === 'criminaliteit').panels[0];
+    assert.match(panel.body, /Minste misdrijven \(buurten\)/);
+    assert.match(panel.body, /Buurt 6/);
+    assert.equal(lowestCrime(buildContext({ units: wijken })).word, 'wijken');   // no buurten loaded: wijken
+    const nl = lowestCrime(buildContext({ scope: 'nederland', units: wijken }));
+    assert.equal(nl.word, 'gemeenten');
+    assert.equal(nl.rows[0].name, 'Hillegersberg');
   });
   it('real NL wijk file: every panel has data for gemeenten and for a selected gemeente', () => {
     const nlWijken = withWoonscore(decodeLevel(JSON.parse(readFileSync(new URL('../data/nl/wijken-2025.json', import.meta.url)))));

@@ -138,7 +138,7 @@ function contextFor(state) {
   if (!rd) return null;
   const selected = code && code !== CITY_GM ? rd.wijken.find(a => a.code === code) ?? rd.buurten.find(a => a.code === code) ?? null : null;
   return buildContext({
-    scope: 'rotterdam', units: rd.wijken, scored: rd.wijken, selected, bouwLoaded: isBouwLoaded(),
+    scope: 'rotterdam', units: rd.wijken, scored: rd.wijken, buurten: rd.buurten, selected, bouwLoaded: isBouwLoaded(),
     regio: { area: regio?.get(CITY_GM) ?? null, ref: regioAll, areaName: CITY.name, refName: 'Nederland' },
   });
 }

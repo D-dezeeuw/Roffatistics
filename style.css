@@ -1504,6 +1504,7 @@ footer {
 .dp-kpi-ref { font-size: 0.7rem; color: var(--text-muted); }
 .dp-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
 .dp-col-title { font-size: 0.68rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.2rem; }
+.dp-sub-title { margin-top: 0.6rem; }
 .dp-list { list-style: none; display: flex; flex-direction: column; gap: 0.1rem; }
 .dp-li { display: grid; grid-template-columns: 1.1rem 1fr auto; gap: 0.3rem; align-items: baseline; padding: 0.1rem 0.2rem; border-radius: 4px; }
 .dp-li[data-code] { cursor: pointer; }
