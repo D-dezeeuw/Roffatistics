@@ -42,8 +42,8 @@ cached in sessionStorage only):
    - The existing build caches (`.cache/duo`, `.cache/pc4`, …) read from and
      write to this archive. A rebuild never has to go back to the source
      unless asked (`--refresh`).
-   - Backup of the archive itself: it is on the host volume. A copy elsewhere
-     is the operator's choice (see Open).
+   - Backup of the archive itself: the host volume only (operator, 16 Nov);
+     the sources can be downloaded again.
 2. **Snapshot (what the app reads)**: `data/snapshot/`, normalised JSON in git,
    served by GitHub Pages and the Hermes copy, gzip from `server.js`.
    - Per source, one file per table and level.
@@ -114,8 +114,7 @@ cached in sessionStorage only):
 
 ## Open
 
-- **Offsite copy** of the raw archive: is the host volume enough for now, or
-  should there be a second copy (for example a private forge repo with LFS,
-  or object storage)? Operator to decide.
+- ~~Offsite copy~~ Decided 16 Nov 2026 (operator): the host volume is enough;
+  the sources (CBS, PDOK, DUO, police) can always be downloaded again.
 - Which city comes second (Amsterdam?) and under what name/domain: decide at
   phase 2.
