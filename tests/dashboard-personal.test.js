@@ -58,7 +58,7 @@ describe('personalDashboardSpec', () => {
     const s = spec({ veiligheid: ['inbraak', 'drugs'], levensfase: 'gezin', budget: { mode: 'koop', maxPrice: 400 }, bouw: 'karakter', vervoer: ['ov'] });
     const row = k => s.rows.find(r => r.key === k);
     assert.deepEqual(row('veiligheid').focus.metrics.map(m => m.key), ['crimeBurglary', 'crimeDrugs']);
-    assert.deepEqual(row('levenstype').focus.metrics.map(m => m.key), ['hhWithKidsPct', 'distSchool', 'distKinderopvang']);
+    assert.deepEqual(row('levenstype').focus.metrics.map(m => m.key), ['hhWithKidsPct', 'distSchool', 'eduNearScore', 'distKinderopvang']);
     assert.equal(row('levenstype').panels[2], 'age-kids');
     assert.deepEqual(row('wonen').panels, ['pb-budget', 'pb-within', 'pw-bouw']);
     assert.equal(row('wonen').focus.ceiling, 400);

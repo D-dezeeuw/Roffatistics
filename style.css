@@ -1901,6 +1901,20 @@ footer {
 .ov-swatch-bus   { height: 1px; background: #907b55; }
 .settings-check .ov-swatch { opacity: 1; }
 
+/* Basisscholen pins (modules/school-pins.js): the swatch is the score ramp; the popup is Leaflet's */
+.school-swatch { display: inline-block; width: 0.9rem; height: 0.55rem; border-radius: 2px; background: linear-gradient(90deg, #2e1065, #8c3448, #ea580c); }
+.school-popup { font-size: 0.8rem; line-height: 1.35; min-width: 200px; }
+.school-popup .sp-name { display: block; font-size: 0.9rem; }
+.school-popup .sp-addr, .school-popup .sp-meta, .school-popup .sp-note { color: #64748b; font-size: 0.75rem; }
+.school-popup .sp-grade { margin: 0.35rem 0 0.25rem; }
+.school-popup .sp-grade b { font-size: 1rem; }
+.school-popup .sp-table { border-collapse: collapse; margin-bottom: 0.25rem; }
+.school-popup .sp-table th, .school-popup .sp-table td { padding: 0.05rem 0.5rem 0.05rem 0; text-align: left; font-weight: normal; }
+.school-popup .sp-table td { text-align: right; font-variant-numeric: tabular-nums; }
+.school-popup .sp-table thead th { color: #64748b; font-size: 0.7rem; text-align: right; }
+.school-popup .sp-flag { margin: 0.25rem 0 0; font-weight: 600; color: #b45309; }
+.school-popup .sp-note { margin: 0.15rem 0 0; }
+
 /* ─── Loading screen (shown/hidden by modules/loader.js) ─────
    Contract: .is-visible fades it in, [hidden] removes it, --progress (0..1)
    fills the green bar, .is-indeterminate spins a green arc. Brand colours are

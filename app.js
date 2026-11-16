@@ -1,5 +1,5 @@
 import { bindDOM, run, setValue } from 'spektrum';
-import { initMap, getMap, setMapScope, refreshMapSize, setBasemap, getActiveBasemap, getOvModes, setOvModes, BASEMAP_STORAGE_KEY } from './modules/map.js';
+import { initMap, getMap, setMapScope, refreshMapSize, setBasemap, getActiveBasemap, getOvModes, setOvModes, getSchoolPins, setSchoolPins, BASEMAP_STORAGE_KEY } from './modules/map.js';
 import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, focusNederlandArea, drillIntoGemeente, gemeenteName } from './modules/overlays.js';
 import { applyDrillDataset }            from './modules/nl-drill.js';
 import { rescoreNlAreas }               from './modules/nl-areas.js';
@@ -79,12 +79,14 @@ showLoader('Kaart laden…');   // until the first map data is drawn (end of thi
 setPersonalPreset(presetFromScore(initialState.score));   // before any area is scored (the Woonscore's active preset)
 initMap();
 applyTheme(pickInitialTheme(shareStorage), document);   // theme-color meta (data-theme is set before first paint)
-initSettings({   // header cog "Instellingen": Thema, Kaart, OV-lijnen; the owners store their own keys
+initSettings({   // header cog "Instellingen": Thema, Kaart, OV-lijnen, Basisscholen; the owners store their own keys
   setTheme: id => applyTheme(id, document, shareStorage),
   setBasemap,
   setOv: setOvModes,
+  setSchools: setSchoolPins,
   getBasemap: getActiveBasemap,
   getOv: getOvModes,
+  getSchools: getSchoolPins,
 });
 setLoaderProgress(0.2);
 initSpacePan(document.getElementById('map'));   // hold Space: drag the map, never click a feature

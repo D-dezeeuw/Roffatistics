@@ -46,7 +46,7 @@ const m = (key, pref, extra = {}) => ({ key, pref, ...extra });
 const LIFE_FOCUS = {
   student:    { metrics: [m('pop15to24', 'higher'), m('pop25to44', 'higher')], third: 'age-hotspots' },
   stel:       { metrics: [m('pop25to44', 'higher')], third: 'age-bands' },
-  gezin:      { metrics: [m('hhWithKidsPct', 'higher'), m('distSchool', 'lower'), m('distKinderopvang', 'lower')], third: 'age-kids' },
+  gezin:      { metrics: [m('hhWithKidsPct', 'higher'), m('distSchool', 'lower'), m('eduNearScore', 'higher'), m('distKinderopvang', 'lower')], third: 'age-kids' },
   '50plus':   { metrics: [m('pop45to64', 'higher'), m('distGP', 'lower')], third: 'age-hotspots' },
   senior:     { metrics: [m('pop65plus', 'higher'), m('distGP', 'lower'), m('distSupermarket', 'lower')], third: 'age-hotspots' },
   soloMensen: { metrics: [m('horeca1km', 'higher'), m('density', 'higher'), m('distCentrum', 'lower'), m('singleHhPct', 'higher')], third: 'age-bands' },

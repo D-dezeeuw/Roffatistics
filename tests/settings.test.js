@@ -9,32 +9,36 @@ import { BASEMAPS, resolveBasemap, createBasemapLayer } from '../modules/map.js'
 import { THEME_STORAGE_KEY } from '../modules/theme.js';
 import { BASEMAP_STORAGE_KEY } from '../modules/map.js';
 import { OV_STORAGE_KEY } from '../modules/ov.js';
+import { SCHOOL_PINS_STORAGE_KEY } from '../modules/school-pins.js';
 
 const memStorage = (init = {}) => { const m = new Map(Object.entries(init)); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), m }; };
 const boom = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
 
 describe('settings: defaults, load, save', () => {
-  it('defaults: Rotterdam theme, dark map, all OV lines off', () => {
-    assert.deepEqual(normalizeSettings(SETTINGS_DEFAULTS), { theme: 'rotterdam', basemap: 'dark', ov: { metro: false, tram: false, bus: false } });
+  it('defaults: Rotterdam theme, dark map, all OV lines off, no school pins', () => {
+    assert.deepEqual(normalizeSettings(SETTINGS_DEFAULTS), { theme: 'rotterdam', basemap: 'dark', ov: { metro: false, tram: false, bus: false }, schools: false });
     assert.deepEqual(loadSettings(memStorage()), normalizeSettings(SETTINGS_DEFAULTS));
     assert.deepEqual(loadSettings(null), normalizeSettings(SETTINGS_DEFAULTS));
   });
   it('uses the owners’ storage keys (theme, basemap, ov)', () => {
-    assert.deepEqual({ ...SETTINGS_KEYS }, { theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, ov: OV_STORAGE_KEY });
+    assert.deepEqual({ ...SETTINGS_KEYS }, { theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, ov: OV_STORAGE_KEY, schools: SCHOOL_PINS_STORAGE_KEY });
   });
   it('round-trips through storage', () => {
     const st = memStorage();
-    const s = saveSettings({ theme: 'klassiek', basemap: 'aerial', ov: { metro: true, bus: true } }, st);
-    assert.deepEqual(s, { theme: 'klassiek', basemap: 'aerial', ov: { metro: true, tram: false, bus: true } });
+    const s = saveSettings({ theme: 'klassiek', basemap: 'aerial', ov: { metro: true, bus: true }, schools: true }, st);
+    assert.deepEqual(s, { theme: 'klassiek', basemap: 'aerial', ov: { metro: true, tram: false, bus: true }, schools: true });
     assert.equal(st.m.get(OV_STORAGE_KEY), 'metro,bus');
+    assert.equal(st.m.get(SCHOOL_PINS_STORAGE_KEY), '1');
     assert.deepEqual(loadSettings(st), s);
     saveSettings({ ov: {} }, st);
     assert.equal(st.m.get(OV_STORAGE_KEY), '', 'all off is stored as ""');
     assert.deepEqual(loadSettings(st).ov, { metro: false, tram: false, bus: false });
+    assert.equal(st.m.get(SCHOOL_PINS_STORAGE_KEY), '0');
+    assert.equal(loadSettings(st).schools, false);
   });
   it('unknown values fall back to the defaults', () => {
-    assert.deepEqual(normalizeSettings({ theme: 'neon', basemap: 'osm', ov: { ferry: true } }),
-      { theme: 'rotterdam', basemap: 'dark', ov: { metro: false, tram: false, bus: false } });
+    assert.deepEqual(normalizeSettings({ theme: 'neon', basemap: 'osm', ov: { ferry: true }, schools: 'ja' }),
+      { theme: 'rotterdam', basemap: 'dark', ov: { metro: false, tram: false, bus: false }, schools: false });
     assert.deepEqual(normalizeSettings(null), normalizeSettings(SETTINGS_DEFAULTS));
   });
   it('works without storage (blocked or missing): never throws, gives the defaults', () => {
@@ -97,19 +101,22 @@ describe('settings: dialog', () => {
     assert.match(html, /role="dialog" aria-modal="true" aria-labelledby="settings-title"/);
     assert.match(html, /class="search-dialog settings-dialog"/);
     assert.match(html, /<h2 id="settings-title">Instellingen<\/h2>/);
-    for (const l of ['Thema', 'Kaart', 'OV-lijnen']) assert.match(html, new RegExp(`<legend>${l}</legend>`));
+    for (const l of ['Thema', 'Kaart', 'OV-lijnen', 'Onderwijs']) assert.match(html, new RegExp(`<legend>${l}</legend>`));
     assert.match(html, /name="settings-theme" value="klassiek" checked/);
     assert.match(html, /name="settings-basemap" value="aerial" checked/);
     assert.match(html, /type="checkbox" name="settings-ov" value="tram" checked/);
     assert.doesNotMatch(html, /value="metro" checked/);
+    assert.match(html, /type="checkbox" name="settings-schools" value="on">/);
+    assert.match(html, />Basisscholen</);
+    assert.match(settingsDialogHtml({ schools: true }), /name="settings-schools" value="on" checked/);
     assert.match(html, />Satelliet</);
     assert.match(html, />Paars-oranje</);
   });
   it('read/write the form', () => {
     const f = fakeDialog(settingsDialogHtml(SETTINGS_DEFAULTS));
     assert.deepEqual(readSettingsForm(f.dialog), normalizeSettings(SETTINGS_DEFAULTS));
-    writeSettingsForm(f.dialog, { theme: 'klassiek', basemap: 'light', ov: { metro: true, bus: true } });
-    assert.deepEqual(readSettingsForm(f.dialog), { theme: 'klassiek', basemap: 'light', ov: { metro: true, tram: false, bus: true } });
+    writeSettingsForm(f.dialog, { theme: 'klassiek', basemap: 'light', ov: { metro: true, bus: true }, schools: true });
+    assert.deepEqual(readSettingsForm(f.dialog), { theme: 'klassiek', basemap: 'light', ov: { metro: true, tram: false, bus: true }, schools: true });
   });
   it('opens with the live state, applies each change to its group, Esc closes and returns focus', () => {
     const f = fakeDialog(settingsDialogHtml(SETTINGS_DEFAULTS));
@@ -128,7 +135,12 @@ describe('settings: dialog', () => {
     const bus = f.inputs.find(i => i.value === 'bus');
     bus.checked = true;
     f.listeners.dchange({ target: bus });
-    assert.deepEqual(applied.at(-1), ['ov', { theme: 'rotterdam', basemap: 'aerial', ov: { metro: true, tram: false, bus: true } }]);
+    assert.deepEqual(applied.at(-1), ['ov', { theme: 'rotterdam', basemap: 'aerial', ov: { metro: true, tram: false, bus: true }, schools: false }]);
+    const sch = f.inputs.find(i => i.name === 'settings-schools');
+    sch.checked = true;
+    f.listeners.dchange({ target: sch });
+    assert.deepEqual(applied.at(-1).slice(0, 1), ['schools']);
+    assert.equal(applied.at(-1)[1].schools, true);
     const light = f.inputs.find(i => i.value === 'light');
     f.inputs.filter(i => i.name === 'settings-basemap').forEach(i => (i.checked = i === light));
     f.listeners.dchange({ target: light });
