@@ -45,6 +45,7 @@ const UNIT_LABELS = {
   'km': 'kilometer',
   'misdrijven': 'aantal misdrijven',
   'score': 'score 0–100, relatief binnen gelijke gebieden',
+  'stapel': 'score 0–100, relatief binnen de getoonde gebieden',
 };
 /** Human unit text; crime datasets name both modes. */
 export function unitLabel(ds) {

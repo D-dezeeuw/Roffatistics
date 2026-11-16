@@ -9,6 +9,7 @@ import { routeToCompare } from './compare.js';
 import { buildScale, getScaleMethod, outlierLabel, scaleAverageText, NO_DATA_COLOR, OUTLIER_COLOR } from './scale.js';
 import { activePalette, metricKind } from './palette.js';
 import { datasetValue, DATASETS } from './datasets.js';
+import { STACK_KEY, stackNote, stackResult } from './stapel.js';
 import { createScoreLabels } from './score-labels.js';
 import { formatValue } from './dashboard-data.js';
 import { p2000Note } from './p2000.js';
@@ -90,7 +91,7 @@ let labels = null;       // score stamps (score-labels.js), made on first use
 const byCode = code => areas && (areas.wijken.find(a => a.code === code) ?? areas.buurten.find(a => a.code === code));
 
 /** Tooltip note: non-residential label and, on a P2000 layer, the count (or why there is none). */
-export const areaNote = (area, key) => [nonResidentialLabel(area), p2000Note(area?.values, key)].filter(Boolean).join(' · ') || null;
+export const areaNote = (area, key) => [nonResidentialLabel(area), p2000Note(area?.values, key), key === STACK_KEY ? stackNote(stackResult(area?.code)) : null].filter(Boolean).join(' · ') || null;
 
 function makeAreaLayer(geojson, list, kind, onSelect) {
   const lookup = new Map(list.map(a => [a.code, a]));

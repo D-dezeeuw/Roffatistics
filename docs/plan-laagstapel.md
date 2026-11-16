@@ -3,7 +3,7 @@
 Goal: a user who cares about, say, WOZ and crime picks those layers and gets
 one map (and Ranglijst column) that averages them. A transparent, hand-built
 alternative to the Woonscore: no profile, no shrinkage, only the chosen layers.
-Status: **plan, 16 Nov 2026 (operator request).**
+Status: **built, v0.50.0 (16 Nov 2026); decisions in docs/decisions.md "Laagstapel".**
 
 ## Rule
 

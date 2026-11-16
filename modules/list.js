@@ -12,6 +12,7 @@ import { scoreResult, themeBreakdown } from './presets.js';
 import { splitResidential, nonResidentialLabel, classifyWoongebied } from './woongebied.js';
 import { scoreKind, scoreTitle } from './wizard-model.js';
 import { visibleColumns, visibleSort } from './list-view.js';
+import { getActiveStack, stackItemText } from './stapel.js';
 
 /** The Woonscore follows the active preset: personalised title and a `personal` flag (header tooltip, note). */
 function withScorePreset(ds) {
@@ -193,7 +194,7 @@ export function initList(root = document.getElementById('view-list')) {
       return;
     }
     if (!isVisible()) return;
-    if (changed.includes('scope') || changed.includes('crime') || changed.includes('score') || changed.includes('listView')) { render(); return; }
+    if (changed.includes('scope') || changed.includes('crime') || changed.includes('score') || changed.includes('listView') || changed.includes('stack')) { render(); return; }
     if (rankChanged) { render(); return; }
     if (changed.includes('area')) {
       markSelected(state.area);
@@ -338,7 +339,7 @@ async function doRender() {
   const scoreRanking = isScoreRanking(rankKey);
   // Eenvoudig: only the ranking category's columns; a sort on a hidden column falls back to the rank.
   const listView = getState().listView;
-  const columns = visibleColumns(datasets, { mode: listView, rankKey });
+  const columns = visibleColumns(datasets, { mode: listView, rankKey, stackKeys: (getActiveStack() ?? []).map(i => i.key) });
   if (listView !== 'adv') ui.sort = visibleSort(ui.sort, columns);
   const { peers, excluded } = scoreRanking ? splitResidential(areas) : { peers: areas, excluded: [] };
   const ranked = rankRows(scoreAreas(peers, datasets), rankKey, datasets).map(r => ({ ...r, nonResidential: nonResidentialLabel(r) }));
@@ -369,6 +370,7 @@ async function doRender() {
   else if (!rankDs) notes.push('Score = percentiel 0–100 binnen de lijst, gemiddeld over de datasets met een richting.');
   else if (rankDs.personal === 'gelijk') notes.push('Gerangschikt op de Woonscore · gelijk gewogen: 0–100 binnen de lijst, alle cijfers met een richting even zwaar. Reset in de legenda van de kaart zet hem terug op Standaard.');
   else if (rankDs.personal) notes.push(`Gerangschikt op de ${rankDs.title.replace(/ \(0–100\)$/, '')}: 0–100 binnen de lijst, gewogen met je antwoorden uit "Vind jouw ideale woonplek". Gebieden boven je budget (als je die verbergt) staan zonder rang onderaan. De kolom Opbouw toont de punten per thema. Reset in de legenda van de kaart zet hem terug op Standaard.`);
+  else if (rankDs.unit === 'stapel') notes.push(`Gerangschikt op Mijn stapel: ${(getActiveStack() ?? []).map(stackItemText).join(', ')} (↑ = hoger is beter, ↓ = lager is beter). Per laag de percentielscore 0–100 binnen de lijst, gewogen gemiddeld.`);
   else if (rankDs.unit === 'score') notes.push('Gerangschikt op de Woonscore: 0–100 binnen de lijst, gewogen over veiligheid (35), welvaart (20), voorzieningen (25), opleiding (10) en koopwoningen (10). De kolom Opbouw toont de punten per thema.');
   else if (rankDs.higherIsBetter == null) notes.push(`Gerangschikt op ${rankDs.title}, hoogste waarde eerst; score = percentiel 0–100 van die waarde.`);
   else notes.push(`Score = percentiel 0–100 op ${rankDs.title} alleen (${rankDs.higherIsBetter ? 'hoger' : 'lager'} is beter).`);
@@ -491,7 +493,7 @@ function tableHtml(rows, datasets, level, rankKey, sortDs = null, all = datasets
 
 /** Totaalscore and the Woonscore layers rank woongebieden only; any other metric ranks every area. */
 export function isScoreRanking(rankKey) {
-  return rankKey === 'overall' || DATASETS[rankKey]?.group === 'score';
+  return rankKey === 'overall' || DATASETS[rankKey]?.unit === 'score';   // Mijn stapel ranks like any layer
 }
 
 /**

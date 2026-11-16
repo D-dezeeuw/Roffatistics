@@ -19,6 +19,7 @@ import { scoreKind, scoreLabel } from './wizard-model.js';
 import { scoreResult } from './presets.js';
 import { loadEduAreas, loadEduSchools, loadBuurtCentres, getEduEntry, getEduSchools, getBuurtCentre, eduAreaDetail, eduPanelHtml } from './onderwijs.js';
 import { CITY, isCityAreaCode } from './city.js';
+import { stackResult, stackItemText } from './stapel.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -146,6 +147,22 @@ export function p2000Html(p) {
   return `<ul class="area-p2000-list">${items}</ul><p class="area-note">Live van <a href="https://randstad.hermes.blockworlds.nl/" target="_blank" rel="noopener">Randstad</a>. P2000 toont maar een deel van het politiewerk; locaties zijn bij benadering.${p.rows[0].rate == null ? ' Te weinig inwoners voor een cijfer per 1.000.' : ''}</p>`;
 }
 
+/**
+ * Mijn stapel in the modal: the value and per stacked layer its raw value and
+ * score, so the user sees why the area scores as it does. `stack` = stapel.js result.
+ */
+export function stackBlockHtml(stack, lvl = 'gebieden', mode = 'rate') {
+  if (!stack?.parts?.length) return '';
+  const rows = stack.parts.map(p => `<tr><th scope="row">${esc(stackItemText(p))}</th><td>${esc(formatValue(p.raw, p.key, mode))}</td><td>${p.score == null ? '—' : Math.round(p.score)}</td></tr>`).join('');
+  const value = stack.value == null ? 'geen data' : `${Math.round(stack.value)} <small>/ 100</small>`;
+  return `<section class="area-sec area-stack">
+      <div class="area-sec-head"><h3>Mijn stapel</h3><button type="button" class="area-btn" data-stack-open>Bewerken</button></div>
+      <p class="area-stack-value"><span class="area-score-num">${value}</span></p>
+      <div class="area-table-wrap"><table class="area-table"><thead><tr><th scope="col">Laag</th><th scope="col">Waarde</th><th scope="col" title="Percentielscore 0–100, hoog = beter in de richting die je koos">Score</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="area-note">Score per laag = percentiel 0–100 onder de ${esc(lvl)} op de kaart (↑ hoger is beter, ↓ lager is beter); Mijn stapel = gewogen gemiddelde.${stack.value == null ? ' Te weinig lagen met een waarde (minder dan de helft van het gewicht).' : ''}</p>
+    </section>`;
+}
+
 export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'rotterdam' } = {}) {
   const pt = PEER_TEXT[peers] ?? PEER_TEXT.rotterdam;
   if (!d) return '<p class="area-empty">Geen gegevens voor dit gebied.</p>';
@@ -242,7 +259,7 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
         <button type="button" class="area-btn" data-area-action="compare">Vergelijk</button>
         <button type="button" class="area-btn" data-area-action="copy">Kopieer link</button>
       </div>
-      ${nonres}${woonscore}${overall}${chips}
+      ${nonres}${woonscore}${stackBlockHtml(d.stack, lvl, d.mode)}${overall}${chips}
       ${extras.length ? `<section class="area-sec"><div class="area-extras">${extras.join('')}</div></section>` : ''}
       ${table}${children}
     </div>`;
@@ -283,7 +300,7 @@ async function renderNational(code) {
   if (current !== code) return false;
   const { area, areas } = nationalAreaSet(code, national[level], { names: new Map(index.map(e => [e.code, e.name])) });
   const detail = buildAreaDetail(area, areas, { mode: getState().crime });
-  if (detail) detail.onderwijs = onderwijsDetail(code);
+  if (detail) { detail.onderwijs = onderwijsDetail(code); detail.stack = stackResult(code); }
   els.dialog.innerHTML = areaModalHtml(detail, { peers: 'nederland', personal: scoreKind(getState().score) === 'standaard' ? false : scoreLabel(getState().score) });
   els.dialog.scrollTop = 0;
   els.dialog.querySelector('.area-body')?.scrollTo?.(0, 0);
@@ -302,7 +319,7 @@ async function render(code) {
   if (current !== code) return false;
   const area = areas.wijken.find(a => a.code === code) ?? areas.buurten.find(a => a.code === code);
   const detail = buildAreaDetail(area, areas, { mode: getState().crime });
-  if (detail) detail.onderwijs = onderwijsDetail(code);
+  if (detail) { detail.onderwijs = onderwijsDetail(code); detail.stack = stackResult(code); }
   els.dialog.innerHTML = areaModalHtml(detail, { peers, dataYears: area ? areaPanelData(area).dataYears : '', personal: scoreKind(getState().score) === 'standaard' ? false : scoreLabel(getState().score) });
   els.dialog.scrollTop = 0;
   els.dialog.querySelector('.area-body')?.scrollTo?.(0, 0);
@@ -415,7 +432,7 @@ export function initAreaModal() {
     openAreaModal(t.dataset.areaModal, modal.contains(t) ? returnFocus : t);
   });
   onStateChange(({ changed }) => {
-    if ((changed.includes('crime') || changed.includes('score') || changed.includes('dataset')) && isOpen() && current) render(current);
+    if ((changed.includes('crime') || changed.includes('score') || changed.includes('dataset') || changed.includes('stack')) && isOpen() && current) render(current);
     if (changed.includes('scope') && isOpen()) closeAreaModal();
   });
 }

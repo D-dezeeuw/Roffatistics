@@ -175,3 +175,53 @@ describe('stapel: dataset entry', () => {
 });
 
 beforeEach(() => setActiveStack(null));
+
+describe('stapel: builder and happy flow', async () => {
+  const { builderGroups, builderBodyHtml, initialDraft } = await import('../modules/stapel-builder.js');
+  const { stackBlockHtml } = await import('../modules/area-modal.js');
+  const { scoreAreas, rankRows, scoreFor, formatValue } = await import('../modules/ranking.js');
+  const { visibleColumns } = await import('../modules/list-view.js');
+  const { areaNote } = await import('../modules/city-scope.js');
+
+  it('builder lists stackable layers per group for the scope; no live layers, no stack', () => {
+    const nl = builderGroups('nederland').flatMap(g => g.datasets.map(d => d.key));
+    assert.ok(nl.includes('woonscore') && nl.includes('wozValue'));
+    assert.ok(!nl.includes(STACK_KEY) && !nl.some(k => DATASETS[k].live));
+    assert.ok(!nl.includes('distGroen'));   // city-only layer
+    assert.ok(builderGroups('nederland', ['distGroen']).flatMap(g => g.datasets.map(d => d.key)).includes('distGroen'));
+  });
+
+  it('initial draft: current stack plus the added layer with its default direction', () => {
+    assert.deepEqual(initialDraft('wozValue.l,crimeRate.l2', 'originDutchPct').map(d => [d.key, d.dir, d.weight]),
+      [['wozValue', 'l', 1], ['crimeRate', 'l', 2], ['originDutchPct', null, 1]]);
+    assert.equal(initialDraft(null, 'wozValue')[0].dir, 'l');
+    const html = builderBodyHtml(initialDraft('wozValue.l,crimeRate.l2'), 'rotterdam');
+    assert.match(html, /data-stack-key="crimeRate"[^]*?checked[^]*?<option value="2" selected>/);
+    assert.match(html, /data-stack-key="originDutchPct"[^]*?Geen vaste richting: kies zelf/);
+  });
+
+  it('happy flow: link → state → values → Ranglijst, tooltip and modal', () => {
+    const { stack } = parseHash('#scope=rotterdam&view=list&dataset=stapel&stack=wozValue.l,crimeRate.l2');
+    setActiveStack(stack, 'rate');
+    const wijken = [
+      area('WK1', { wozValue: 200, crimeRate: 10 }),
+      area('WK2', { wozValue: 400, crimeRate: 30 }),
+      area('WK3', { wozValue: 300, crimeRate: null }),
+    ];
+    assignStack(wijken);
+    // WK1: woz 100, crime 100 → 100; WK2: 0, 0 → 0; WK3: woz 50 only (1 of 3 < 2) → geen data
+    assert.deepEqual(wijken.map(a => a.values.stapel), [100, 0, null]);
+    const datasets = [DATASETS.stapel, DATASETS.wozValue, DATASETS.crimeRate];
+    const ranked = rankRows(scoreAreas(wijken, datasets), STACK_KEY, datasets);
+    assert.deepEqual(ranked.filter(r => r.rank != null).map(r => r.code), ['WK1', 'WK2']);
+    assert.equal(scoreFor(ranked[0], STACK_KEY, datasets), 100);
+    assert.equal(formatValue(64.4, 'stapel'), '64');
+    assert.deepEqual(visibleColumns(datasets, { rankKey: STACK_KEY, stackKeys: ['wozValue', 'crimeRate'] }).map(d => d.key), ['stapel', 'wozValue', 'crimeRate']);
+    assert.equal(areaNote(wijken[0], STACK_KEY), 'WOZ waarde 100 · Misdrijven totaal 100');
+    const modal = stackBlockHtml(stackResult('WK1'), 'wijken', 'rate');
+    assert.match(modal, /Mijn stapel/);
+    assert.match(modal, /↓ Misdrijven totaal ×2<\/th><td>10 per 1\.000 inw\.<\/td><td>100<\/td>/);
+    assert.match(stackBlockHtml(stackResult('WK3')), /geen data/);
+    assert.equal(stackBlockHtml(null), '');
+  });
+});

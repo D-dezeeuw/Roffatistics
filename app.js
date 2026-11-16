@@ -38,7 +38,8 @@ import { showLoader, hideLoader, setLoaderProgress, withLoader } from './modules
 import { isEduKey, isEduLoaded, loadEduAreas, onEduLoaded, addEduValues, withEduRows, presetUsesEdu, eduAreasWanted } from './modules/onderwijs.js';
 import { isP2000Key, isP2000Loaded, loadP2000, setP2000Window, getP2000Window, activeP2000, addP2000Values, withP2000Rows, p2000LegendHtml, P2000_ERROR_TEXT, P2000_LOADING_TEXT } from './modules/p2000.js';
 import { CITY, applyCityToDocument } from './modules/city.js';
-import { STACK_KEY, setActiveStack, getActiveStack, assignStack, assignStackRows, stackUsesCrime } from './modules/stapel.js';
+import { STACK_KEY, setActiveStack, getActiveStack, assignStack, assignStackRows, stackUsesCrime, stackLegendHtml } from './modules/stapel.js';
+import { initStackBuilder, openStackBuilder } from './modules/stapel-builder.js';
 
 // ── Legend ────────────────────────────────────────────────────────────────────
 setValue('legend.title',           '');
@@ -256,6 +257,8 @@ document.addEventListener('click', closeDropdown);
 document.querySelectorAll('.layer-opt').forEach(btn => {
   btn.addEventListener('click', () => {
     closeDropdown();
+    // "Mijn stapel" without a stack opens the builder; its "Toon op kaart" then shows the layer.
+    if (btn.dataset.dataset === STACK_KEY && !getState().stack) { openStackBuilder({ trigger: layersBtn }); return; }
     setState({ dataset: btn.dataset.dataset }, { source: 'layers' });
   });
 });
@@ -309,11 +312,19 @@ function syncLegendExtras(key) {
   legend?.classList.toggle('legend-has-live', live);
   legend?.classList.toggle('legend-has-crime', isCrimeDataset(key));
   legend?.classList.toggle('legend-has-score', DATASETS[key]?.unit === 'score');
+  renderStackLegend(key);
   const info = legend?.querySelector('.legend-info');
   if (info) {
     info.dataset.explain = key;
     info.setAttribute('aria-label', `Uitleg: ${DATASETS[key]?.title ?? 'deze laag'}`);
   }
+}
+
+// Mijn stapel in the legend: its layers + "Bewerken" on the stack, "+ Stapel" on any other stackable layer.
+function renderStackLegend(key = getState().dataset) {
+  const html = stackLegendHtml(getActiveStack(), key);
+  document.querySelectorAll('[data-stack-slot]').forEach(el => { el.innerHTML = html; });
+  document.getElementById('legend')?.classList.toggle('legend-has-stack', !!html);
 }
 
 async function activateDataset(key) {
@@ -476,6 +487,7 @@ function applyStack({ redraw = true } = {}) {
   if (provinceRows.length) { assignStackRows(provinceRows); setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); setNationalAreas('provincie', provinceRows); }
   if (gemeenteRows.length) { assignStackRows(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
   if (redraw && getState().dataset === STACK_KEY) activateDataset(STACK_KEY);
+  else renderStackLegend();   // "+ Stapel" ↔ "In je stapel"
 }
 // Stacked layers whose data loads on first use: fetched here; their onLoaded handlers recompute the stack.
 function ensureStackData(items) {
@@ -592,6 +604,7 @@ initLegendCollapse();
 // Schaal: Kwantiel | Lineair — recolour the map and legend from the shown set.
 document.addEventListener(SCALE_EVENT, () => activateDataset(getState().dataset));
 initExplain();
+initStackBuilder();   // "Stapel samenstellen": [data-stack-open] / [data-stack-add] anywhere (legend, area modal)
 initLegal();   // Privacy · Disclaimer · Colofon (splash footer, Uitleg foot, ☰ menu, #legal=…)
 initAreaModal();
 initComparePanel();   // after initState: a cmp in the link opens the panel

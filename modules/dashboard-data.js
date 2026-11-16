@@ -115,7 +115,7 @@ export function formatValue(v, key, mode = 'rate') {
   if (n == null) return 'geen data';
   const unit = datasetFor(key, mode)?.unit;
   if (unit === 'misdrijven') return `${formatNumber(n)} misdrijven`;
-  if (unit === 'score')     return `${formatNumber(Math.round(n))} / 100`;
+  if (unit === 'score' || unit === 'stapel') return `${formatNumber(Math.round(n))} / 100`;
   if (unit === 'cijfer')    return `${formatNumber(Math.round(n) / 10, 1)} / 10`;   // schoolscore 0–100 shown as a grade
   if (unit === '×€1.000')   return `€ ${formatNumber(Math.round(n * 1000 / 100) * 100)}`;
   if (unit === '%')         return `${formatNumber(n, 1)}%`;

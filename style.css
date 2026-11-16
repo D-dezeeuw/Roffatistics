@@ -2339,3 +2339,26 @@ footer {
 .edu-po-km, .edu-po-val { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .edu-po-schools .edu-po-val strong { font-size: 0.9rem; }
 .edu-po-km { color: var(--text-muted); }
+
+/* ── Mijn stapel (docs/plan-laagstapel.md) ─────────────────────────────────── */
+.legend-stack { display: none; margin-top: 0.5rem; font-size: 0.78rem; }
+#legend.legend-has-stack .legend-stack { display: block; }
+.legend-stack-list { list-style: none; margin: 0 0 0.3rem; padding: 0; }
+.legend-stack-list li { line-height: 1.5; }
+.legend-stack-list small { color: var(--text-muted); }
+.stack-arrow { display: inline-block; width: 1em; font-weight: 700; }
+.legend-stack-hint { margin: 0 0 0.35rem; color: var(--text-muted); font-size: 0.72rem; }
+.legend-stack-in { color: var(--text-muted); }
+.legend-stack-btn { font: inherit; font-size: 0.75rem; padding: 0.15rem 0.55rem; border-radius: var(--radius); border: 1px solid rgba(var(--accent-rgb), 0.45); background: transparent; color: var(--text-primary); cursor: pointer; }
+.legend-stack-btn:hover { border-color: rgba(var(--accent-rgb), 0.8); }
+.stack-dialog { display: flex; flex-direction: column; }
+.stack-row { padding: 0.15rem 0; }
+.stack-row.is-on { border-left: 2px solid rgba(var(--accent-rgb), 0.6); padding-left: 0.4rem; }
+.stack-check { margin-top: 0.2rem; }
+.stack-controls { display: flex; flex-wrap: wrap; gap: 0.4rem 0.7rem; align-items: center; margin: 0.25rem 0 0.35rem 1.5rem; font-size: 0.78rem; }
+.stack-controls[hidden] { display: none; }
+.stack-weight select { font: inherit; margin-left: 0.25rem; }
+.stack-neutral { color: var(--text-muted); font-size: 0.72rem; }
+.stack-foot { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; padding: 0.6rem 0.9rem; border-top: 1px solid rgba(var(--accent-rgb), 0.2); }
+.stack-status { flex: 1 1 12rem; font-size: 0.8rem; color: var(--text-muted); }
+.area-stack-value { margin: 0.2rem 0 0.4rem; }

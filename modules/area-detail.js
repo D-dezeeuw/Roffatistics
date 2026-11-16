@@ -175,7 +175,7 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
   const peers = sameLevel.filter(isResidentialArea);
   const entries = [];
   for (const key of DATASET_KEYS) {
-    if (DATASETS[key].unit === 'score') continue;   // the Woonscore has its own block
+    if (DATASETS[key].unit === 'score' || DATASETS[key].unit === 'stapel') continue;   // the Woonscore and Mijn stapel have their own block
     if (DATASETS[key].live) continue;   // P2000 meldingen (W30): own block, no rank among peers
     const ds = datasetFor(key, mode);
     const value = datasetValue(area.values, key, mode);

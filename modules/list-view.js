@@ -16,9 +16,11 @@ export const FIXED_COLUMNS = Object.freeze(['rank', 'name', 'overall']);
  *   category (Misdrijven totaal, inkomen, …) as a compact overview.
  * `category` defaults to the category of `rankKey`.
  */
-export function visibleColumns(datasets, { mode = 'simple', category, rankKey = 'overall' } = {}) {
+export function visibleColumns(datasets, { mode = 'simple', category, rankKey = 'overall', stackKeys = [] } = {}) {
   if (mode === 'adv') return orderColumns(datasets, rankKey);
   const rankDs = datasets.find(d => d.key === rankKey);
+  // Mijn stapel: the stack column and its own layers, in stack order.
+  if (rankDs?.unit === 'stapel') return [rankDs, ...stackKeys.map(k => datasets.find(d => d.key === k)).filter(Boolean)];
   if (rankKey === 'overall' || category === 'overall' || rankDs?.unit === 'score') return headlineColumns(datasets, rankKey);
   const cat = category ?? categoryOf(rankKey);
   let own = datasets.filter(d => categoryOf(d.key) === cat);
@@ -37,7 +39,7 @@ export function headlineColumns(datasets, rankKey = 'overall') {
   const out = [];
   for (const g of DATASET_GROUPS) {
     const d = datasets.find(x => x.key === g.headline);
-    if (d && d.unit !== 'score' && d.key !== rankKey && !out.includes(d)) out.push(d);
+    if (d && d.unit !== 'score' && d.unit !== 'stapel' && d.key !== rankKey && !out.includes(d)) out.push(d);
   }
   return out;
 }
