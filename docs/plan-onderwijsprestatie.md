@@ -157,9 +157,26 @@ layer; click → name, address, score/10, the per-subject breakdown, pupils,
      background), clearly labelled as a rough area estimate.
    - Diverging colour scale around 0; caveat that this is a statistical
      residual and not an Inspectie judgement.
-5. Woonscore / wizard: once 3–4 are seen, consider `eduStreefPct` or
-   `eduVsExpected` for levensfase "gezin" (next to `distSchool`). Decision in
-   `docs/decisions.md`, not before.
+5. **Schoolkwaliteit dichtbij huis → gezin (operator, 16 Nov).** A primary
+   school has to be close to home (children walk or cycle there), unlike
+   secondary/higher education. So for families not only availability
+   (`distSchool`) but also the quality of the schools *near home* counts, and
+   the schools inside the buurt alone are not enough (many buurten have none,
+   and the nearest school is often over the border).
+   - Metric `eduNearScore` per buurt (rolled up to wijk/gemeente weighted by
+     inhabitants): the distance-weighted mean schoolscore of scored BO schools
+     within **1.5 km** (straight line) of the buurt centre, weight
+     `max(0, 1 − d/1.5 km)`; plus `eduNearBest` = the best schoolscore within
+     **1 km** and `eduNearCount` = scored schools within 1 km. Null when no
+     scored school within 1.5 km. Computed in `build-schools.mjs` from school
+     lat/lon and the buurt centres we already have. Caveat: straight-line
+     distance; school choice, waiting lists and catchment rules are not seen.
+   - Woonscore/wizard: levensfase **gezin** gets `eduNearScore` (higher, ×3)
+     next to `distSchool` and kinderopvang, i.e. quality and availability
+     both count. Also in Voorzieningen? No: it is quality, not a facility;
+     own entry in the Leeftijd/gezin mapping. Record in `docs/decisions.md`.
+   - Area panel and school-pin popup: for a buurt show "Basisscholen binnen
+     1 km" (name, score/10, distance).
 
 ## Tests and acceptance
 

@@ -49,6 +49,7 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 | Rotterdam population by country of origin 2022–2026 (gemeente only; 19 groups, top 15 countries, trend) | CBS OData — Bevolking; herkomstland, geboorteland, leeftijd, regio, 1 januari | 85458NED |
 | Herkomst per postcode 2023 (Suriname, Turkije, Marokko, …), split to buurt/wijk by addresses (`scripts/build-pc4-herkomst.mjs`) | CBS OData — Bevolking; geslacht, migratieachtergrond, viercijferige postcode | 83503NED |
 | Herkomst per wereldregio per gemeente 2026 (`scripts/build-gemeente-regio.mjs`); validation of the postcode estimate (2023) | CBS OData — Bevolking; herkomstland, geboorteland, leeftijd, regio, 1 januari | 85458NED |
+| Onderwijsprestatie basisscholen: referentieniveaus groep 8 per vestiging, 2022–2024, per school and per buurt/wijk/gemeente (`scripts/build-schools.mjs` → `data/nl/onderwijs-po-2024.json`) | DUO open onderwijsdata (onderwijsdata.duo.nl); adres → buurt via CBS pc6huisnr 2023 and PDOK Locatieserver | wporeferentieniveau-v1, wpo-eindscores, adressen_bo |
 | Postcode → buurt/wijk/gemeente crosswalk 2023 (address counts) | CBS — postcode en huisnummer met buurt, wijk en gemeente | pc6huisnr 2023 |
 | Rotterdam gemeente + wijk geometry | PDOK CBS gebiedsindelingen 2024 (`gemeente_gegeneraliseerd`, `wijk_gegeneraliseerd`), pre-cached in `data/rotterdam_*.geojson` | — |
 
