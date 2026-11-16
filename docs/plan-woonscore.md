@@ -14,6 +14,12 @@ Status: plan, 15 Nov 2026. Builds on the existing per-area percentiles
 
 ## 1. Score engine (`modules/score.js`, pure, tested)
 
+> **Achterhaald (16 Nov 2026).** §1 and §2 describe the W1 design (v0.18.0).
+> The current formulas live in `docs/algoritmes.md` §1–2. The current Standaard
+> (neutral, with a slight emphasis) is decision "Woonscore Standaard is neutral,
+> with a slight emphasis (v0.54.0)" in `docs/decisions.md`. Gemeenschap defaults
+> to 20 % of the total (`GEMEENSCHAP_DEFAULT_PCT`; was 10 %).
+
 Per level and scope the peers are the areas on screen: NL gemeenten among
 themselves, Rotterdam wijken among wijken, buurten among buurten. A score is
 **relative to its peers** and the legend says so. A buurt score is not a
@@ -52,6 +58,8 @@ It lives in `modules/presets.js` and is serialised into the URL hash
 shared.
 
 ## 2. Default preset "Standaard" (no lifestyle metrics)
+
+> **Achterhaald**: see the note under §1 and `docs/algoritmes.md` §1.
 
 Average preferable circumstances only. Metrics that depend on taste are left
 out: density/drukte, age mix, origin, WOZ as such (expensive is not better).

@@ -204,6 +204,8 @@ Partly reverses "2026-11-15 — One category list…" (Herkomst = Nederland + wo
 
 ## 2026-11-15 — Woonscore (Epic W1, v0.18.0)
 
+> **Achterhaald (16 Nov 2026):** the engine and Standaard below are superseded by `docs/algoritmes.md` §1 and the v0.54.0 decision "Woonscore Standaard is neutral, with a slight emphasis".
+
 - **Engine** `modules/score.js` (pure, no imports): percentile 0..1 within peers (mid-rank, same rule as `ranking.js`), preference `higher`/`lower`/`target` (Gaussian with sd = tolerance, shifted to reach exactly 0 at ±2 tolerances), `filter` flags an area (`filtered`) and never drops it, score = 100 × Σ w·f / Σ w over factors with data, null below 60 % weight coverage, `explain()` = plus/minus factors by impact 100·w·(f − 0.5)/Σw (above or below the peer middle).
 - **log1p:** a percentile rank is unchanged by a monotone transform, so log1p before the percentile (plan §1) changes nothing; the `log` flag is kept and matters only for `target` distances. Shrinkage works on raw rates.
 - **Shrinkage** only for buurten (parent = wijk) and only on rates per 1.000 (`RATE_KEYS`: crime, bijstand): rate' = w·rate + (1 − w)·wijk, w = n/(n + 300), applied to every buurt (proper empirical Bayes; large buurten barely move). The "weinig inwoners" badge shows when n < 300, i.e. when the wijk weighs more than the buurt. Wijken and NL gemeenten are not shrunk. The shown values stay the raw rates; only the score uses the shrunk ones.
@@ -664,3 +666,9 @@ Operator request: the hamburger only on mobile; on tablet and desktop the menu i
 - Levendig and Rustig are mutually exclusive, because they point Sfeer in opposite directions. In the UI, switching one on switches the other off. A crafted link with both drops both, rather than guessing which one was meant.
 - Hash: `lc<letters>`. The letter `c` was free in LF, so old links decode unchanged. `blocks` only exists when the levensfase is `custom`.
 - The personal dashboard focuses on the blocks' own metrics. LIFE_FOCUS has no starter or nieuwkomer row, so the dashboard now guards a missing focus row instead of throwing.
+
+## 16 Nov 2026 — Documentatie gelijkgetrokken (plan-gui-header-wizard §D)
+
+- `plan-woonscore.md` §1–2 and the W1 decision are marked superseded. The current source is `docs/algoritmes.md` together with the v0.54.0 decision, so a reader no longer follows the old Standaard.
+- Gemeenschap defaults to 20 % of the total (`GEMEENSCHAP_DEFAULT_PCT = 20`, addendum 16 Nov 2026; was 10 %).
+- The README no longer lists a "herkomst Nederland" layer. That share has been data only since v0.53.0, and Diversiteit is the layer.
