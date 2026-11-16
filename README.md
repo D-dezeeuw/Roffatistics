@@ -6,6 +6,8 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 
 ---
 
+Algorithms (Woonscore, ranks, colour classes, derived metrics) as formulas: [docs/algoritmes.md](docs/algoritmes.md).
+
 ## Features
 
 - **Rotterdam mode (default)** — the map locks onto gemeente Rotterdam, masks everything outside it, and colours all 21 CBS wijken; from zoom 13 the 91 buurten take over. Areas without data share one neutral colour ("geen data" in the legend)

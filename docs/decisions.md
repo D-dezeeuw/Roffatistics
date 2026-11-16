@@ -1,5 +1,7 @@
 # Decisions
 
+The algorithms as they run now (formulas, parameters, known weaknesses) are in [algoritmes.md](algoritmes.md); a change to one of them updates that file in the same commit.
+
 ## 2026-11-16 — Woonscore Standaard is neutral, with a slight emphasis (v0.54.0)
 
 - **Cause.** A fresh load (no hash, no storage) scores with `PROFILES.standaard`, which was itself a lifestyle-like profile (Voorzieningen 40, Veiligheid 35, Welvaart 15, Opleiding 10): it read as "a profile picked automatically". No wizard answers or preset were auto-applied.
