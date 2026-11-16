@@ -7,7 +7,9 @@ import {
   schoolsWithinKm, decodeSchools, decodeEduAreas, encodeCentres, decodeCentres, eduValuesFor, eduAreaDetail,
   eduPanelHtml, schoolRowHtml, addEduValues, withEduRows, loadEduAreas, loadEduSchools, loadBuurtCentres,
   isEduLoaded, getEduEntry, getEduSchools, getBuurtCentre, onEduLoaded, _setEduData, EDU_AREA_URL,
+  presetUsesEdu, eduAreasWanted,
 } from '../modules/onderwijs.js';
+import { answersToPreset, normalizeAnswers } from '../modules/wizard-model.js';
 import { DATASETS, categoryOf, datasetInScope } from '../modules/datasets.js';
 import { formatValue, formatTick } from '../modules/dashboard-data.js';
 
@@ -21,6 +23,7 @@ const SCHOOLS = [
   S('DD00', 'Duin', 'BU05990201', 60),
   S('EE00', 'Elders', null, 75, { gemeente: 'GM0599' }),
   S('FF00', 'Ver weg', 'BU03630001', 90),
+  S('GG00', 'Alleen wijk', null, 66, { wijk: 'WK059902' }),
 ];
 
 const areaJson = () => ({
@@ -28,6 +31,7 @@ const areaJson = () => ({
     buurt: { codes: ['BU05990101'], cols: { eduScore: [76], eduSchools: [2], eduTested: [52], eduFundPct: [95.1], eduStreefPct: [60.2], eduNearScore: [74.3], eduNearBest: [82], eduNearCount: [3] } },
     wijk: { codes: ['WK059901'], cols: { eduScore: [70.7], eduSchools: [2] } },
     gemeente: { codes: ['GM0599'], cols: { eduScore: [71.8] } },
+    provincie: { codes: ['PV28'], cols: { eduScore: [76.1], eduSchools: [1200], eduNearScore: [75.9] } },
   },
 });
 const schoolJson = () => ({
@@ -52,16 +56,22 @@ describe('onderwijs: pure helpers', () => {
     assert.equal(eduLevelOf('BU05990101'), 'buurt');
     assert.equal(eduLevelOf('wk059901'), 'wijk');
     assert.equal(eduLevelOf('GM0599'), 'gemeente');
-    assert.equal(eduLevelOf('PV28'), null);
+    assert.equal(eduLevelOf('PV28'), 'provincie');
+    assert.equal(eduLevelOf('XX1'), null);
     assert.equal(schoolAreaCode(SCHOOLS[0], 'wijk'), 'WK059901');
     assert.equal(schoolAreaCode(SCHOOLS[0], 'gemeente'), 'GM0599');
     assert.equal(schoolAreaCode(SCHOOLS[4], 'gemeente'), 'GM0599', 'no buurt: its gemeente');
     assert.equal(schoolAreaCode(SCHOOLS[4], 'wijk'), null);
+    assert.equal(schoolAreaCode(SCHOOLS[6], 'wijk'), 'WK059902', 'wijk but no buurt: its wijk');
+    assert.equal(schoolAreaCode(SCHOOLS[6], 'gemeente'), 'GM0599', 'gemeente from the wijk');
+    assert.equal(schoolAreaCode(SCHOOLS[6], 'buurt'), null);
+    assert.equal(schoolAreaCode(SCHOOLS[0], 'provincie'), null);
   });
   it('schoolsInArea: best first, no toetsgegevens last', () => {
     assert.deepEqual(schoolsInArea(SCHOOLS, 'BU05990101').map(s => s.brin), ['BB00', 'AA00']);
     assert.deepEqual(schoolsInArea(SCHOOLS, 'WK059901').map(s => s.brin), ['BB00', 'AA00', 'CC00']);
-    assert.deepEqual(schoolsInArea(SCHOOLS, 'GM0599').map(s => s.brin), ['BB00', 'EE00', 'AA00', 'DD00', 'CC00']);
+    assert.deepEqual(schoolsInArea(SCHOOLS, 'GM0599').map(s => s.brin), ['BB00', 'EE00', 'AA00', 'GG00', 'DD00', 'CC00']);
+    assert.deepEqual(schoolsInArea(SCHOOLS, 'WK059902').map(s => s.brin), ['GG00', 'DD00'], 'the wijk-only school is in its wijk list');
     assert.deepEqual(schoolsInArea(SCHOOLS, 'PV28'), []);
     assert.deepEqual(schoolsInArea(null, 'GM0599'), []);
   });
@@ -115,10 +125,16 @@ describe('onderwijs: panel', () => {
     assert.equal(d.score, 76);
     assert.equal(d.schools, 2);
     assert.deepEqual(d.list.map(s => s.brin), ['BB00', 'AA00']);
-    assert.deepEqual(d.near.map(s => s.brin).sort(), ['AA00', 'BB00', 'CC00', 'DD00', 'EE00', 'FF00'], 'same point in the fixture');
+    assert.deepEqual(d.near.map(s => s.brin).sort(), ['AA00', 'BB00', 'CC00', 'DD00', 'EE00', 'FF00', 'GG00'], 'same point in the fixture');
     assert.equal(eduAreaDetail('WK059901', { entry: null, schools: SCHOOLS, centre: [51.92, 4.47] }).near, null, 'near list only for a buurt');
     assert.equal(eduAreaDetail('BU05990101', { entry, schools: SCHOOLS }).near, null, 'no centre: no near list');
-    assert.equal(eduAreaDetail('PV28', { entry }), null);
+    const pv = eduAreaDetail('PV28', { entry: decodeEduAreas(areaJson()).get('PV28'), schools: SCHOOLS });
+    assert.equal(pv.level, 'provincie');
+    assert.equal(pv.score, 76.1);
+    assert.equal(pv.list, null, 'a province lists no schools');
+    assert.equal(pv.near, null);
+    assert.match(eduPanelHtml(pv), /7,6.*1\.200 scholen met toetsgegevens/s);
+    assert.equal(eduAreaDetail('XX1', { entry }), null);
     assert.equal(eduAreaDetail('GM0599', {}), null, 'nothing loaded');
   });
   it('eduPanelHtml: grade, counts, badges and the 1 km list', () => {
@@ -170,7 +186,8 @@ describe('onderwijs: loaders and joins', () => {
     assert.equal(areas[1].values.eduScore, null);
     const rows = withEduRows([{ regionCode: 'GM0599', population: 1 }, { regionCode: 'PV28' }]);
     assert.equal(rows[0].eduScore, 71.8);
-    assert.equal(rows[1].eduScore, undefined);
+    assert.equal(rows[1].eduScore, 76.1, 'provincie rows get their value too');
+    assert.equal(withEduRows([{ regionCode: 'PV99' }])[0].eduScore, null);
     await loadEduSchools({ fetcher: f });
     await loadBuurtCentres({ fetcher: f });
     assert.equal(getEduSchools().length, 3);
@@ -226,5 +243,28 @@ describe('onderwijs: built files', () => {
       assert.equal(near.length, v.eduNearCount, code);
       assert.equal(near.length ? Math.max(...near.map(s => s.score)) : null, v.eduNearBest, code);
     }
+  });
+});
+
+describe('onderwijs: when the area file is needed', () => {
+  const gezin = { themes: [{ key: 'voorzieningen', metrics: [{ key: 'distSchool' }, { key: 'eduNearScore' }] }] };
+  const plain = { themes: [{ key: 'veiligheid', metrics: [{ key: 'totalCrimes' }] }] };
+  it('presetUsesEdu: only a preset that weighs an edu column', () => {
+    assert.equal(presetUsesEdu(gezin), true);
+    assert.equal(presetUsesEdu(plain), false);
+    assert.equal(presetUsesEdu(null), false);
+    assert.equal(presetUsesEdu({ themes: [{ metrics: [{ key: 'eduScore' }] }] }), true);
+  });
+  it('eduAreasWanted: edu layer, Ranglijst or an edu preset; never once loaded', () => {
+    const base = { dataset: 'woonscore', view: 'map', preset: plain, loaded: false };
+    assert.equal(eduAreasWanted(base), false);
+    assert.equal(eduAreasWanted({ ...base, dataset: 'eduScore' }), true);
+    assert.equal(eduAreasWanted({ ...base, view: 'list' }), true, 'Ranglijst shows the edu columns');
+    assert.equal(eduAreasWanted({ ...base, view: 'dashboard', preset: gezin }), true, 'Jouw dashboard / wizard / Woonscore (gezin)');
+    assert.equal(eduAreasWanted({ ...base, dataset: 'eduScore', view: 'list', preset: gezin, loaded: true }), false);
+  });
+  it('the real gezin preset of the wizard weighs eduNearScore; the default does not', () => {
+    assert.equal(presetUsesEdu(answersToPreset(normalizeAnswers({ levensfase: 'gezin' }))), true);
+    assert.equal(presetUsesEdu(answersToPreset(normalizeAnswers({ levensfase: 'senior' }))), false);
   });
 });

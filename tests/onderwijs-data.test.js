@@ -76,3 +76,19 @@ describe('onderwijs-po-2024.json and onderwijs-po-scholen-2024.json', () => {
     assert.ok(S.score.filter(v => v != null).length > 5000);
   });
 });
+
+describe('onderwijs-po-2024.json: provincie level', () => {
+  it('all twelve provinces carry eduScore, shares and eduNear… figures', () => {
+    const f = JSON.parse(readFileSync(new URL('../data/nl/onderwijs-po-2024.json', import.meta.url), 'utf8'));
+    const p = f.levels.provincie;
+    assert.equal(p.codes.length, 12);
+    assert.ok(p.codes.every(c => /^PV\d{2}$/.test(c)));
+    for (const k of ['eduScore', 'eduStreefPct', 'eduFundPct', 'eduNearScore', 'eduNearBest']) {
+      assert.ok(p.cols[k].every(v => typeof v === 'number' && v > 0 && v <= 100), k);
+    }
+    const schools = p.cols.eduSchools.reduce((a, b) => a + b, 0);
+    const gm = f.levels.gemeente.cols.eduSchools.reduce((a, b) => a + (b ?? 0), 0);
+    assert.equal(schools, gm, 'every scored school with a gemeente lands in one province');
+  });
+});
+

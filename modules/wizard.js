@@ -26,6 +26,7 @@ import {
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
 import { loadPc4Herkomst, presetUsesPc4 } from './herkomst-pc4.js';
 import { loadBouwjaar, presetUsesBouw } from './bouwjaar-pc4.js';
+import { loadEduAreas, presetUsesEdu } from './onderwijs.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -242,6 +243,8 @@ async function resultHtml() {
   if (presetUsesPc4(getPersonalPreset())) await loadPc4Herkomst().catch(() => null);
   // Bouwstijl shares per wijk/buurt (postcode estimate): same pattern, app.js rescores on load.
   if (presetUsesBouw(getPersonalPreset())) await loadBouwjaar().catch(() => null);
+  // Onderwijsprestatie (gezin weighs eduNearScore): the shared loader; app.js joins and rescores on load.
+  if (presetUsesEdu(getPersonalPreset())) await loadEduAreas().catch(() => null);
   const { level, items } = await resultItems();
   const withScores = items.map(i => {
     const r = scoreResult('woonscore', i.code);

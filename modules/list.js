@@ -51,6 +51,11 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 const isVisible = () => ui.root && !ui.root.hidden && getState().view === 'list';
 
+/** Re-renders the Ranglijst when it is shown (areas changed in place, e.g. onderwijsprestatie landed). */
+export function refreshList() {
+  if (isVisible()) render();
+}
+
 /** Hands the national CBS rows (normalizeProvinces shape: { regionCode, ...values }) to the list. */
 export function setNationalRows(level, rows) {
   national[level === 'gemeente' || level === 'gemeenten' ? 'gemeenten' : 'provincies'] = rows ?? [];

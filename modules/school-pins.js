@@ -2,17 +2,19 @@
 // Switched in Instellingen (modules/settings.js) like the OV lines; own key
 // roffatistics.basisscholen, default off. The school file
 // (data/nl/onderwijs-po-scholen-2024.json, built by scripts/build-schools.mjs)
-// is fetched only when the layer is first switched on. Independent of which
+// is fetched only when the layer is first switched on, through the shared
+// loader of modules/onderwijs.js (one fetch whether pins or the area panel
+// come first); grade formatting is shared with it too. Independent of which
 // area metric is shown. Pure parts (state, colour, rows, popup) are unit-tested;
 // addSchoolPinsLayer draws the Leaflet layer.
 // Data: DUO open onderwijsdata (referentieniveaus 2022-2024).
 
 import { CLASS_COLORS, CLASS_COUNT } from './scale.js';
+import { EDU_SCHOOLS_URL, decodeSchools, formatGrade, loadEduSchools } from './onderwijs.js';
 
-export const SCHOOLS_URL = './data/nl/onderwijs-po-scholen-2024.json';
+export const SCHOOLS_URL = EDU_SCHOOLS_URL;
 export const SCHOOL_PINS_STORAGE_KEY = 'roffatistics.basisscholen';
 export const DEFAULT_SCHOOL_PINS = false;
-export const SCHOOL_SMALL_N = 30;   // fallback when the file header has no smallN
 /** Fixed colour domain (about 4.3 points per class): covers about p3..p97 of the 5,977 scored schools (median 77). */
 export const SCHOOL_SCORE_RANGE = Object.freeze([60, 90]);
 export const SCHOOL_NO_SCORE_COLOR = '#9ca3af';
@@ -61,33 +63,22 @@ export function schoolPinRadius(zoom) {
 
 // ── Rows ──────────────────────────────────────────────────────────────────────
 
-const FIELDS = ['brin', 'name', 'street', 'postcode', 'place', 'lat', 'lon', 'score', 'tested', 'estimate', 'fund', 'streef',
-  'lezenFund', 'lezenStreef', 'taalFund', 'taalStreef', 'rekenenFund', 'rekenenStreef'];
+const hasCoords = s => num(s?.lat) != null && num(s?.lon) != null;
 
-/** Column-wise school file → one object per school (only schools with coordinates). */
+/** Decoded schools (onderwijs.js decodeSchools) → only those with coordinates. */
+export const pinnableSchools = schools => (schools ?? []).filter(hasCoords);
+
+/** Column-wise school file → one object per school with coordinates; [] for an unreadable file. */
 export function schoolsFromFile(file) {
-  const cols = file?.cols;
-  const n = Array.isArray(cols?.brin) ? cols.brin.length : 0;
-  const smallN = num(file?.smallN) ?? SCHOOL_SMALL_N;
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const s = Object.fromEntries(FIELDS.map(f => [f, cols[f]?.[i] ?? null]));
-    if (num(s.lat) == null || num(s.lon) == null) continue;
-    s.small = num(s.score) != null && num(s.tested) != null && s.tested < smallN;
-    out.push(s);
-  }
-  return out;
+  try { return pinnableSchools(decodeSchools(file)); } catch { return []; }
 }
 
 // ── Popup ─────────────────────────────────────────────────────────────────────
 
 export const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-/** 71.3 → '7,1' (score/10, one decimal, Dutch comma); null → null. */
-export function schoolGrade(score) {
-  const s = num(score);
-  return s == null ? null : (s / 10).toFixed(1).replace('.', ',');
-}
+/** 71.3 → '7,1' (onderwijs.js formatGrade, the same grade as the area panel); null → null. */
+export const schoolGrade = score => (num(score) == null ? null : formatGrade(score));
 
 const pct = v => (num(v) == null ? '–' : `${Math.round(v)}%`);
 const postcode = p => (typeof p === 'string' && /^\d{4}[A-Z]{2}$/.test(p) ? `${p.slice(0, 4)} ${p.slice(4)}` : p ?? '');
@@ -130,10 +121,10 @@ export function addSchoolPinsLayer(L, map, { storage = null } = {}) {
 
   async function ensure() {
     if (group) return group;
-    loading ??= fetch(SCHOOLS_URL).then(r => (r.ok ? r.json() : null)).catch(() => null);
-    const file = await loading;
-    if (!file) { loading = null; return null; }
-    group ??= L.layerGroup(schoolsFromFile(file).map(s => L.circleMarker([s.lat, s.lon], {
+    loading ??= loadEduSchools().catch(err => { console.warn('basisscholen:', err); return null; });
+    const schools = await loading;
+    if (!schools) { loading = null; return null; }
+    group ??= L.layerGroup(pinnableSchools(schools).map(s => L.circleMarker([s.lat, s.lon], {
       renderer, pane: SCHOOL_PINS_PANE, radius, bubblingMouseEvents: false,
       color: '#ffffff', weight: 0.8, opacity: 0.9, fillColor: schoolColor(s.score), fillOpacity: 0.95,
     }).bindPopup(() => schoolPopupHtml(s), { className: 'school-popup-wrap', maxWidth: 300 })));

@@ -19,6 +19,7 @@ import {
   SUBJECT_KEYS, YEARS, SMALL_N, NEAR_RADIUS_KM, NEAR_BEST_KM,
 } from '../modules/schools.js';
 import { geoCentroid } from '../modules/areas.js';
+import { pointInRings } from '../modules/score-labels.js';
 import { encodeCentres } from '../modules/onderwijs.js';
 import { NL_GEO_WFS, NL_GEO_TYPES, NL_DATA_YEAR } from '../modules/nl-areas.js';
 
@@ -164,6 +165,16 @@ const known = {
   gemeente: new Set(wijken25.codes.map(c => `GM${c.slice(2, 6)}`)),
 };
 
+// Provinces: data/provinces.json (the map's own CBS provincie_gegeneraliseerd). No gemeente → provincie
+// table is in the repo, so each gemeente goes to the province that holds most of its buurt centres
+// (point in polygon); the coarse outlines only matter at a border, the majority settles it.
+const provGeo = JSON.parse(await readFile(new URL('../provinces.json', OUT), 'utf8'));
+const provPolys = provGeo.features.map(f => ({
+  code: String(f.properties?.statcode ?? '').trim(),
+  polys: f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates : [f.geometry.coordinates],
+}));
+const provinceOfPoint = ([lat, lon]) => provPolys.find(p => p.polys.some(rings => pointInRings([lon, lat], rings)))?.code ?? null;
+
 const scores = scoreSchools(ref, eind);
 const sboIds = new Set([...ref, ...eind].filter(r => r.TYPE_PO === 'SBO').map(r => `${r.INSTELLINGSCODE}${r.VESTIGINGSCODE.padStart(2, '0')}`));
 const vest = addr.filter(r => !(sboIds.has(r.VESTIGINGSCODE) && !scores.has(r.VESTIGINGSCODE)));
@@ -201,13 +212,27 @@ const NEAR = ['eduNearScore', 'eduNearBest', 'eduNearCount'];
 const centres = await buurtCentres();
 const popCol = buurten25.cols.population;
 const nearRows = buurten25.codes.map((code, i) => ({ code, pop: popCol[i], values: nearSchools(centres[code] ?? null, schools) }));
+// Gemeente → provincie by majority of its buurt centres (see above).
+const votes = new Map();
+for (const code of buurten25.codes) {
+  const pv = centres[code] ? provinceOfPoint(centres[code]) : null;
+  if (!pv) continue;
+  const gm = `GM${code.slice(2, 6)}`;
+  if (!votes.has(gm)) votes.set(gm, new Map());
+  votes.get(gm).set(pv, (votes.get(gm).get(pv) ?? 0) + 1);
+}
+const provOf = new Map([...votes].map(([gm, v]) => [gm, [...v].sort((a, b) => b[1] - a[1])[0][0]]));
+const split = [...votes.values()].filter(v => v.size > 1).length;
+known.provincie = new Set(provPolys.map(p => p.code));
 const nearBy = {
   buurt: new Map(nearRows.filter(r => r.values.eduNearScore != null).map(r => [r.code, r.values])),
   wijk: rollUpByPopulation(nearRows, c => `WK${c.slice(2, 8)}`, NEAR),
   gemeente: rollUpByPopulation(nearRows, c => `GM${c.slice(2, 6)}`, NEAR),
+  provincie: rollUpByPopulation(nearRows, c => provOf.get(`GM${c.slice(2, 6)}`) ?? null, NEAR),
 };
 const inArea = {
   buurt: aggregate(schools, s => s.buurt), wijk: aggregate(schools, s => s.wijk), gemeente: aggregate(schools, s => s.gemeente),
+  provincie: aggregate(schools, s => provOf.get(s.gemeente) ?? null),
 };
 const level = lvl => {
   const by = new Map();
@@ -216,14 +241,14 @@ const level = lvl => {
   const codes = [...by.keys()].sort();
   return { codes, cols: Object.fromEntries(METRICS.map(m => [m, codes.map(c => by.get(c)[m] ?? null)])) };
 };
-const levels = { buurt: level('buurt'), wijk: level('wijk'), gemeente: level('gemeente') };
+const levels = { buurt: level('buurt'), wijk: level('wijk'), gemeente: level('gemeente'), provincie: level('provincie') };
 const centred = buurten25.codes.filter(c => centres[c]).length;
 
 // ── School list, column-wise ─────────────────────────────────────────────────
 const b = v => (v ? 1 : 0);
 const SCHOOL_COLS = {
   brin: s => s.brin, name: s => s.name, street: s => s.street, postcode: s => s.postcode, place: s => s.place,
-  lat: s => s.lat, lon: s => s.lon, buurt: s => s.buurt, gemeente: s => (s.buurt ? null : s.gemeente),
+  lat: s => s.lat, lon: s => s.lon, buurt: s => s.buurt, wijk: s => (s.buurt ? null : s.wijk), gemeente: s => (s.buurt ? null : s.gemeente),
   score: s => s.score, tested: s => s.tested,
   estimate: s => (s.score == null ? null : b(s.estimate)), fund: s => s.fund ?? null, streef: s => s.streef ?? null,
   ...Object.fromEntries(SUBJECT_KEYS.flatMap(k => [[`${k}Fund`, s => s.subjects?.[k].fund ?? null], [`${k}Streef`, s => s.subjects?.[k].streef ?? null]])),
@@ -237,12 +262,13 @@ const sources = {
   adressen: 'DUO adressen_bo (vestigingenbo.csv)',
   indeling: 'CBS pc6huisnr 2023 (codes die ook in de indeling 2025 bestaan), anders PDOK Locatieserver; coördinaten PDOK Locatieserver',
   method: `schoolscore 0-100: per leerlingresultaat (lezen, taalverzorging, rekenen) onder 1F = 0, 1F = 50, 2F/1S = 100, gemiddeld over ${YEARS[0]}-${YEARS.at(-1)}; afgeschermde cel (1-4 leerlingen) uit het totaal afgeleid, anders geschat (estimate = 1); klein aantal leerlingen = tested < ${SMALL_N}; eduScore = ongewogen gemiddelde van de schoolscores in het gebied, eduFundPct/eduStreefPct gewogen naar leerlingresultaten`,
-  dichtbij: `eduNearScore = gemiddelde schoolscore van scholen binnen ${NEAR_RADIUS_KM} km hemelsbreed van het midden van de buurt (PDOK ${NL_DATA_YEAR} buurt_gegeneraliseerd), gewicht max(0, 1 - d/${NEAR_RADIUS_KM} km); eduNearBest/eduNearCount = beste score / aantal scholen binnen ${NEAR_BEST_KM} km; wijk en gemeente gewogen naar inwoners (buurten-${NL_DATA_YEAR}.json)`,
+  dichtbij: `eduNearScore = gemiddelde schoolscore van scholen binnen ${NEAR_RADIUS_KM} km hemelsbreed van het midden van de buurt (PDOK ${NL_DATA_YEAR} buurt_gegeneraliseerd), gewicht max(0, 1 - d/${NEAR_RADIUS_KM} km); eduNearBest/eduNearCount = beste score / aantal scholen binnen ${NEAR_BEST_KM} km; wijk, gemeente en provincie gewogen naar inwoners (buurten-${NL_DATA_YEAR}.json)`,
+  provincie: 'gemeente → provincie: de provincie (data/provinces.json) waarin de meeste buurtmiddens van de gemeente liggen; eduScore ongewogen over de scholen, eduFundPct/eduStreefPct naar leerlingresultaten, eduNear… naar inwoners',
 };
 const head = { format: 1, year: 2024, years: YEARS, built, sources, smallN: SMALL_N };
 // Two files: the area layer, and the school list (pins and panels), loaded on demand apart.
 const out = { ...head, metrics: METRICS, levels, schoolsFile: SCHOOLS_NAME };
-const schoolsOut = { ...head, note: 'gemeente only where buurt is null (else it is BU code chars 3-6); small = tested < smallN', count: schools.length, cols: schoolCols };
+const schoolsOut = { ...head, note: 'wijk and gemeente only where buurt is null (else they are BU code chars 3-8 / 3-6); small = tested < smallN', count: schools.length, cols: schoolCols };
 const text = JSON.stringify(out), schoolsText = JSON.stringify(schoolsOut);
 await writeFile(new URL(OUT_NAME, OUT), text);
 await writeFile(new URL(SCHOOLS_NAME, OUT), schoolsText);
@@ -263,4 +289,6 @@ const y24 = [...scores.values()].map(s => s.perYear[2024]).filter(Boolean);
 for (const k of SUBJECT_KEYS) { const sh = shares(y24.map(p => p[k]).filter(Boolean)); console.log(`NL 2024 ${k.padEnd(8)} n ${sh.n}: >=1F ${sh.fund}%, 2F/1S ${sh.streef}%`); }
 const nb = levels.buurt.cols.eduNearScore.filter(v => v != null).length;
 console.log(`near: buurt centres ${centred}/${buurten25.codes.length}, buurten with eduNearScore ${nb}; Rotterdam eduNearScore ${levels.gemeente.cols.eduNearScore[levels.gemeente.codes.indexOf('GM0599')]}`);
-console.log(`levels: buurten ${levels.buurt.codes.length}, wijken ${levels.wijk.codes.length}, gemeenten ${levels.gemeente.codes.length}`);
+console.log(`levels: buurten ${levels.buurt.codes.length}, wijken ${levels.wijk.codes.length}, gemeenten ${levels.gemeente.codes.length}, provincies ${levels.provincie.codes.length}`);
+console.log(`provinces: ${provOf.size}/${known.gemeente.size} gemeenten placed, ${split} with buurt centres in more than one province, schools without a province ${schools.filter(s => !provOf.get(s.gemeente)).length}`);
+console.log(`provincie eduScore: ${levels.provincie.codes.map((c, i) => `${c} ${levels.provincie.cols.eduScore[i]}/${levels.provincie.cols.eduNearScore[i]}`).join(', ')}`);

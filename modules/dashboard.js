@@ -55,6 +55,13 @@ export function initDashboard() {
   if (getState().view === 'dashboard') render();
 }
 
+/** Re-renders a shown dashboard after data landed in place (onderwijsprestatie: eduNearScore in Jouw dashboard). */
+export function refreshDashboard() {
+  if (!root || getState().view !== 'dashboard') return;
+  nlCache = null;
+  render();
+}
+
 function onActivate(e) {
   const action = e.target.closest?.('[data-action]');
   if (action?.dataset.action === 'clear-area') { setState({ area: null }, { source: 'dashboard' }); return; }

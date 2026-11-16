@@ -1,6 +1,6 @@
 // Onderwijsprestatie basisscholen in the app (plan-onderwijsprestatie step 3
 // and the panel part of step 5). Three static files, each fetched on first use:
-//   - the area layer (eduScore, eduNearScore, … per buurt/wijk/gemeente),
+//   - the area layer (eduScore, eduNearScore, … per buurt/wijk/gemeente/provincie),
 //   - the school list (name, address, lat/lon, buurt, score, …),
 //   - the buurt centres (the same points the eduNear… figures were built from).
 // The small pure helpers (grade, schools in an area, schools within a distance)
@@ -37,18 +37,22 @@ export const formatGrade = score => { const g = gradeOf(score); return g == null
 /** Distance in km → '0,4 km'. */
 export const formatKm = km => (isNum(km) ? `${nlNum(km, 1)} km` : '—');
 
-/** 'buurt' | 'wijk' | 'gemeente' for a BU/WK/GM code, else null. */
+/** 'buurt' | 'wijk' | 'gemeente' | 'provincie' for a BU/WK/GM/PV code, else null. */
 export function eduLevelOf(code) {
   const c = norm(code);
-  return c.startsWith('BU') ? 'buurt' : c.startsWith('WK') ? 'wijk' : c.startsWith('GM') ? 'gemeente' : null;
+  return c.startsWith('BU') ? 'buurt' : c.startsWith('WK') ? 'wijk' : c.startsWith('GM') ? 'gemeente' : c.startsWith('PV') ? 'provincie' : null;
 }
 
-/** The buurt/wijk/gemeente code a school belongs to (from its buurt; `gemeente` only when it has no buurt). */
+/**
+ * The buurt/wijk/gemeente code a school belongs to: from its buurt; a school
+ * without a buurt carries its `wijk` (when known) and `gemeente` in the file.
+ * Null for provincie: the school file has no province (the area file does).
+ */
 export function schoolAreaCode(school, level) {
-  const bu = school?.buurt ?? null;
+  const bu = school?.buurt ?? null, wk = school?.wijk ?? null;
   if (level === 'buurt') return bu;
-  if (level === 'wijk') return bu ? `WK${bu.slice(2, 8)}` : null;
-  if (level === 'gemeente') return bu ? `GM${bu.slice(2, 6)}` : school?.gemeente ?? null;
+  if (level === 'wijk') return bu ? `WK${bu.slice(2, 8)}` : wk;
+  if (level === 'gemeente') return bu ? `GM${bu.slice(2, 6)}` : school?.gemeente ?? (wk ? `GM${wk.slice(2, 6)}` : null);
   return null;
 }
 
@@ -56,10 +60,10 @@ const byName = (a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')
 /** Best score first, schools without toetsgegevens last, then by name. */
 const byScore = (a, b) => (b.score ?? -1) - (a.score ?? -1) || byName(a, b);
 
-/** The schools located in the area `code` (BU/WK/GM), best score first; [] for other codes. */
+/** The schools located in the area `code` (BU/WK/GM), best score first; [] for other codes (also PV). */
 export function schoolsInArea(schools, code) {
   const c = norm(code), level = eduLevelOf(c);
-  if (!level) return [];
+  if (!level || level === 'provincie') return [];
   return (schools ?? []).filter(s => schoolAreaCode(s, level) === c).sort(byScore);
 }
 
@@ -94,7 +98,7 @@ export function decodeSchools(json) {
   });
 }
 
-/** The area file → Map(code → { eduScore, …, eduNearCount }) over buurt, wijk and gemeente. */
+/** The area file → Map(code → { eduScore, …, eduNearCount }) over buurt, wijk, gemeente and provincie. */
 export function decodeEduAreas(json) {
   if (json?.format !== 1 || !json.levels) throw new Error('onderwijs: onbekend gebiedsbestand');
   const out = new Map();
@@ -137,14 +141,14 @@ export function eduAreaDetail(code, { entry = null, schools = null, centre = nul
     score: e.eduScore ?? null, schools: e.eduSchools ?? 0, tested: e.eduTested ?? null,
     fundPct: e.eduFundPct ?? null, streefPct: e.eduStreefPct ?? null,
     nearScore: e.eduNearScore ?? null, nearBest: e.eduNearBest ?? null, nearCount: e.eduNearCount ?? null,
-    list: schools ? schoolsInArea(schools, code) : null,
+    list: schools && level !== 'provincie' ? schoolsInArea(schools, code) : null,   // a province lists no schools (hundreds)
     near: level === 'buurt' && schools && centre ? schoolsWithinKm(schools, centre, EDU_NEAR_KM) : null,
   };
 }
 
 // ── Panel HTML ───────────────────────────────────────────────────────────────
 
-const IN_AREA = { buurt: 'in deze buurt', wijk: 'in deze wijk', gemeente: 'in deze gemeente' };
+const IN_AREA = { buurt: 'in deze buurt', wijk: 'in deze wijk', gemeente: 'in deze gemeente', provincie: 'in deze provincie' };
 const pct = v => (isNum(v) ? `${nlNum(v, 1)}%` : '—');
 const count = n => nlNum(n, 0);
 
@@ -228,10 +232,25 @@ export function addEduValues(areas, data = areaFile.get()) {
   return areas;
 }
 
-/** Flat gemeente rows ({ regionCode, … }) → new rows with the edu columns; the same rows until loaded. */
+/** Flat gemeente/provincie rows ({ regionCode, … }) → new rows with the edu columns; the same rows until loaded. */
 export function withEduRows(rows, data = areaFile.get()) {
   if (!data || !Array.isArray(rows)) return rows;
-  return rows.map(r => (/^GM/.test(r?.regionCode ?? '') ? { ...r, ...eduValuesFor(r.regionCode, data) } : r));
+  return rows.map(r => (/^(GM|PV)/.test(r?.regionCode ?? '') ? { ...r, ...eduValuesFor(r.regionCode, data) } : r));
+}
+
+// ── When the area file is needed (pure) ──────────────────────────────────────
+
+/** True when a Woonscore preset weighs an edu column (gezin: eduNearScore). */
+export const presetUsesEdu = preset => (preset?.themes ?? []).some(t => (t.metrics ?? []).some(m => EDU_COLUMNS.includes(m?.key)));
+
+/**
+ * Whether the app needs the area file now: an edu layer on the map, the
+ * Ranglijst (its edu columns), or a Woonscore / wizard / Jouw dashboard whose
+ * preset weighs an edu column. False once it is loaded.
+ */
+export function eduAreasWanted({ dataset = null, view = null, preset = null, loaded = isEduLoaded() } = {}) {
+  if (loaded) return false;
+  return isEduKey(dataset) || view === 'list' || presetUsesEdu(preset);
 }
 
 /** Test hook: sets (or clears) the loaded files from their JSON. */

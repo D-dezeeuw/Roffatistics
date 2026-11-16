@@ -205,7 +205,7 @@ const EDU_NOTES = Object.freeze([
   'Telt niet mee in de totaalscore van de Ranglijst of de Woonscore Standaard.',
 ]);
 const EDU_NEAR_NOTE = `Hemelsbreed gemeten vanaf het midden van de buurt (binnen ${kmText(NEAR_RADIUS_KM)} km), niet over de weg. Schoolkeuze, wachtlijsten en toelatingsregels ziet het cijfer niet.`;
-const EDU_ROLLUP = 'wijk en gemeente: het gemiddelde van hun buurten, gewogen naar inwoners';
+const EDU_ROLLUP = 'wijk, gemeente en provincie: het gemiddelde van hun buurten, gewogen naar inwoners (een gemeente telt bij de provincie waarin de meeste van haar buurten liggen)';
 
 const ROAD_NOTE = 'Gemeten over de weg, niet hemelsbreed; de dichtstbijzijnde voorziening kan buiten het gebied liggen.';
 const ageInfo = (from, to) => ({

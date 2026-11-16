@@ -11,9 +11,9 @@ import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea } f
 import { updateLegend, initScaleToggle, initLegendCollapse, SCALE_EVENT } from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
 import { initNavMenu }                    from './modules/nav-menu.js';
-import { initList, setNationalRows, setListOptions } from './modules/list.js';   // Ranglijst view
+import { initList, setNationalRows, setListOptions, refreshList } from './modules/list.js';   // Ranglijst view
 import { initSearch }                     from './modules/search.js';
-import { initDashboard }                  from './modules/dashboard.js';
+import { initDashboard, refreshDashboard } from './modules/dashboard.js';
 import { initExplain }                    from './modules/explain.js';
 import { initLegal }                      from './modules/legal.js';
 import { initCrimeToggles }               from './modules/crime-mode.js';
@@ -34,7 +34,7 @@ import { loadBouwjaar, onBouwLoaded, addBouwShares, isBouwKey, isBouwLoaded, pre
 import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, presetUsesPc4 } from './modules/herkomst-pc4.js';
 import { loadGemeenteRegio, isRegioLoaded, isRegionMetric, withRegionShares } from './modules/herkomst-regio.js';
 import { showLoader, hideLoader, setLoaderProgress, withLoader } from './modules/loader.js';
-import { isEduKey, isEduLoaded, loadEduAreas, onEduLoaded, addEduValues, withEduRows } from './modules/onderwijs.js';
+import { isEduKey, isEduLoaded, loadEduAreas, onEduLoaded, addEduValues, withEduRows, presetUsesEdu, eduAreasWanted } from './modules/onderwijs.js';
 import { isP2000Key, isP2000Loaded, loadP2000, setP2000Window, getP2000Window, activeP2000, addP2000Values, withP2000Rows, p2000LegendHtml, P2000_ERROR_TEXT, P2000_LOADING_TEXT } from './modules/p2000.js';
 
 // ── Legend ────────────────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ const atDrillTier = (tier = getActiveTier()) => tier === 'wijk' || tier === 'buu
 // Not awaited: the Rotterdam scope must not wait for national CBS data.
 const provincesReady = fetchCBS(CBS_TABLE, CBS_FILTER, CBS_SELECT)
   .then(raw => {
-    provinceRows = rowsWithWoonscore(normalizeProvinces(raw));
+    provinceRows = rowsWithWoonscore(withEduRows(normalizeProvinces(raw)));   // onderwijsprestatie when already loaded
     setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); setNationalAreas('provincie', provinceRows);
     if (getState().scope === 'nederland') return activateDataset(getState().dataset);
   })
@@ -131,6 +131,14 @@ fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
     if (getState().scope === 'nederland' && !atGemeenteTier()) activateDataset(getState().dataset);
   })
   .catch(() => { /* crime unavailable — panel shows dashes for crime fields */ });
+
+// Onderwijsprestatie basisscholen: one shared loader (modules/onderwijs.js). Asked for by an edu layer,
+// the Ranglijst (its edu columns) and a preset that weighs eduNearScore (gezin); onEduLoaded joins the
+// values everywhere and rescores. eduAreasWanted is false once loaded, so this never fetches twice.
+function ensureEduAreas({ dataset = getState().dataset, view = getState().view, preset = presetFromScore(getState().score) } = {}) {
+  if (!eduAreasWanted({ dataset, view, preset })) return null;
+  return loadEduAreas().catch(err => console.warn('onderwijsprestatie:', err));
+}
 
 // ── Municipality data — prefetch at startup ───────────────────────────────────
 // Start fetching in the background immediately so it is ready by the time the
@@ -439,6 +447,7 @@ function applyPersonalScore(score) {
   // A detailed group also counts per wijk/buurt via the postcode estimate: load it; onPc4Loaded rescores.
   if (presetUsesPc4(preset) && !isPc4Loaded()) loadPc4Herkomst().catch(() => { /* file missing: the factor is skipped there */ });
   if (presetUsesBouw(preset) && !isBouwLoaded()) loadBouwjaar().catch(() => { /* file missing: the factor is skipped there */ });
+  if (presetUsesEdu(preset)) ensureEduAreas({ preset });   // gezin weighs eduNearScore: onEduLoaded rescores
   const rd = peekRotterdamAreas();
   if (rd) {
     assignScore(rd.wijken, 'woonscore');
@@ -473,13 +482,21 @@ onPc4Loaded(() => {
   }
 });
 
-// Onderwijsprestatie landed (layer or area panel): add the values to every loaded area set. No score uses them.
+// Onderwijsprestatie landed (layer, Ranglijst, area panel or a gezin preset): add the values to every
+// loaded area set; rescore when the personal preset weighs eduNearScore; refresh the list and dashboard.
 onEduLoaded(() => {
   const rd = peekRotterdamAreas();
   if (rd) { addEduValues(rd.wijken); addEduValues(rd.buurten); }
   const nl = peekNlAreas();
   addEduValues(nl.wijken); addEduValues(nl.buurten);
+  if (provinceRows.length) { provinceRows = withEduRows(provinceRows); setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); setNationalAreas('provincie', provinceRows); }
   if (gemeenteRows.length) { gemeenteRows = withEduRows(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
+  if (presetUsesEdu(presetFromScore(getState().score))) {
+    applyPersonalScore(getState().score);
+    if (DATASETS[getState().dataset]?.unit === 'score') activateDataset(getState().dataset);
+  }
+  refreshList();        // Rotterdam scope: the list reads the areas changed in place
+  refreshDashboard();
 });
 
 onStateChange(({ state, changed, source }) => {
@@ -487,7 +504,7 @@ onStateChange(({ state, changed, source }) => {
     applyPersonalScore(state.score);
     if (DATASETS[state.dataset]?.unit === 'score' && !changed.includes('dataset') && !changed.includes('scope')) activateDataset(state.dataset);
   }
-  if (changed.includes('view')) showView(state.view);
+  if (changed.includes('view')) { showView(state.view); if (state.view === 'list') ensureEduAreas(); }
   if (changed.includes('scope')) {
     // Fade the map and show the loader before the switch; it hides once the new scope is drawn.
     scopeRun = withLoader(state.scope === 'nederland' ? 'Nederland laden…' : 'Rotterdam laden…', () => applyScope(state.scope))
@@ -513,6 +530,7 @@ onStateChange(({ state, changed, source }) => {
 syncDatasetButtons(initialState.dataset);
 showView(initialState.view);
 initList();   // after showView so a #view=list start renders visible
+ensureEduAreas();   // a #view=list start or a gezin preset in the link: onderwijsprestatie right away
 initDashboard();
 // Boot loader: hides when the first scope is drawn (Nederland: once the provinces are coloured), at most BOOT_LOADER_MAX_MS.
 const BOOT_LOADER_MAX_MS = 20000;

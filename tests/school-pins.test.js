@@ -9,6 +9,7 @@ import {
 } from '../modules/school-pins.js';
 import { CLASS_COLORS } from '../modules/scale.js';
 import { APP_STORAGE_PREFIX } from '../modules/legal.js';
+import { _setEduData, loadEduSchools, getEduSchools } from '../modules/onderwijs.js';
 
 const memStorage = (init = {}) => { const m = new Map(Object.entries(init)); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), m }; };
 const boom = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
@@ -55,7 +56,7 @@ describe('school pins: colour', () => {
 });
 
 const file = {
-  smallN: 30,
+  format: 1, smallN: 30,
   cols: {
     brin: ['AA01', 'BB02', 'CC03'], name: ['De <Maasparel> & "Co"', 'Klein', 'Nieuw'], street: ['Kerkenbos 28', 'Dorp 1', 'Laan 2'],
     postcode: ['2716PH', '1234AB', '3000AA'], place: ['Zoetermeer', 'Ergens', 'Rotterdam'],
@@ -119,6 +120,7 @@ describe('school pins: data file and Leaflet layer', () => {
     };
     const group = { layers: [], addTo(m) { m.layers.add(this); return this; }, remove() { map.layers.delete(this); }, eachLayer(fn) { this.layers.forEach(fn); } };
     const L = { svg: () => ({}), circleMarker: () => marker(), layerGroup: ls => Object.assign(group, { layers: ls }) };
+    _setEduData();   // nothing loaded yet
     try {
       const st = memStorage();
       const api = addSchoolPinsLayer(L, map, { storage: st });
@@ -135,6 +137,23 @@ describe('school pins: data file and Leaflet layer', () => {
       assert.equal(attributions.length, 0);
       await api.set(true);
       assert.equal(fetches, 1, 'file fetched once');
-    } finally { globalThis.fetch = origFetch; }
+      assert.equal(getEduSchools().length, 3, 'through the shared onderwijs.js loader');
+      await loadEduSchools();
+      assert.equal(fetches, 1, 'the area panel reuses the same file');
+    } finally { globalThis.fetch = origFetch; _setEduData(); }
+  });
+  it('the pins reuse a school file the area panel already loaded (no second fetch)', async () => {
+    _setEduData({ schools: file });
+    let fetches = 0;
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = async () => { fetches++; return { ok: true, json: async () => file }; };
+    const map = { layers: new Set(), getPane: () => ({ style: {} }), createPane: () => ({ style: {} }), getZoom: () => 12, on() {}, hasLayer: l => map.layers.has(l), attributionControl: null };
+    let made = 0;
+    const L = { svg: () => ({}), circleMarker: () => { made++; return { bindPopup() { return this; } }; }, layerGroup: ls => ({ ls, addTo(m) { m.layers.add(this); return this; } }) };
+    try {
+      await addSchoolPinsLayer(L, map, { storage: memStorage() }).set(true);
+      assert.equal(fetches, 0);
+      assert.equal(made, 2, 'only the schools with coordinates');
+    } finally { globalThis.fetch = origFetch; _setEduData(); }
   });
 });
