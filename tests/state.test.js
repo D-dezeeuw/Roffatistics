@@ -102,3 +102,14 @@ describe('setState', () => {
     assert.notEqual(getState().scope, 'mars');
   });
 });
+
+it('city scope in the URL carries the city slug (scope=amsterdam on Mokumistics), all slugs decode to the city scope', async () => {
+  const { serializeHash, parseHash } = await import('../modules/state.js');
+  const st = { scope: 'rotterdam', view: 'map', dataset: 'woonscore', crime: 'rate', listView: 'simple' };
+  assert.match(serializeHash(st, undefined, 'amsterdam'), /^#scope=amsterdam&view=map$/);
+  assert.match(serializeHash(st, undefined, 'rotterdam'), /^#scope=rotterdam&view=map$/);
+  assert.match(serializeHash({ ...st, scope: 'nederland' }, undefined, 'amsterdam'), /^#scope=nederland/);
+  assert.equal(parseHash('#scope=amsterdam&view=map').scope, 'rotterdam');
+  assert.equal(parseHash('#scope=rotterdam').scope, 'rotterdam');
+  assert.equal(parseHash('#scope=nederland').scope, 'nederland');
+});

@@ -5,6 +5,7 @@
 import { DATASET_KEYS, CRIME_MODES, resolveLayerKey } from './datasets.js';
 import { shareableScore, restoreLocalScore, isShareOf, SHARE_NONE } from './wizard-model.js';
 import { sanitizeCmp } from './compare.js';
+import { CITY, CITY_SLUGS } from './city.js';
 
 export const SCOPES = Object.freeze(['rotterdam', 'nederland']);
 export const VIEWS  = Object.freeze(['map', 'dashboard', 'list']);
@@ -57,6 +58,7 @@ export function parseHash(hash) {
   for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score', 'dtab', 'cmp']) if (params.has(key)) raw[key] = params.get(key);
   for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score']) if (params.has(key)) raw[key] = params.get(key);
   if (params.get('lv') === 'adv') raw.listView = 'adv';   // no lv (every old link) = Eenvoudig default
+  if (CITY_SLUGS.includes(raw.scope)) raw.scope = 'rotterdam';   // the URL names the city; internally the city scope id is 'rotterdam'
   return sanitizePatch(raw);
 }
 
@@ -66,8 +68,9 @@ export function parseHash(hash) {
  * dataset (Woonscore) and crime mode are left out, so a hash without
  * dataset opens on the Woonscore.
  */
-export function serializeHash(state, shareOpts = shareChoice) {
-  const params = new URLSearchParams({ scope: state.scope, view: state.view });
+export function serializeHash(state, shareOpts = shareChoice, citySlug = CITY.slug) {
+  // The city scope shows the page's city slug (scope=amsterdam on Mokumistics); 'rotterdam' is only the internal id.
+  const params = new URLSearchParams({ scope: state.scope === 'rotterdam' ? citySlug : state.scope, view: state.view });
   if (state.dataset && state.dataset !== DEFAULT_STATE.dataset && DATASET_KEYS.includes(state.dataset)) params.set('dataset', state.dataset);
   if (state.area) params.set('area', state.area);
   if (state.crime === 'abs') params.set('crime', 'abs');
