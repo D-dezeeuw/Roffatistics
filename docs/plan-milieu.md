@@ -3,7 +3,7 @@
 Goal: layers for people who want a quiet place or are hoogsensitief. They show
 how much noise, heat, air pollution and nuisance a buurt has, and work in the
 map, Ranglijst, area modal, Uitleg and Mijn stapel (plan-laagstapel).
-Status: **plan, 16 Nov 2026 (operator request).** Sources: docs/milieu-bronnen.md.
+Status: **phase 1 built 16 Nov 2026** (decisions.md "Milieu phase 1"); phases 2–3 plan. Operator request. Sources: docs/milieu-bronnen.md.
 
 ## Rule
 

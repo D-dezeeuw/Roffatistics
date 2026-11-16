@@ -35,6 +35,7 @@ import { loadBouwjaar, onBouwLoaded, addBouwShares, isBouwKey, isBouwLoaded, pre
 import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, presetUsesPc4 } from './modules/herkomst-pc4.js';
 import { loadGemeenteRegio, isRegioLoaded, isRegionMetric, withRegionShares } from './modules/herkomst-regio.js';
 import { showLoader, hideLoader, setLoaderProgress, withLoader } from './modules/loader.js';
+import { isMilieuKey, isMilieuLoaded, loadMilieu, onMilieuLoaded, addMilieuValues, withMilieuRows } from './modules/milieu.js';
 import { isEduKey, isEduLoaded, loadEduAreas, onEduLoaded, addEduValues, withEduRows, presetUsesEdu, eduAreasWanted } from './modules/onderwijs.js';
 import { isP2000Key, isP2000Loaded, loadP2000, setP2000Window, getP2000Window, activeP2000, addP2000Values, withP2000Rows, p2000LegendHtml, P2000_ERROR_TEXT, P2000_LOADING_TEXT } from './modules/p2000.js';
 import { CITY, applyCityToDocument } from './modules/city.js';
@@ -117,7 +118,7 @@ const atDrillTier = (tier = getActiveTier()) => tier === 'wijk' || tier === 'buu
 // Not awaited: the Rotterdam scope must not wait for national CBS data.
 const provincesReady = loadRegionRows('cbs/70072ned-provincies')
   .then(raw => {
-    provinceRows = rowsWithWoonscore(withEduRows(normalizeProvinces(raw)));   // onderwijsprestatie when already loaded
+    provinceRows = rowsWithWoonscore(withMilieuRows(withEduRows(normalizeProvinces(raw))));   // onderwijsprestatie when already loaded
     setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); setNationalAreas('provincie', provinceRows);
     if (getState().scope === 'nederland') return activateDataset(getState().dataset);
   })
@@ -161,6 +162,7 @@ loadRegionRows('cbs/70072ned-gemeenten')
     gemeenteRows = rowsWithWoonscore(withRegionShares(normalizeProvinces(rawGM).filter(r => r.regionCode).map(r => withOvValues(r, r.regionCode, ov))));   // regions: once loaded
     gemeenteRows = withP2000Rows(gemeenteRows);   // P2000 meldingen (W30) when the layer was opened first
     gemeenteRows = withEduRows(gemeenteRows);     // onderwijsprestatie basisscholen when already loaded
+    gemeenteRows = withMilieuRows(gemeenteRows);  // milieu (plan-milieu) when already loaded
     setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows);
     refreshMunicipalityView();
     // Merge municipality crime in the background.
@@ -344,6 +346,11 @@ async function activateDataset(key) {
     if (isRegioLoaded() && gemeenteRows.length) { gemeenteRows = withRegionShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
     if (getState().dataset !== key) return;
   }
+  // Milieu (plan-milieu): the static file loads on first use; onMilieuLoaded joins it everywhere.
+  if (isMilieuKey(key) && !isMilieuLoaded()) {
+    await loadMilieu().catch(err => console.warn('milieu:', err));
+    if (getState().dataset !== key) return;
+  }
   // Onderwijsprestatie basisscholen: the static area file loads on first use; onEduLoaded joins it everywhere.
   if (isEduKey(key) && !isEduLoaded()) {
     await loadEduAreas().catch(err => console.warn('onderwijsprestatie:', err));
@@ -496,6 +503,7 @@ function ensureStackData(items) {
   if (keys.some(isPc4Key) && !isPc4Loaded()) loadPc4Herkomst().catch(() => { /* file missing: the layer has no value there */ });
   if (keys.some(isBouwKey) && !isBouwLoaded()) loadBouwjaar().catch(() => { /* idem */ });
   if (keys.some(isEduKey)) ensureEduAreas({ dataset: keys.find(isEduKey) });
+  if (keys.some(isMilieuKey) && !isMilieuLoaded()) loadMilieu().catch(() => { /* file missing: the layer has no value there */ });
   if (keys.some(isRegionMetric) && !isRegioLoaded()) {
     loadGemeenteRegio().then(() => {
       if (gemeenteRows.length) { gemeenteRows = withRegionShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
@@ -515,6 +523,19 @@ onBouwLoaded(() => {
     applyPersonalScore(getState().score);
     if (DATASETS[getState().dataset]?.unit === 'score') activateDataset(getState().dataset);
   }
+});
+
+// Milieu landed (layer, stack or area modal): add the values to every loaded area set, recompute the stack.
+onMilieuLoaded(() => {
+  const rd = peekCityAreas();
+  if (rd) { addMilieuValues(rd.wijken); addMilieuValues(rd.buurten); }
+  const nl = peekNlAreas();
+  addMilieuValues(nl.wijken); addMilieuValues(nl.buurten);
+  if (provinceRows.length) { provinceRows = withMilieuRows(provinceRows); setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); setNationalAreas('provincie', provinceRows); }
+  if (gemeenteRows.length) { gemeenteRows = withMilieuRows(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
+  if (getActiveStack()) applyStack();
+  refreshList();
+  refreshDashboard();
 });
 
 // Postcode herkomst landed: add the shares to every loaded wijk/buurt, then rescore if the personal preset uses them.

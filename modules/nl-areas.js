@@ -12,6 +12,7 @@ import { addPc4Shares } from './herkomst-pc4.js';
 import { addBouwShares } from './bouwjaar-pc4.js';
 import { addP2000Values } from './p2000.js';
 import { addEduValues } from './onderwijs.js';
+import { addMilieuValues } from './milieu.js';
 import { addOmgeving, decodeNeighbours, encodeNeighbours } from './omgeving.js';
 import { ovValues } from './ov.js';
 import { pdokGebiedsindelingen, wfsUrl, getSource } from './source.js';
@@ -227,7 +228,7 @@ export function loadNlLevel(level, { fetcher = defaultFetcher() } = {}) {
   if (levelPromises.has(level)) return levelPromises.get(level);
   const p = (async () => {
     const parents = level === 'buurt' ? await loadNlLevel('wijk', { fetcher }) : null;
-    const raw = addEduValues(addP2000Values(addBouwShares(addPc4Shares(decodeLevel(await getJSON(NL_DATA_URLS[level], fetcher))))));   // postcode herkomst, P2000, onderwijs: once loaded
+    const raw = addMilieuValues(addEduValues(addP2000Values(addBouwShares(addPc4Shares(decodeLevel(await getJSON(NL_DATA_URLS[level], fetcher)))))));   // postcode herkomst, P2000, onderwijs: once loaded
     await yieldToMain();   // decode and scoring in separate tasks: no single long block (docs/decisions.md 15 Nov 2026)
     const scored = withWoonscore(raw, { parents });
     loaded[level] = scored;

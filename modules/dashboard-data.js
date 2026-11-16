@@ -121,6 +121,7 @@ export function formatValue(v, key, mode = 'rate') {
   if (unit === '%')         return `${formatNumber(n, 1)}%`;
   if (unit === 'per 1.000') return `${formatNumber(n, 1)} per 1.000 inw.`;
   if (unit === 'km')        return `${formatNumber(n, 1)} km`;
+  if (unit === '°C')        return `${formatNumber(n, 1)} °C`;
   if (unit === 'per km²')   return `${formatNumber(n)} per km²`;
   if (key === 'population') return `${formatNumber(n)} inw.`;
   return formatNumber(n, 1);
