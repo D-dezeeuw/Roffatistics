@@ -364,10 +364,10 @@ describe('Levenstype profiles (v0.45.0)', () => {
     assert.deepEqual(Object.keys(PROF).sort(), ['standaard', ...Object.keys(LEVENSTYPEN)].sort());
     for (const [k, p] of Object.entries(PROF)) {
       for (const t of Object.keys(p.weights)) assert.ok(PROFILE_THEMES.includes(t), `${k}.${t}`);
-      // Nieuwkomer (plan-wizard-v2): the plan's 25/35/5/5 + Sfeer 10 without direction = 80, of which 70 has metrics.
+      // Nieuwkomer: Sfeer 10 has no direction, so 90 of its 100 has metrics until Sfeer is answered.
       if (k === 'nieuwkomer') {
-        assert.equal(Object.values(p.weights).reduce((s, w) => s + w, 0), 80, k);
-        assert.equal(profileThemes(k).reduce((s, t) => s + t.weight, 0), 70, k);
+        assert.equal(Object.values(p.weights).reduce((s, w) => s + w, 0), 100, k);
+        assert.equal(profileThemes(k).reduce((s, t) => s + t.weight, 0), 90, k);
         continue;
       }
       assert.equal(Object.values(p.weights).reduce((s, w) => s + w, 0), 100, k);

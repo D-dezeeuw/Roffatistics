@@ -25,7 +25,7 @@ describe('wizard v2: profiles', () => {
     assert.deepEqual(PROFILES.starter.voorzieningen, [['distStation', 'lower', 2], ['distOv', 'lower', 2], ['distSupermarket', 'lower', 2], ['distGP', 'lower']]);
     assert.deepEqual(PROFILES.starter.leeftijd, [['pop25to44', 'higher']]);
     const n = PROFILES.nieuwkomer;
-    assert.deepEqual(n.weights, { veiligheid: 25, voorzieningen: 35, welvaart: 5, opleiding: 0, woningmarkt: 0, leeftijd: 5, sfeer: 10 });
+    assert.deepEqual(n.weights, { veiligheid: 30, voorzieningen: 50, welvaart: 5, opleiding: 0, woningmarkt: 0, leeftijd: 5, sfeer: 10 });
     assert.equal(n.sfeer, undefined, 'Sfeer without direction');
     assert.deepEqual(n.voorzieningen, [['distSupermarket', 'lower', 2], ['distOv', 'lower', 2], ['distGP', 'lower', 2], ['distSchool', 'lower']]);
     assert.ok(!profileThemes('nieuwkomer').some(t => t.key === 'sfeer'), 'no Sfeer metrics until answered');

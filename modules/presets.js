@@ -72,12 +72,12 @@ export const PROFILES = Object.freeze({
     voorzieningen: [['distSchool', 'lower', 3], ['eduNearScore', 'higher', 3], ['distKinderopvang', 'lower', 3], ['distGroen', 'lower', 2], ['distGP', 'lower'], ['distSupermarket', 'lower']],
     leeftijd: [['hhWithKidsPct', 'higher']],
   },
-  // Nieuwkomer (v0.46.0): the plan's numbers sum to 80, and Sfeer 10 has no
-  // direction, so it has no metrics until the Sfeer slider is answered (then
-  // it is that theme's base); without it the other 70 renormalise. Never any
+  // Nieuwkomer (v0.46.0): rebalanced to 100 (the plan's 25/35 summed to 80).
+  // Sfeer 10 has no direction, so it has no metrics until the Sfeer slider is
+  // answered (then it is that theme's base); without it the other 90 renormalise. Never any
   // origin metric: the group is the user's own choice (§5 guard).
   nieuwkomer: {
-    weights: { veiligheid: 25, voorzieningen: 35, welvaart: 5, opleiding: 0, woningmarkt: 0, leeftijd: 5, sfeer: 10 },
+    weights: { veiligheid: 30, voorzieningen: 50, welvaart: 5, opleiding: 0, woningmarkt: 0, leeftijd: 5, sfeer: 10 },
     veiligheid: VEILIG_STD,
     voorzieningen: [['distSupermarket', 'lower', 2], ['distOv', 'lower', 2], ['distGP', 'lower', 2], ['distSchool', 'lower']],
     leeftijd: [['pop25to44', 'higher']],

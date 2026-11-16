@@ -78,7 +78,7 @@ Dichtbij → Veiligheid → Situatie → Gemeenschap → result with importance 
     - Themes: Veiligheid 20, Voorzieningen 30 (station 2, OV 2, supermarkt 2,
       GP 1), Welvaart 10, Opleiding 5, Levenstype 15 (25–44), Sfeer 20 druk.
 - **New: Nieuwkomer in Nederland**:
-  - Themes: Veiligheid 25, Voorzieningen 35 (supermarkt 2, OV 2, GP 2,
+  - Themes: Veiligheid 30, Voorzieningen 50 (supermarkt 2, OV 2, GP 2,
     school 1), Welvaart 5, Levenstype 5, Sfeer 10 (neutral, no direction).
   - Opens the "Waar voel je je thuis?" step (see step 5).
   - Hint: "Net in Nederland? Een gemeenschap van mensen met dezelfde
