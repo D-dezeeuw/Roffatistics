@@ -1,5 +1,6 @@
 // Herkomst (origin) helpers. Wijk/buurt level: the NL / Europa / buiten-Europa
 // split from the kerncijfers (86165NED). Pure; no DOM.
+import { odataUrl, getRows } from './source.js';
 
 const fmtPct = v => `${v.toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 const escAttr = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -210,7 +211,6 @@ export function herkomstSummary({ byYear, bornAbroad } = {}, { year = HERKOMST_Y
   };
 }
 
-const ODATA = 'https://opendata.cbs.nl/ODataApi/odata';
 const baseFilter = `RegioS eq 'GM0599' and Geslacht eq '${HERKOMST_TOTALS.Geslacht}' and Leeftijd eq '${HERKOMST_TOTALS.Leeftijd}'`;
 const SELECT = 'Herkomstland,Geboorteland,Perioden,Bevolking_1';
 
@@ -220,28 +220,22 @@ const SELECT = 'Herkomstland,Geboorteland,Perioden,Bevolking_1';
  * "or" makes CBS answer 500, hence two.
  */
 export function buildHerkomstUrls() {
-  const url = filter => `${ODATA}/${HERKOMST_TABLE}/TypedDataSet?${new URLSearchParams({ $filter: filter, $select: SELECT })}`;
+  const url = filter => odataUrl(HERKOMST_TABLE, { filter, select: SELECT });
   return [
     url(`${baseFilter} and Geboorteland eq '${HERKOMST_TOTALS.Geboorteland}'`),
     url(`${baseFilter} and Herkomstland eq '${HK.total}' and Geboorteland eq '${BORN_ABROAD}'`),
   ];
 }
 
-async function getValue(url, fetcher, storage) {
-  const hit = storage?.getItem?.(url);
-  if (hit) return JSON.parse(hit);
-  const res = await fetcher(url);
-  if (!res.ok) throw new Error(`CBS ${res.status}`);
-  const value = (await res.json()).value ?? [];
-  try { storage?.setItem?.(url, JSON.stringify(value)); } catch { /* quota */ }
-  return value;
-}
+/** Snapshot keys of buildHerkomstUrls(), same order (data/snapshot/<key>.json). */
+export const HERKOMST_SOURCE_KEYS = Object.freeze(['cbs/85458NED-rotterdam', 'cbs/85458NED-rotterdam-buitenland']);
+const getValue = (i, url, fetcher, storage) => getRows(HERKOMST_SOURCE_KEYS[i], { live: url, fetcher, storage });
 
 let cityPromise = null;
 /** herkomstSummary() of Rotterdam, fetched once per page (sessionStorage-cached); rejects when CBS fails. */
 export function loadCityHerkomst({ fetcher = globalThis.fetch?.bind(globalThis), storage = globalThis.sessionStorage } = {}) {
   if (!cityPromise) {
-    cityPromise = Promise.all(buildHerkomstUrls().map((u, i) => getValue(u, fetcher, storage).catch(e => { if (i === 0) throw e; return []; })))
+    cityPromise = Promise.all(buildHerkomstUrls().map((u, i) => getValue(i, u, fetcher, storage).catch(e => { if (i === 0) throw e; return []; })))
       .then(([main, born]) => {
         const s = herkomstSummary(parseHerkomstRows([...main, ...born]));
         if (!s) throw new Error('geen herkomstcijfers');

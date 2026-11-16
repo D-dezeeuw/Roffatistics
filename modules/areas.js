@@ -12,10 +12,10 @@ import { addEduValues } from './onderwijs.js';
 import { withWoonscore } from './presets.js';
 import { adjacencyFromFeatures, addOmgeving } from './omgeving.js';
 import { loadOvAfstand, withOvValues } from './ov.js';
+import { odataUrl, getRows, POLITIE_ODATA } from './source.js';
 
 export { DATASETS, DATASET_KEYS };
 
-const CBS_BASE = 'https://opendata.cbs.nl/ODataApi/odata';
 
 export const WIJK_TABLE = '86165NED';           // Kerncijfers wijken en buurten 2025
 export const WIJK_YEAR  = 2025;
@@ -503,11 +503,10 @@ async function getJSON(url, fetcher, storage) {
 
 /** Rotterdam gemeente + wijk + buurt rows of a kerncijfers table (default: the 2025 base). */
 export function buildWijkUrl(table = WIJK_TABLE, select = WIJK_SELECT) {
-  const params = new URLSearchParams({
-    $filter: `startswith(WijkenEnBuurten,'${ROTTERDAM.gemeente}') or startswith(WijkenEnBuurten,'${ROTTERDAM.wijkPrefix}') or startswith(WijkenEnBuurten,'${ROTTERDAM.buurtPrefix}')`,
-    $select: select,
+  return odataUrl(table, {
+    filter: `startswith(WijkenEnBuurten,'${ROTTERDAM.gemeente}') or startswith(WijkenEnBuurten,'${ROTTERDAM.wijkPrefix}') or startswith(WijkenEnBuurten,'${ROTTERDAM.buurtPrefix}')`,
+    select,
   });
-  return `${CBS_BASE}/${table}/TypedDataSet?${params}`;
 }
 
 /** Rotterdam rows of a nabijheid table (default: the 2025 base, 86270NED). */
@@ -528,11 +527,10 @@ export const WOZ_PERIOD   = '2026JJ00';
 export const WOZ_EIGENDOM = 'T001132';
 
 export function buildCityWozUrl() {
-  const params = new URLSearchParams({
-    $filter: `RegioS eq '${ROTTERDAM.gemeente}' and Eigendom eq '${WOZ_EIGENDOM}' and Perioden eq '${WOZ_PERIOD}'`,
-    $select: 'RegioS,Perioden,GemiddeldeWOZWaardeVanWoningen_1',
+  return odataUrl(WOZ_TABLE, {
+    filter: `RegioS eq '${ROTTERDAM.gemeente}' and Eigendom eq '${WOZ_EIGENDOM}' and Perioden eq '${WOZ_PERIOD}'`,
+    select: 'RegioS,Perioden,GemiddeldeWOZWaardeVanWoningen_1',
   });
-  return `${CBS_BASE}/${WOZ_TABLE}/TypedDataSet?${params}`;
 }
 
 /** { value (×€1,000), year, peildatum, table } from 85036NED rows, or null. */
@@ -544,8 +542,7 @@ export function parseCityWoz(rows) {
 }
 
 export function buildGemeenteNamesUrl() {
-  const params = new URLSearchParams({ $filter: "startswith(Key,'GM')", $select: 'Key,Title' });
-  return `${CBS_BASE}/${WIJK_TABLE}/WijkenEnBuurten?${params}`;
+  return odataUrl(WIJK_TABLE, { entity: 'WijkenEnBuurten', filter: "startswith(Key,'GM')", select: 'Key,Title' });
 }
 
 // ── Crime: police "Geregistreerde misdrijven; soort misdrijf, wijk, buurt" ──
@@ -553,7 +550,7 @@ export function buildGemeenteNamesUrl() {
 // (wijken, buurten): totals and the sub-layer categories for CRIME_PERIOD and
 // the year before (trend). Rates divide by the 86165NED (2025) inhabitants.
 
-export const CRIME_BASE   = 'https://dataderden.cbs.nl/ODataApi/odata';
+export const CRIME_BASE   = POLITIE_ODATA;
 export const CRIME_TABLE  = '47018NED';
 export const CRIME_PERIOD = '2025JJ00';          // last full year (table covers 2012–2025)
 export const CRIME_PREV_PERIOD = '2024JJ00';     // for the trend
@@ -586,11 +583,11 @@ const crimeKey = k => String(k ?? '').trim();
 /** One 47018NED URL for every area under `prefix` (WK0599 / BU0599): total + categories, two years. */
 export function buildCrimeUrl(prefix = ROTTERDAM.wijkPrefix) {
   const kinds = [...new Set([CRIME_TOTAL, ...Object.values(CRIME_CATEGORIES).flat()])];
-  const params = new URLSearchParams({
-    $filter: `startswith(WijkenEnBuurten,'${prefix}') and (Perioden eq '${CRIME_PERIOD}' or Perioden eq '${CRIME_PREV_PERIOD}') and (${kinds.map(k => `SoortMisdrijf eq '${k}'`).join(' or ')})`,
-    $select: `WijkenEnBuurten,Perioden,SoortMisdrijf,${CRIME_COLUMN}`,
+  return odataUrl(CRIME_TABLE, {
+    base: CRIME_BASE,
+    filter: `startswith(WijkenEnBuurten,'${prefix}') and (Perioden eq '${CRIME_PERIOD}' or Perioden eq '${CRIME_PREV_PERIOD}') and (${kinds.map(k => `SoortMisdrijf eq '${k}'`).join(' or ')})`,
+    select: `WijkenEnBuurten,Perioden,SoortMisdrijf,${CRIME_COLUMN}`,
   });
-  return `${CRIME_BASE}/${CRIME_TABLE}/TypedDataSet?${params}`;
 }
 export const buildWijkCrimeUrl  = () => buildCrimeUrl(ROTTERDAM.wijkPrefix);
 export const buildBuurtCrimeUrl = () => buildCrimeUrl(ROTTERDAM.buurtPrefix);
@@ -682,14 +679,16 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
       getJSON(GEO_URLS.buurten,  fetcher, null),
     ]);
     let rows = [], dataOk = true;
-    const best = url => getJSON(url, fetcher, storage).then(d => d.value ?? []).catch(() => []);
-    const wijkCrime  = best(buildWijkCrimeUrl());
-    const buurtCrime = best(buildBuurtCrimeUrl());
-    const fallback   = best(buildWijkUrl(WIJK_FALLBACK_TABLE));
-    const cityWoz    = best(buildCityWozUrl()).then(parseCityWoz);
-    const nabijP     = Promise.all([best(buildNabijUrl()), best(buildNabijUrl(NABIJ_FALLBACK_TABLE)), best(buildGroenUrl()), loadOvAfstand({ fetcher })]);
+    // Snapshot keys (data/snapshot/<key>.json, scripts/snapshot-sources.mjs); the URL is the live fallback.
+    const src = (key, live) => getRows(key, { live, fetcher, storage });
+    const best = (key, live) => src(key, live).catch(() => []);
+    const wijkCrime  = best('politie/47018NED-rotterdam-wijk', buildWijkCrimeUrl());
+    const buurtCrime = best('politie/47018NED-rotterdam-buurt', buildBuurtCrimeUrl());
+    const fallback   = best('cbs/85984NED-rotterdam', buildWijkUrl(WIJK_FALLBACK_TABLE));
+    const cityWoz    = best('cbs/85036NED-rotterdam-woz', buildCityWozUrl()).then(parseCityWoz);
+    const nabijP     = Promise.all([best('cbs/86270NED-rotterdam', buildNabijUrl()), best('cbs/86134NED-rotterdam', buildNabijUrl(NABIJ_FALLBACK_TABLE)), best('cbs/84334NED-rotterdam', buildGroenUrl()), loadOvAfstand({ fetcher })]);
     try {
-      rows = (await getJSON(buildWijkUrl(), fetcher, storage)).value ?? [];
+      rows = await src('cbs/86165NED-rotterdam', buildWijkUrl());
     } catch {
       dataOk = false;
     }
@@ -736,7 +735,7 @@ export function getAreaIndex({ fetcher = globalThis.fetch?.bind(globalThis), sto
     const [areas, provGeo, gmRows] = await Promise.all([
       loadRotterdamAreas({ fetcher, storage }).catch(() => ({ wijken: [], buurten: [] })),
       getJSON(GEO_URLS.provinces, fetcher, null).catch(() => ({ features: [] })),
-      getJSON(buildGemeenteNamesUrl(), fetcher, storage).then(d => d.value ?? []).catch(() => []),
+      getRows('cbs/86165NED-gemeenten', { live: buildGemeenteNamesUrl(), fetcher, storage }).catch(() => []),
     ]);
     return buildAreaIndex({
       wijken:    areas.wijken,

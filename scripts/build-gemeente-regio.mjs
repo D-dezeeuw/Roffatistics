@@ -4,24 +4,15 @@
 //   node scripts/build-gemeente-regio.mjs
 // Needs network (CBS ODataFeed, paged with odata.nextLink).
 import { mkdir, writeFile } from 'node:fs/promises';
+import { archivedJson, sourceForUrl } from './lib/raw-archive.mjs';
 import { HK, HERKOMST_TABLE, HERKOMST_YEAR, HERKOMST_TOTALS } from '../modules/herkomst.js';
 import { REGIO_FORMAT, REGIONS, REGIO_FETCH_KEYS, gemeenteCountsFromRows, encodeRegio, regionCounts, regionGap, regionComposition } from '../modules/herkomst-regio.js';
 
 const FEED = 'https://opendata.cbs.nl/ODataFeed/odata';
 const OUT = new URL('../data/nl/', import.meta.url);
 
-async function getJson(url, tries = 4) {
-  for (let i = 1; ; i++) {
-    try {
-      const res = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
-      return await res.json();
-    } catch (err) {
-      if (i >= tries) throw new Error(`${url}: ${err.message}`);
-      await new Promise(r => setTimeout(r, 2000 * i));
-    }
-  }
-}
+// Downloads via the raw archive (scripts/lib/raw-archive.mjs); --refresh fetches anew.
+const getJson = url => archivedJson(sourceForUrl(url), url);
 async function paged(url) {
   const rows = [];
   while (url) { const p = await getJson(url); rows.push(...(p.value ?? [])); url = p['odata.nextLink'] ?? null; process.stdout.write(`\r${rows.length} rows   `); }

@@ -9,13 +9,17 @@ import { gemeenteOf } from './nl-areas.js';
 import { nlTier, nlPlan, ZOOM_MUNICIPALITY, ZOOM_WIJK, ZOOM_BUURT } from './zoom-plan.js';
 import { drillReadyGemeente } from './nl-drill.js';
 import { routeToCompare } from './compare.js';
+import { wfsUrl, getSource } from './source.js';
 
 export { getDrillStatus };
 
 // Tier thresholds live in zoom-plan.js (wijk 12 = drill-down of the gemeente at the map centre, buurt 13).
 export const DRILL_ZOOM = Object.freeze({ wijk: ZOOM_WIJK, buurt: ZOOM_BUURT });
 
-const GEMEENTE_URL = 'https://service.pdok.nl/cbs/gebiedsindelingen/2024/wfs/v1_0?request=GetFeature&service=WFS&version=2.0.0&typeName=gebiedsindelingen:gemeente_gegeneraliseerd&outputFormat=json&srsName=EPSG:4326';
+// Gemeente overlay shapes (PDOK gebiedsindelingen 2024): snapshot data/snapshot/geo/2024/gemeenten.json, live URL as fallback.
+export const GEMEENTE_SOURCE = 'geo/2024/gemeenten';
+export const GEMEENTE_LIVE_URL = wfsUrl(2024, 'gemeente_gegeneraliseerd');
+const GEMEENTE_URL = GEMEENTE_LIVE_URL;   // geoCache key
 
 const STYLE_DEFAULT = {
   fillColor:   '#7c3aed',
@@ -147,8 +151,9 @@ function popupHtml(name, code) {
 
 async function loadGeoJSON(url) {
   if (geoCache[url]) return geoCache[url];
-  const res  = await fetch(url);
-  const data = await res.json();
+  const data = url === GEMEENTE_URL
+    ? await getSource(GEMEENTE_SOURCE, { live: GEMEENTE_LIVE_URL, storage: null })
+    : await (await fetch(url)).json();
   geoCache[url] = data;
   return data;
 }

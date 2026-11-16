@@ -14,6 +14,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
+import { archivedFile, sourceForUrl, firstPathArg, REFRESH } from './lib/raw-archive.mjs';
 import { crosswalkFromJson, allocate, rollUp, PC4_YEAR } from '../modules/postcode.js';
 import { BOUW_FORMAT, BOUW_SOURCE_URL, BOUW_CLASSES, BOUW_TOTAL_COLUMN, BOUW_GROUPS, OLD_BUILD_BEFORE, MODERN_BUILD_FROM, bouwCountsFromRows, encodeBouwLevel } from '../modules/bouwjaar-pc4.js';
 
@@ -22,21 +23,15 @@ const CACHE = new URL('../.cache/pc4/', import.meta.url);
 const GPKG = `cbs_pc4_${PC4_YEAR}_vol.gpkg`;
 
 async function gpkgPath() {
-  if (process.argv[2]) return process.argv[2];
+  if (firstPathArg()) return firstPathArg();
   const dir = new URL(`bouwjaar-${PC4_YEAR}/`, CACHE);
   const file = new URL(GPKG, dir);
-  if (existsSync(file)) return file.pathname;
+  if (existsSync(file) && !REFRESH) return file.pathname;
   await mkdir(CACHE, { recursive: true });
-  const zip = new URL(`cbs_pc4_${PC4_YEAR}_vol.zip`, CACHE);
-  if (!existsSync(zip)) {
-    console.log(`downloading ${BOUW_SOURCE_URL}`);
-    const res = await fetch(BOUW_SOURCE_URL);
-    if (!res.ok) throw new Error(`${BOUW_SOURCE_URL}: ${res.status}`);
-    await writeFile(zip, Buffer.from(await res.arrayBuffer()));
-  }
+  const zip = await archivedFile(sourceForUrl(BOUW_SOURCE_URL), BOUW_SOURCE_URL);   // the zip lives in the raw archive
   await rm(dir, { recursive: true, force: true });
   await mkdir(dir, { recursive: true });
-  execFileSync('unzip', ['-o', '-q', zip.pathname, GPKG, '-d', dir.pathname]);
+  execFileSync('unzip', ['-o', '-q', zip, GPKG, '-d', dir.pathname]);
   return file.pathname;
 }
 

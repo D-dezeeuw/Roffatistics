@@ -16,6 +16,7 @@ import { createReadStream, existsSync } from 'node:fs';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { execFileSync } from 'node:child_process';
+import { archivedJson, archivedFile, sourceForUrl, firstPathArg, REFRESH } from './lib/raw-archive.mjs';
 import { createCrosswalk, addAddresses, crosswalkToJson, allocate, rollUp, pc4ToArea, PC4_YEAR } from '../modules/postcode.js';
 import { MA, PC4_HERKOMST_TABLE, PC4_HERKOMST_FORMAT, PC4_COLUMN_KEYS, pc4CountsFromRows, encodePc4Level, validatePc4, GM_EQUIV_KEYS } from '../modules/herkomst-pc4.js';
 
@@ -25,18 +26,9 @@ const CSV_NAME = 'pc6hnr20230801_gwb.csv';
 const OUT = new URL('../data/nl/', import.meta.url);
 const CACHE = new URL('../.cache/pc4/', import.meta.url);
 
-async function getWithRetry(url, tries = 4) {
-  for (let i = 1; ; i++) {
-    try {
-      const res = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
-      return await res.json();
-    } catch (err) {
-      if (i >= tries) throw new Error(`${url}: ${err.message}`);
-      await new Promise(r => setTimeout(r, 2000 * i));
-    }
-  }
-}
+// Every download goes through the raw archive (scripts/lib/raw-archive.mjs): the newest
+// archived copy is reused, --refresh fetches anew.
+const getWithRetry = url => archivedJson(sourceForUrl(url), url);
 
 async function cbsRows() {
   const keys = Object.values(MA);
@@ -54,19 +46,13 @@ async function cbsRows() {
 }
 
 async function csvPath() {
-  const given = process.argv[2] ?? process.env.PC6_CSV;
+  const given = firstPathArg() ?? process.env.PC6_CSV;
   if (given) return given;
   const csv = new URL(CSV_NAME, CACHE);
-  if (existsSync(csv)) return csv.pathname;
+  if (existsSync(csv) && !REFRESH) return csv.pathname;
   await mkdir(CACHE, { recursive: true });
-  const zip = new URL('pc6huisnr.zip', CACHE);
-  if (!existsSync(zip)) {
-    console.log(`downloading ${ZIP_URL}`);
-    const res = await fetch(ZIP_URL);
-    if (!res.ok) throw new Error(`${ZIP_URL} ${res.status}`);
-    await writeFile(zip, Buffer.from(await res.arrayBuffer()));
-  }
-  execFileSync('unzip', ['-o', zip.pathname, CSV_NAME, '-d', CACHE.pathname], { stdio: 'inherit' });
+  const zip = await archivedFile(sourceForUrl(ZIP_URL), ZIP_URL);   // the zip lives in the raw archive; only the CSV is unpacked here
+  execFileSync('unzip', ['-o', zip, CSV_NAME, '-d', CACHE.pathname], { stdio: 'inherit' });
   return csv.pathname;
 }
 

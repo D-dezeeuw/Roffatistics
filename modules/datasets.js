@@ -4,13 +4,10 @@ import { REGIONS, REGIO_TABLE, REGIO_YEAR, regionComposition } from './herkomst-
 import { P2000_SOURCE_URL, P2000_COVERAGE, P2000_MIN_POPULATION } from './p2000.js';
 import { SMALL_N as EDU_SMALL_N, NEAR_RADIUS_KM, NEAR_BEST_KM, YEARS as EDU_YEARS } from './schools.js';
 
-const CBS_BASE = 'https://opendata.cbs.nl/ODataApi/odata';
+import { odataUrl, getRows } from './source.js';
 
 export function buildCBSUrl(tableId, filter, select, top = null) {
-  const params = new URLSearchParams({ $filter: filter });
-  if (select) params.set('$select', select);
-  if (top)    params.set('$top', top);
-  return `${CBS_BASE}/${tableId}/TypedDataSet?${params}`;
+  return odataUrl(tableId, { filter, select, top });
 }
 
 export async function fetchCBS(
@@ -57,6 +54,31 @@ export const CBS_COLUMNS = Object.freeze({
 });
 
 export const CBS_SELECT = Object.values(CBS_COLUMNS).join(',');
+
+// ── National rows of the Nederland scope (app.js): provinces and gemeenten from
+// 70072ned (kerncijfers) and 83648NED (misdrijven), read as snapshots
+// (data/snapshot/<key>.json, scripts/snapshot-sources.mjs); the URL is the live fallback.
+export const CRIME_REGION_TABLE  = '83648NED';
+export const CRIME_REGION_SELECT = 'RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3';
+const CRIME_REGION_KINDS = "(SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI1100' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000' or SoortMisdrijf eq 'CRI3100')";
+export const NL_REGION_QUERIES = Object.freeze({
+  'cbs/70072ned-provincies':  Object.freeze({ table: CBS_TABLE, filter: `startswith(RegioS,'PV') and Perioden eq '${CBS_PERIOD}'`, select: CBS_SELECT }),
+  'cbs/83648NED-provincies':  Object.freeze({ table: CRIME_REGION_TABLE, filter: `startswith(RegioS,'PV') and Perioden eq '${CBS_PERIOD}' and ${CRIME_REGION_KINDS}`, select: CRIME_REGION_SELECT }),
+  'cbs/70072ned-gemeenten':   Object.freeze({ table: CBS_TABLE, filter: `startswith(RegioS,'GM') and Perioden eq '${CBS_PERIOD}'`, select: CBS_SELECT }),
+  'cbs/83648NED-gemeenten':   Object.freeze({ table: CRIME_REGION_TABLE, filter: `startswith(RegioS,'GM') and Perioden eq '${CBS_PERIOD}' and ${CRIME_REGION_KINDS}`, select: CRIME_REGION_SELECT }),   // no $top: 2000 cut off ~half of the rows (decisions.md 16 Nov 2026)
+});
+
+/** Live URL of a NL_REGION_QUERIES key. */
+export function nlRegionUrl(key) {
+  const q = NL_REGION_QUERIES[key];
+  if (!q) throw new Error(`datasets: unknown region query ${key}`);
+  return buildCBSUrl(q.table, q.filter, q.select, q.top ?? null);
+}
+
+/** Rows of a NL_REGION_QUERIES key: the own snapshot, the live URL as (flagged) fallback. */
+export function loadRegionRows(key, opts = {}) {
+  return getRows(key, { live: nlRegionUrl(key), ...opts });
+}
 
 const pct = (part, total) =>
   part != null && total ? +(part / total * 100).toFixed(1) : null;

@@ -143,7 +143,12 @@ describe('loaders (local files, stubbed CBS)', () => {
   beforeEach(() => _resetAreaCache());
 
   const root = new URL('../', import.meta.url);
+  // CBS/police tables are own-origin snapshots now (modules/source.js): stub those, read the geometry files.
   const localFetch = cbs => async url => {
+    if (url.startsWith('./data/snapshot/')) {
+      if (url.includes('86165NED-gemeenten')) return { ok: true, json: async () => ({ value: [{ Key: 'GM0599    ', Title: 'Rotterdam' }] }) };
+      return cbs();
+    }
     if (url.startsWith('./')) {
       const body = await readFile(new URL(url.slice(2), root), 'utf8');
       return { ok: true, json: async () => JSON.parse(body) };
