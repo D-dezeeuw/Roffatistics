@@ -220,7 +220,7 @@ export function switcherHtml(state = getState()) {
   const active = state.dataset === 'woonscore' ? scoreKind(state.score) : null;
   const opt = (k, label, title) => `<button type="button" class="seg-opt${active === k ? ' active' : ''}" data-score-preset="${k}" aria-pressed="${active === k}" title="${esc(title)}">${label}</button>`;
   return `<div class="seg score-switch" role="group" aria-label="Score">
-    ${opt('standaard', 'Standaard', 'Woonscore: gemiddeld prettige omstandigheden')}${opt('gelijk', 'Gelijk', 'Alle cijfers met een richting even zwaar')}${opt('custom', 'Jouw score', 'Met jouw antwoorden uit de wizard')}</div>`;
+    ${opt('standaard', 'Standaard', 'Neutraal: alle thema’s even zwaar; veiligheid, inkomen, basisscholen en geluidhinder door buren iets zwaarder')}${opt('gelijk', 'Gelijk', 'Alle cijfers met een richting even zwaar')}${opt('custom', 'Jouw score', 'Met jouw antwoorden uit de wizard')}</div>`;
 }
 
 /** Legend Reset (only while the Woonscore is personalised or Gelijk): back to the Standaard weights. */

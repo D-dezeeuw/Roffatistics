@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   STEPS, APPLY, APPLY_ORDER, STEP_PARTS, EMPTY_ANSWERS, normalizeAnswers, isEmptyAnswers, budgetCeiling, answersToPreset, themeWeights,
-  encodeAnswers, decodeAnswers, presetFromScore, scoreKind, loadAnswers, saveAnswers, ANSWERS_STORAGE_KEY,
+  encodeAnswers, decodeAnswers, presetFromScore, scoreKind, chosenStoredScore, loadAnswers, saveAnswers, ANSWERS_STORAGE_KEY,
   topAreas, describeAnswers, parseEuroK, SCORE_RE, INCOME_FACTOR, STRESS_W,
 } from '../modules/wizard-model.js';
 import { STANDAARD, GELIJK, resolvePreset, resolveTargets, quantile, scoreWithPreset, assignScore, themeBreakdown, scoreResult, rowsWithWoonscore, setPersonalPreset, withWoonscore } from '../modules/presets.js';
@@ -179,6 +179,28 @@ describe('wizard: hash and storage', () => {
     assert.equal(resolveInitialState({ hash: '', storage: st }).score, 'gelijk');
     assert.equal(resolveInitialState({ hash: '#score=s10', storage: st }).score, 's10');
     assert.equal(resolveInitialState({ hash: '', storage: memStorage() }).score, null);
+  });
+  it('a stored score only comes back when the user chose it (v0.54.0)', () => {
+    const fresh = memStorage();
+    fresh.setItem(SCORE_STORAGE_KEY, 'lg.s30');   // stale: no wizard answers saved here
+    assert.equal(resolveInitialState({ hash: '', storage: fresh }).score, null, 'stale custom score: Standaard');
+    assert.equal(fresh.getItem(SCORE_STORAGE_KEY), null, 'and removed');
+    const std = memStorage(); std.setItem(SCORE_STORAGE_KEY, 'standaard');
+    assert.equal(resolveInitialState({ hash: '', storage: std }).score, null);
+    const own = memStorage();
+    saveAnswers(own, decodeAnswers('lg.s30'));
+    own.setItem(SCORE_STORAGE_KEY, encodeAnswers(decodeAnswers('lg.s30')));
+    assert.equal(resolveInitialState({ hash: '', storage: own }).score, encodeAnswers(decodeAnswers('lg.s30')), 'own wizard answers win');
+    assert.equal(resolveInitialState({ hash: '#score=gelijk', storage: fresh }).score, 'gelijk', 'a link still wins');
+    assert.equal(chosenStoredScore('gelijk', null), 'gelijk');
+    assert.equal(chosenStoredScore('s30', null), null);
+    assert.equal(chosenStoredScore('s30', { sfeer: 70 }), null, 'other answers');
+  });
+  it('the Milieu importance travels in the hash (letter h)', () => {
+    const s = encodeAnswers({ importance: { milieu: 4 } });
+    assert.match(s, /h4/);
+    assert.equal(decodeAnswers(s).importance.milieu, 4);
+    assert.equal(themeOf(answersToPreset({ importance: { milieu: 0 } }), 'milieu').weight, 0);
   });
   it('answers in localStorage survive a round trip; a throwing storage is ignored', () => {
     const st = memStorage();
@@ -364,6 +386,11 @@ describe('Levenstype profiles (v0.45.0)', () => {
     assert.deepEqual(Object.keys(PROF).sort(), ['standaard', ...Object.keys(LEVENSTYPEN)].sort());
     for (const [k, p] of Object.entries(PROF)) {
       for (const t of Object.keys(p.weights)) assert.ok(PROFILE_THEMES.includes(t), `${k}.${t}`);
+      // Standaard (v0.54.0): importance steps, not a 100 split (Gemiddeld 10, Belangrijk 15).
+      if (k === 'standaard') {
+        assert.ok(Object.values(p.weights).every(w => [0, NOMINAL_BASE, NOMINAL_BASE * 1.5].includes(w)), k);
+        continue;
+      }
       // Nieuwkomer: Sfeer 10 has no direction, so 90 of its 100 has metrics until Sfeer is answered.
       if (k === 'nieuwkomer') {
         assert.equal(Object.values(p.weights).reduce((s, w) => s + w, 0), 100, k);
@@ -383,8 +410,8 @@ describe('Levenstype profiles (v0.45.0)', () => {
     }
     for (const k of ['distOv', 'distGroen', 'distOpenNatuur', 'distPodium', 'waterPct', 'crimePickpocket', 'crimeDrugs', 'eduNearScore']) assert.ok(DS[k], k);
   });
-  it('Standaard is the new column: 35/15/40/10, Woningmarkt 0, no Levenstype or Sfeer', () => {
-    assert.deepEqual(weightsOf(STANDAARD), { veiligheid: 35, welvaart: 15, voorzieningen: 40, opleiding: 10 });
+  it('Standaard is neutral (v0.54.0): 15/15/10/15/10, Woningmarkt 0, no Levenstype or Sfeer', () => {
+    assert.deepEqual(weightsOf(STANDAARD), { veiligheid: 15, welvaart: 15, voorzieningen: 10, opleiding: 15, milieu: 10 });
     assert.deepEqual(weightsOf(answersToPreset({})), weightsOf(STANDAARD));
     assert.deepEqual(themeWeights({}), { ...weightsOf(STANDAARD), woningmarkt: 0 });
   });
@@ -455,9 +482,9 @@ describe('Levenstype profiles (v0.45.0)', () => {
     assert.match(LEVENSTYPE_HINTS.stel, /jong stel, graag wat te doen/);
     assert.match(LEVENSTYPE_HINTS.student, /veiligheid licht/);
   });
-  it('addendum 3: Woningmarkt 0 everywhere; freed points to Voorzieningen (Standaard) or Levenstype', () => {
+  it('addendum 3: Woningmarkt 0 everywhere; freed points to Levenstype', () => {
     for (const [k, p] of Object.entries(PROF)) assert.equal(p.weights.woningmarkt, 0, k);
-    assert.equal(PROF.standaard.weights.voorzieningen, 40);
+    assert.equal(PROF.standaard.weights.voorzieningen, 10, 'v0.54.0: neutral Standaard');
     assert.deepEqual(['stel', 'gezin', '50plus', 'soloRust'].map(k => PROF[k].weights.leeftijd), [15, 15, 10, 5]);
     const huur = answersToPreset({ levensfase: 'student', budget: { mode: 'huur' } });
     assert.equal(themeOf(huur, 'woningmarkt').weight, 0, 'huur only changes the metric, not the weight');

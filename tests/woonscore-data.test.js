@@ -116,7 +116,7 @@ describe('W2 datasets and the Standaard preset', () => {
   });
   it('Standaard Voorzieningen holds huisarts, supermarkt, school, station and kinderopvang', () => {
     const t = STANDAARD.themes.find(x => x.key === 'voorzieningen');
-    assert.equal(t.weight, 40);   // 0.45.0: Standaard 35/40/15/10/0
+    assert.equal(t.weight, 10);   // 0.54.0: neutral Standaard, Gemiddeld
     assert.deepEqual(t.metrics.map(m => [m.key, m.pref]),
       [['distGP', 'lower'], ['distSupermarket', 'lower'], ['distSchool', 'lower'], ['distStation', 'lower'], ['distKinderopvang', 'lower']]);
   });

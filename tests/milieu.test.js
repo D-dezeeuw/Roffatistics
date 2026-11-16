@@ -248,3 +248,14 @@ describe('milieu phase 2: air raster and PFAS distance', () => {
     assert.match(html, /Afstand tot verdachte PFAS-bron[^]*km/);
   });
 });
+
+describe('milieu: Standaard Woonscore (v0.54.0)', () => {
+  it('Standaard weighs geluidhinder buren, so app.js loads the milieu file for it', async () => {
+    const { presetUsesMilieu } = await import('../modules/milieu.js');
+    const { STANDAARD, GELIJK } = await import('../modules/presets.js');
+    assert.equal(presetUsesMilieu(STANDAARD), true);
+    assert.equal(presetUsesMilieu({ themes: [{ metrics: [{ key: 'crimeRate' }] }] }), false);
+    assert.equal(presetUsesMilieu(null), false);
+    assert.equal(typeof presetUsesMilieu(GELIJK), 'boolean');
+  });
+});

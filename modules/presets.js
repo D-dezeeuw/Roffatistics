@@ -40,12 +40,25 @@ const THEME_METRICS = {
   woningmarkt: [['ownerOccupiedPct', 'higher']],
 };
 /** Theme order of a profile preset. */
-export const PROFILE_THEMES = Object.freeze(['veiligheid', 'welvaart', 'voorzieningen', 'opleiding', 'woningmarkt', 'leeftijd', 'sfeer']);
+export const PROFILE_THEMES = Object.freeze(['veiligheid', 'welvaart', 'voorzieningen', 'opleiding', 'milieu', 'woningmarkt', 'leeftijd', 'sfeer']);
+/**
+ * Standaard (v0.54.0, operator 16 Nov 2026): neutral. Every theme at
+ * Gemiddeld (NOMINAL_BASE 10) except a slight emphasis, one importance step up
+ * (Belangrijk, ×1.5 = 15) on Veiligheid, Welvaart and Opleiding; inside the last
+ * two, inkomen (avgIncome) and the basisschoolscore (eduScore) count double, and
+ * geluidhinder door buren (noiseNeighbourPct) is the theme Milieu on its own.
+ * So each emphasised metric weighs 10, as much as a whole neutral theme; the
+ * other metric of its theme 5. Woningmarkt stays 0 (addendum below).
+ * Not summed to 100: resolvePreset normalises.
+ */
 export const PROFILES = Object.freeze({
   standaard: {
-    weights: { veiligheid: 35, voorzieningen: 40, welvaart: 15, opleiding: 10, woningmarkt: 0 },
+    weights: { veiligheid: 15, voorzieningen: 10, welvaart: 15, opleiding: 15, milieu: 10, woningmarkt: 0 },
     veiligheid: VEILIG_STD,
     voorzieningen: [['distGP', 'lower'], ['distSupermarket', 'lower'], ['distSchool', 'lower'], ['distStation', 'lower'], ['distKinderopvang', 'lower']],
+    welvaart: [['avgIncome', 'higher', 2], ['welfarePer1000', 'lower']],
+    opleiding: [['eduScore', 'higher', 2], ['highEdu', 'higher']],
+    milieu: [['noiseNeighbourPct', 'lower']],
   },
   student: {
     weights: { veiligheid: 10, voorzieningen: 30, welvaart: 0, opleiding: 0, woningmarkt: 0, leeftijd: 20, sfeer: 40 }, sfeer: 'druk',
@@ -108,7 +121,7 @@ export const PROFILES = Object.freeze({
     leeftijd: [['waterPct', 'higher']],
   },
 });
-const LABELS = { veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding', woningmarkt: 'Woningmarkt', leeftijd: 'Levenstype', sfeer: 'Sfeer' };
+const LABELS = { veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding', milieu: 'Milieu', woningmarkt: 'Woningmarkt', leeftijd: 'Levenstype', sfeer: 'Sfeer' };
 const toMetric = ([key, pref, w]) => Object.freeze(w == null ? { key, pref } : { key, pref, w });
 
 /**
@@ -138,7 +151,7 @@ export function profileTopThemes(key, n = 3) {
 }
 
 /**
- * "Standaard": the Standaard profile, no lifestyle metrics. A theme weight is
+ * "Standaard": the neutral Standaard profile (see PROFILES), no lifestyle metrics. A theme weight is
  * shared by the metrics of that theme that have data; a theme with none is
  * dropped and the rest renormalise, so NL gemeenten (few metrics) and
  * Rotterdam buurten use the same preset. crimeNearby (omgeving.js): the area
@@ -292,7 +305,7 @@ export function scoreWithPreset(areas, preset = DEFAULT_PRESET, { parents = null
 
 /** Labels of every theme a preset can use (Standaard plus the wizard's themes). */
 export const THEME_LABELS = Object.freeze({
-  veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding',
+  veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding', milieu: 'Milieu',
   woningmarkt: 'Woningmarkt', leeftijd: 'Levenstype', nieuwbouw: 'Bouwstijl', budget: 'Budget', sfeer: 'Sfeer',
   situatie: 'Vergelijkbare buren', gemeenschap: 'Eigen gemeenschap dichtbij', dichtbij: 'Dichtbij',
 });

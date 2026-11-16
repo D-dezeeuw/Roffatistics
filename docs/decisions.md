@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-11-16 — Woonscore Standaard is neutral, with a slight emphasis (v0.54.0)
+
+- **Cause.** A fresh load (no hash, no storage) scores with `PROFILES.standaard`, which was itself a lifestyle-like profile (Voorzieningen 40, Veiligheid 35, Welvaart 15, Opleiding 10): it read as "a profile picked automatically". No wizard answers or preset were auto-applied.
+- **New Standaard** (presets.js `PROFILES.standaard`): every theme at Gemiddeld (10, the app's `NOMINAL_BASE`), one importance step up (Belangrijk, ×1.5 = 15) for Veiligheid, Welvaart and Opleiding. Inside Welvaart `avgIncome` has share 2 next to `welfarePer1000` 1; inside Opleiding `eduScore` (onderwijsprestatie basisscholen in het gebied, the general layer, not the gezin `eduNearScore`) 2 next to `highEdu` 1; geluidhinder buren (`noiseNeighbourPct`, lower = better) is a new theme **Milieu** (10) on its own. So every emphasised metric weighs 10, as much as a whole neutral theme. Normalised shares: Veiligheid 23 %, inkomen, basisschoolscore, geluidhinder buren and Voorzieningen 15 % each, bijstand and hbo/wo 8 % each. Woningmarkt stays 0 (the earlier addendum: a luxury issue). Weights are not summed to 100; `resolvePreset` normalises.
+- **Why per theme and not a flat 1.5 on four metrics**: the importance slider works per theme and "Gemiddeld" must stay the starting point the wizard shows; a Milieu theme at 15 with one estimated metric would have weighed as much as all of Veiligheid.
+- **Missing data**: coverage and shrinkage unchanged (MIN_COVERAGE 0.6, shrink on rates). An area without a school (no eduScore) or without milieu data scores on the rest; eduScore and the milieu file now load on every start with Standaard, and the Woonscore is rescored when they land (`presetUsesMilieu` + `onMilieuLoaded`, like `onEduLoaded`). Until then the first paint scores without them.
+- **Consistency**: `STANDAARD` is what the Jouw dashboard and the wizard compare against, and the wizard's base without a levenstype, so all three use the neutral profile. Levenstype profiles are unchanged (Milieu is in `PROFILE_THEMES`, so a chosen levenstype drops it). Milieu got hash letter `h` for its importance slider.
+- **Stale stored score**: `roffatistics.score` now comes back on load only as an explicit choice (`chosenStoredScore`): `gelijk`, or a custom score that matches the wizard answers saved in this browser (`roffatistics.scoreAnswers`). Anything else (`standaard`, or a custom score without those answers: stored by an older version or from an opened link) is ignored and removed. A score that arrives through a link (`source: 'hash'`) is no longer written to storage. A link's `#score=` still wins on that load.
+
 ## 2026-11-16 — Diversiteit replaces "Nederland (%)"; Gemeenschappen per land back (v0.53.0)
 
 Partly reverses "2026-11-15 — One category list…" (Herkomst = Nederland + world regions).

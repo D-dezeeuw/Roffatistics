@@ -611,7 +611,7 @@ const LF = { student: 's', starter: 't', nieuwkomer: 'n', stel: 'p', gezin: 'g',
 const BOUW = { karakter: 'k', modern: 'm' };
 const VV = { fiets: 'f', ov: 'o', auto: 'a', lopen: 'l' };
 const CR = { inbraak: 'in', geweld: 'gw', straatroof: 'sr', fiets: 'fd', auto: 'ad', vandalisme: 'vd', drugs: 'dr', omgeving: 'om' };
-const TH = { veiligheid: 'v', welvaart: 'e', voorzieningen: 'z', opleiding: 'o', woningmarkt: 'm', leeftijd: 'l', nieuwbouw: 'n', budget: 'b', sfeer: 's', situatie: 't', dichtbij: 'd' };
+const TH = { veiligheid: 'v', welvaart: 'e', voorzieningen: 'z', opleiding: 'o', milieu: 'h', woningmarkt: 'm', leeftijd: 'l', nieuwbouw: 'n', budget: 'b', sfeer: 's', situatie: 't', dichtbij: 'd' };
 const inv = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [v, k]));
 const ED = Object.fromEntries(Object.entries(SITUATIE_EDU).map(([k, e]) => [k, e.code]));
 const INC = Object.fromEntries(Object.entries(SITUATIE_INCOME).map(([k, b]) => [k, b.code]));
@@ -746,6 +746,22 @@ export function presetFromScore(score) {
   if (!score || score === 'standaard') return STANDAARD;
   if (score === 'gelijk') return GELIJK;
   return answersToPreset(decodeAnswers(score));
+}
+
+/**
+ * The stored `score` (localStorage) to restore on a load without a score in
+ * the link, or null (= Standaard). Only an explicit choice survives: Gelijk
+ * (only the switcher sets it) or a custom score that matches the wizard
+ * answers saved in this browser. 'standaard' is the default anyway; a custom
+ * score without those answers (stored by an older version or from a link that
+ * was opened) never silently applies (v0.54.0).
+ */
+export function chosenStoredScore(storedScore, savedAnswers) {
+  if (!storedScore || storedScore === 'standaard') return null;
+  if (storedScore === 'gelijk') return storedScore;
+  const own = savedAnswers ? encodeAnswers(savedAnswers) : '';
+  if (!own) return null;
+  return encodeAnswers(decodeAnswers(storedScore)) === own || isShareOf(storedScore, own) ? storedScore : null;
 }
 
 /** Which switcher option a `score` value means: 'standaard' | 'gelijk' | 'custom'. */

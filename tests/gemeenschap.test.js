@@ -82,7 +82,7 @@ describe('Gemeenschap: one group, higher, user weight', () => {
   it('slider weights cannot reach the Gemeenschap theme', () => {
     const a = normalizeAnswers({ gemeenschap: { detail: 'nederland' }, weights: { gemeenschap: 100, veiligheid: 50 } });
     assert.deepEqual(a.weights, { veiligheid: 50 });
-    const off = answersToPreset({ weights: { veiligheid: 0, welvaart: 0, voorzieningen: 0, opleiding: 0, woningmarkt: 0 }, gemeenschap: { detail: 'nederland' } });
+    const off = answersToPreset({ weights: { veiligheid: 0, welvaart: 0, voorzieningen: 0, opleiding: 0, milieu: 0, woningmarkt: 0 }, gemeenschap: { detail: 'nederland' } });
     assert.equal(originMetrics(off).length, 0, 'no other weight: no community-only score');
   });
   it('Nederland: breakdown shows "Eigen gemeenschap dichtbij" and never as a minus; missing field drops the factor', () => {
@@ -207,7 +207,7 @@ describe('Sharing: sensitive parts only when ticked in "Deellink maken"', () => 
   });
   it('localStorage keeps the private choices and a reload restores them', () => {
     const st = memStorage();
-    saveAnswers(st, { sfeer: 30, gemeenschap: { detail: 'nederland' } });
+    saveAnswers(st, { sfeer: 30, gemeenschap: { detail: 'nederland', pct: 10 } });   // v0.54.0: the stored score must match the saved answers
     assert.equal(loadAnswers(st).gemeenschap.detail, 'nederland');
     st.setItem(SCORE_STORAGE_KEY, 's30.ghnl10');
     assert.equal(resolveInitialState({ hash: '#score=s30', storage: st }).score, 's30.ghnl10');

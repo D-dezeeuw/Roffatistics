@@ -35,7 +35,7 @@ import { loadBouwjaar, onBouwLoaded, addBouwShares, isBouwKey, isBouwLoaded, pre
 import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, presetUsesPc4 } from './modules/herkomst-pc4.js';
 import { loadGemeenteRegio, isRegioLoaded, isRegionMetric, withRegionShares } from './modules/herkomst-regio.js';
 import { showLoader, hideLoader, setLoaderProgress, withLoader } from './modules/loader.js';
-import { isMilieuKey, isMilieuLoaded, loadMilieu, onMilieuLoaded, addMilieuValues, withMilieuRows } from './modules/milieu.js';
+import { isMilieuKey, isMilieuLoaded, loadMilieu, onMilieuLoaded, addMilieuValues, withMilieuRows, presetUsesMilieu } from './modules/milieu.js';
 import { isEduKey, isEduLoaded, loadEduAreas, onEduLoaded, addEduValues, withEduRows, presetUsesEdu, eduAreasWanted } from './modules/onderwijs.js';
 import { isP2000Key, isP2000Loaded, loadP2000, setP2000Window, getP2000Window, activeP2000, addP2000Values, withP2000Rows, p2000LegendHtml, P2000_ERROR_TEXT, P2000_LOADING_TEXT } from './modules/p2000.js';
 import { CITY, applyCityToDocument } from './modules/city.js';
@@ -470,7 +470,8 @@ function applyPersonalScore(score) {
   // A detailed group also counts per wijk/buurt via the postcode estimate: load it; onPc4Loaded rescores.
   if (presetUsesPc4(preset) && !isPc4Loaded()) loadPc4Herkomst().catch(() => { /* file missing: the factor is skipped there */ });
   if (presetUsesBouw(preset) && !isBouwLoaded()) loadBouwjaar().catch(() => { /* file missing: the factor is skipped there */ });
-  if (presetUsesEdu(preset)) ensureEduAreas({ preset });   // gezin weighs eduNearScore: onEduLoaded rescores
+  if (presetUsesEdu(preset)) ensureEduAreas({ preset });   // Standaard (eduScore), gezin (eduNearScore): onEduLoaded rescores
+  if (presetUsesMilieu(preset) && !isMilieuLoaded()) loadMilieu().catch(() => { /* file missing: Standaard scores without noise */ });   // onMilieuLoaded rescores
   const rd = peekCityAreas();
   if (rd) {
     assignScore(rd.wijken, 'woonscore');
@@ -535,6 +536,11 @@ onMilieuLoaded(() => {
   addMilieuValues(nl.wijken); addMilieuValues(nl.buurten);
   if (provinceRows.length) { provinceRows = withMilieuRows(provinceRows); setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); setNationalAreas('provincie', provinceRows); }
   if (gemeenteRows.length) { gemeenteRows = withMilieuRows(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
+  // Standaard weighs geluidhinder buren (v0.54.0): rescore once the values are in.
+  if (presetUsesMilieu(presetFromScore(getState().score))) {
+    applyPersonalScore(getState().score);
+    if (DATASETS[getState().dataset]?.unit === 'score') activateDataset(getState().dataset);
+  }
   if (getActiveStack()) applyStack();
   refreshList();
   refreshDashboard();
@@ -610,7 +616,8 @@ onStateChange(({ state, changed, source }) => {
 syncDatasetButtons(initialState.dataset);
 showView(initialState.view);
 initList();   // after showView so a #view=list start renders visible
-ensureEduAreas();   // a #view=list start or a gezin preset in the link: onderwijsprestatie right away
+ensureEduAreas();   // a #view=list start, Standaard (eduScore) or a gezin preset: onderwijsprestatie right away
+if (presetUsesMilieu(presetFromScore(initialState.score)) && !isMilieuLoaded()) loadMilieu().catch(() => { /* file missing: scored without noise */ });   // Standaard: geluidhinder buren
 initDashboard();
 // Boot loader: hides when the first scope is drawn (Nederland: once the provinces are coloured), at most BOOT_LOADER_MAX_MS.
 const BOOT_LOADER_MAX_MS = 20000;

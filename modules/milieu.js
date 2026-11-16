@@ -223,6 +223,8 @@ const listeners = [];
 /** Runs `fn` once the file lands, before the load promise resolves (app.js joins the values). */
 export const onMilieuLoaded = fn => { listeners.push(fn); };
 export const isMilieuLoaded = () => data != null;
+/** True when a Woonscore preset weighs a milieu metric (Standaard: noiseNeighbourPct, v0.54.0): app.js loads the file and rescores. */
+export const presetUsesMilieu = preset => (preset?.themes ?? []).some(t => (t.metrics ?? []).some(m => MILIEU_KEYS.includes(m?.key)));
 export const getMilieuEntry = code => data?.get(norm(code)) ?? null;
 
 /** Loads (once) the file; a failure is forgotten so the next call retries. */

@@ -3,7 +3,7 @@
 // URL hash and emits a 'state-change' event: on `document` in the browser,
 // on a private EventTarget under node.
 import { DATASET_KEYS, CRIME_MODES, resolveLayerKey } from './datasets.js';
-import { shareableScore, restoreLocalScore, isShareOf, SHARE_NONE } from './wizard-model.js';
+import { shareableScore, restoreLocalScore, isShareOf, SHARE_NONE, chosenStoredScore, loadAnswers } from './wizard-model.js';
 import { sanitizeCmp } from './compare.js';
 import { CITY, CITY_SLUGS } from './city.js';
 import { normalizeStack } from './stapel.js';
@@ -93,6 +93,13 @@ export function serializeHash(state, shareOpts = shareChoice, citySlug = CITY.sl
 export function resolveInitialState({ hash = '', storage = null } = {}) {
   let stored = {};
   try { stored = sanitizePatch({ scope: storage?.getItem(SCOPE_STORAGE_KEY), crime: storage?.getItem(CRIME_STORAGE_KEY), listView: storage?.getItem(LIST_VIEW_STORAGE_KEY), score: storage?.getItem(SCORE_STORAGE_KEY), stack: storage?.getItem(STACK_STORAGE_KEY) });
+    // Only an explicit choice comes back (chosenStoredScore); anything else is dropped from storage too.
+    if (stored.score != null) {
+      const chosen = chosenStoredScore(stored.score, loadAnswers(storage));
+      const was = stored.score;
+      stored.score = chosen;
+      if (chosen !== was) storage?.removeItem?.(SCORE_STORAGE_KEY);
+    }
     if (stored.score === null) delete stored.score;
     if (stored.stack === null) delete stored.stack; } catch { /* storage blocked */ }
   const fromHash = parseHash(hash);
@@ -127,7 +134,8 @@ export function setState(patch, { source = 'app' } = {}) {
   if (changed.includes('listView')) {
     try { storageRef?.setItem(LIST_VIEW_STORAGE_KEY, state.listView); } catch { /* ignore */ }
   }
-  if (changed.includes('score')) {
+  // A score that came with a link (source 'hash') is not the user's own choice: not stored (v0.54.0).
+  if (changed.includes('score') && source !== 'hash') {
     try { if (state.score) storageRef?.setItem(SCORE_STORAGE_KEY, state.score); else storageRef?.removeItem(SCORE_STORAGE_KEY); } catch { /* ignore */ }
   }
   if (changed.includes('stack')) {

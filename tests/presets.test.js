@@ -10,11 +10,16 @@ const ROTTERDAM_KEYS = ['crimeRate', 'crimeBurglary', 'crimeViolence', 'crimeStr
   'avgIncome', 'welfarePer1000', 'distGP', 'distSupermarket', 'highEdu', 'ownerOccupiedPct', 'population', 'density'];
 
 describe('Standaard preset', () => {
-  it('follows the plan table: themes 35/15/40/10/0 (v0.45.0) and no taste metrics', () => {
+  it('is neutral (v0.54.0): every theme Gemiddeld 10, Veiligheid/Welvaart/Opleiding one step up (15), no taste metrics', () => {
     assert.equal(DEFAULT_PRESET, 'standaard');
     assert.equal(PRESETS.standaard, STANDAARD);
     assert.deepEqual(STANDAARD.themes.map(t => [t.key, t.weight]),
-      [['veiligheid', 35], ['welvaart', 15], ['voorzieningen', 40], ['opleiding', 10], ['woningmarkt', 0]]);
+      [['veiligheid', 15], ['welvaart', 15], ['voorzieningen', 10], ['opleiding', 15], ['milieu', 10], ['woningmarkt', 0]]);
+    const metric = (theme, key) => STANDAARD.themes.find(t => t.key === theme).metrics.find(m => m.key === key);
+    assert.deepEqual(metric('welvaart', 'avgIncome'), { key: 'avgIncome', pref: 'higher', w: 2 });
+    assert.deepEqual(metric('opleiding', 'eduScore'), { key: 'eduScore', pref: 'higher', w: 2 }, 'the general basisschool layer');
+    assert.deepEqual(metric('milieu', 'noiseNeighbourPct'), { key: 'noiseNeighbourPct', pref: 'lower' });
+    assert.ok(!STANDAARD.themes.some(t => t.metrics.some(m => m.key === 'eduNearScore')), 'not the gezin layer');
     const keys = STANDAARD.themes.flatMap(t => t.metrics.map(m => m.key));
     for (const k of keys) assert.ok(DATASETS[k], `${k} is a dataset`);
     for (const taste of ['density', 'pop65plus', 'originDutchPct', 'nonWesternPct', 'wozValue']) assert.ok(!keys.includes(taste));
@@ -27,16 +32,28 @@ describe('Standaard preset', () => {
     const f = resolvePreset(STANDAARD, ROTTERDAM_KEYS);
     assert.equal(f.length, 10, 'ownerOccupiedPct out: Woningmarkt 0');
     near(sum(f), 1);
-    near(sum(f.filter(x => x.theme === 'veiligheid')), 0.35);
-    near(f.find(x => x.key === 'crimeBurglary').weight, 0.07);
-    near(f.find(x => x.key === 'distGP').weight, 0.2);
+    near(sum(f.filter(x => x.theme === 'veiligheid')), 15 / 55);
+    near(f.find(x => x.key === 'crimeBurglary').weight, 3 / 55);
+    near(f.find(x => x.key === 'distGP').weight, 5 / 55);
+    near(f.find(x => x.key === 'highEdu').weight, 15 / 55);   // no eduScore: highEdu carries Opleiding
+  });
+  it('with eduScore and geluidhinder buren: each emphasised metric weighs as much as a neutral theme', () => {
+    const f = resolvePreset(STANDAARD, [...ROTTERDAM_KEYS, 'distSchool', 'distStation', 'distKinderopvang', 'crimeNearby', 'eduScore', 'noiseNeighbourPct']);
+    near(sum(f), 1);
+    const w = k => f.find(x => x.key === k).weight;
+    near(sum(f.filter(x => x.theme === 'veiligheid')), 15 / 65);
+    for (const k of ['avgIncome', 'eduScore', 'noiseNeighbourPct']) near(w(k), 10 / 65);
+    near(sum(f.filter(x => x.theme === 'voorzieningen')), 10 / 65);
+    near(w('welfarePer1000'), 5 / 65);
+    near(w('highEdu'), 5 / 65);
+    assert.equal(f.find(x => x.key === 'noiseNeighbourPct').pref, 'lower');
   });
   it('NL gemeenten: missing metrics dropped, themes renormalised', () => {
     const f = resolvePreset(STANDAARD, new Set(['crimeRate', 'avgIncome', 'highEdu', 'population']));
     assert.deepEqual(f.map(x => x.key), ['crimeRate', 'avgIncome', 'highEdu']);
     near(sum(f), 1);
-    near(f[0].weight, 35 / 60);
-    near(f[1].weight, 15 / 60);
+    near(f[0].weight, 1 / 3);
+    near(f[1].weight, 1 / 3);
     assert.deepEqual(resolvePreset(STANDAARD, []), []);
   });
   it('a target in the preset switches that metric to the target preference', () => {
@@ -102,8 +119,8 @@ describe('scoring areas with a preset', () => {
       { regionCode: 'GM0002', crimeRate: 60, avgIncome: 28, highEdu: 25 },
       { regionCode: 'GM0003', crimeRate: null, avgIncome: null, highEdu: 40 },
     ]);
-    assert.equal(rows[0].woonscore, 100);
-    assert.equal(rows[1].woonscore, 0);
+    near(rows[0].woonscore, 100);
+    near(rows[1].woonscore, 0);
     assert.equal(rows[2].woonscore, null, 'only opleiding: under 60% coverage');
     assert.deepEqual(rowsWithWoonscore([]), []);
     assert.deepEqual(scoreWithPreset([], 'standaard'), { factors: [], results: [] });

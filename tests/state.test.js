@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   sanitizePatch, parseHash, serializeHash, resolveInitialState, getState, setState, onStateChange,
-  initState, DEFAULT_STATE, SCOPE_STORAGE_KEY, CRIME_STORAGE_KEY,
+  initState, DEFAULT_STATE, SCOPE_STORAGE_KEY, CRIME_STORAGE_KEY, SCORE_STORAGE_KEY,
 } from '../modules/state.js';
 
 const memStorage = (init = {}) => {
@@ -112,4 +112,19 @@ it('city scope in the URL carries the city slug (scope=amsterdam on Mokumistics)
   assert.equal(parseHash('#scope=amsterdam&view=map').scope, 'rotterdam');
   assert.equal(parseHash('#scope=rotterdam').scope, 'rotterdam');
   assert.equal(parseHash('#scope=nederland').scope, 'nederland');
+});
+
+describe('state: score storage (v0.54.0)', () => {
+  it('a score from a link (source hash) is not stored; a choice in the app is', () => {
+    const storage = memStorage();
+    storage.removeItem = k => storage.map.delete(k);
+    initState({ hash: '', storage });
+    assert.equal(getState().score, null, 'fresh load: Standaard');
+    setState({ score: 'gelijk' }, { source: 'hash' });
+    assert.equal(storage.getItem(SCORE_STORAGE_KEY), null);
+    setState({ score: 's30' }, { source: 'wizard' });
+    assert.equal(storage.getItem(SCORE_STORAGE_KEY), 's30');
+    setState({ score: null }, { source: 'wizard' });
+    assert.equal(storage.getItem(SCORE_STORAGE_KEY), null);
+  });
 });
