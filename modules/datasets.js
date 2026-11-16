@@ -1,6 +1,7 @@
 import { BOUW_SOURCE_URL, BOUW_MIN_DWELLINGS, OLD_BUILD_BEFORE, MODERN_BUILD_FROM } from './bouwjaar-pc4.js';
 import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, pc4RegionComposition, regionAtBuurt } from './herkomst-pc4.js';
 import { REGIONS, REGIO_TABLE, REGIO_YEAR, regionComposition } from './herkomst-regio.js';
+import { LAND_COUNTRIES } from './herkomst-land.js';
 import { P2000_SOURCE_URL, P2000_COVERAGE, P2000_MIN_POPULATION } from './p2000.js';
 import { HINDER_YEAR, PET_YEAR, SHADE_YEAR, AIR_YEAR } from './milieu.js';
 import { SMALL_N as EDU_SMALL_N, NEAR_RADIUS_KM, NEAR_BEST_KM, YEARS as EDU_YEARS } from './schools.js';
@@ -861,6 +862,33 @@ for (const g of PC4_GROUPS) {
   };
 }
 
+// Gemeenschappen per land per gemeente (v0.55.0, herkomst-land.js): CBS 85458NED, all
+// single countries. The eight that also have a postcode estimate keep their `hk_*` key
+// for every level: per gemeente the CBS figure, per wijk/buurt the estimate.
+export const LAND_NOTES = Object.freeze([
+  `Per gemeente: de officiële CBS-cijfers (${REGIO_TABLE}, 1 januari ${REGIO_YEAR}), aandeel van alle inwoners, geen schatting.`,
+  'Herkomst volgt de CBS-definitie: het eigen geboorteland, of bij geboorte in Nederland dat van de moeder (anders de vader).',
+  'Verzamelposten als "voormalig Joegoslavië", "voormalige Sovjet-Unie" en "voormalig Tsjecho-Slowakije" overlappen hun opvolgers en zijn geen eigen laag.',
+]);
+/** Per-level source of the shared `hk_*` country layers (legend suffix, Uitleg). */
+export const LAND_LEVEL_SOURCES = Object.freeze({ gemeente: `CBS ${REGIO_YEAR}`, wijk: `geschat via postcode ${PC4_YEAR}` });
+for (const c of LAND_COUNTRIES) {
+  const about = c.about ? ` (${c.about})` : '';
+  INFO[c.metric] = c.pc4 ? {
+    description: `Aandeel inwoners met herkomst ${c.label}${about}. Per gemeente het CBS-cijfer van 1 januari ${REGIO_YEAR}; per wijk en buurt geschat via postcode (${PC4_YEAR}). ${PC4_DEF} Beschrijvend: er zit geen oordeel in.`,
+    formula: `inwoners met herkomst ${c.label} / inwoners × 100; per wijk/buurt per postcode verdeeld naar adressen`,
+    source: [SRC.herkomst, SRC.pc4, SRC.pc6],
+    year: `gemeente ${REGIO_YEAR} (CBS ${REGIO_TABLE}), wijk/buurt ${PC4_YEAR} (geschat via postcode)`,
+    caveats: [...LAND_NOTES, ...PC4_NOTES],
+  } : {
+    description: `Aandeel inwoners met herkomst ${c.label}${about}, per gemeente. CBS publiceert dit land niet per wijk, buurt of postcode, dus per wijk en buurt is er geen waarde. Beschrijvend: er zit geen oordeel in.`,
+    formula: `inwoners met herkomst ${c.label} / inwoners × 100`,
+    source: [SRC.herkomst],
+    year: `gemeente ${REGIO_YEAR} (CBS ${REGIO_TABLE})`,
+    caveats: [...LAND_NOTES],
+  };
+}
+
 // World regions (v0.28.0, herkomst-regio.js): one country → region table for every level.
 // Per gemeente CBS 85458NED (45 named countries); per wijk/buurt the postcode estimate
 // (eight named countries), so a region holds fewer countries there.
@@ -904,7 +932,15 @@ export const DATASETS = Object.freeze({
   nonWesternPct:    ds('nonWesternPct',    'Buiten Europa (%)',    'Herkomst buiten Europa (%)',      '%',         null,  'herkomstDetail', { inOverall: false }),
   bornAbroadPct:    ds('bornAbroadPct',    'Buitenland geboren (%)', 'In het buitenland geboren (%)', '%',         null,  'herkomstDetail', { ...RTM, inOverall: false }),
   ...Object.fromEntries(REGIONS.map(r => [r.metric, ds(r.metric, `${r.label} (%)`, `Herkomst ${r.label} (%${regionAtBuurt(r.key) ? '' : ', alleen per gemeente'})`, '%', null, 'herkomst', regionAtBuurt(r.key) ? { inOverall: false } : { scope: 'nederland', inOverall: false })])),
-  ...Object.fromEntries(PC4_GROUPS.map(g => [g.metric, ds(g.metric, `${g.label} (%)`, `Herkomst ${g.label} (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'herkomstLand', { ...RTM, inOverall: false, estimated: true })])),
+  // Gemeenschappen per land, sorted by label (v0.55.0): the CBS countries per gemeente (`hk_*` shared with
+  // the postcode estimate per wijk/buurt where there is one) and the two postcode-only groups.
+  ...Object.fromEntries([
+    ...LAND_COUNTRIES.map(c => [c.metric, c.label, c.pc4
+      ? ds(c.metric, `${c.label} (%)`, `Herkomst ${c.label} (%)`, '%', null, 'herkomstLand', { inOverall: false, levelSources: LAND_LEVEL_SOURCES })
+      : ds(c.metric, `${c.label} (%)`, `Herkomst ${c.label} (%, alleen per gemeente)`, '%', null, 'herkomstLand', { scope: 'nederland', inOverall: false, levelSources: Object.freeze({ gemeente: LAND_LEVEL_SOURCES.gemeente }) })]),
+    ...PC4_GROUPS.filter(g => !LAND_COUNTRIES.some(c => c.metric === g.metric)).map(g => [g.metric, g.label,
+      ds(g.metric, `${g.label} (%)`, `Herkomst ${g.label} (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'herkomstLand', { ...RTM, inOverall: false, estimated: true })]),
+  ].sort((a, b) => a[1].localeCompare(b[1], 'nl')).map(([k, , d]) => [k, d])),
   highEdu:          ds('highEdu',          'Opleiding',            'Hoog opgeleid (%)',               '%',         true,  'opleiding'),
   eduScore:         ds('eduScore',         'Onderwijsprestatie basisscholen', 'Onderwijsprestatie basisscholen (cijfer, scholen in het gebied)', 'cijfer', true, 'opleiding', { inOverall: false }),
   eduNearScore:     ds('eduNearScore',     'Basisscholen dichtbij (kwaliteit)', `Kwaliteit basisscholen binnen ${kmText(NEAR_RADIUS_KM)} km (cijfer)`, 'cijfer', true, 'opleiding', { inOverall: false }),
@@ -1069,6 +1105,13 @@ export function categoryHeadline(cat, scope = null) {
 export function rankKeyForCategory(cat, sub = null, scope = null) {
   if (cat === 'overall') return 'overall';
   return sub && categoryDatasets(cat, scope).some(d => d.key === sub) ? sub : categoryHeadline(cat, scope);
+}
+
+/** Per-level source note of `key` for the legend ('' when the dataset has none): level 'gemeente' or 'wijk'/'buurt'. */
+export function levelSourceText(key, level) {
+  const s = DATASETS[key]?.levelSources;
+  if (!s) return '';
+  return (level === 'gemeente' ? s.gemeente : level === 'wijk' || level === 'buurt' ? s.wijk : null) ?? '';
 }
 
 /** True when `key` has data in the given scope ('rotterdam' | 'nederland'). */

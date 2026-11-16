@@ -57,7 +57,8 @@ describe('herkomst layers (wijk/buurt, 86165NED)', () => {
     const hidden = groupDatasets(undefined, undefined, { includeHidden: true }).find(x => x.key === 'herkomstDetail');
     assert.deepEqual(hidden.datasets.map(d => d.key), ['originDutchPct', 'originEuropePct', 'nonWesternPct', 'bornAbroadPct']);
     const land = groupDatasets().find(x => x.key === 'herkomstLand');
-    assert.deepEqual(land.datasets.map(d => d.key), [...PC4_KEYS]);
+    assert.ok(PC4_KEYS.every(k => land.datasets.some(d => d.key === k)));
+    assert.equal(land.datasets.length, 48, '46 CBS countries per gemeente + 2 postcode-only groups (v0.55.0)');
   });
   it('Nederland view gets NL and Europa shares from 70072ned', () => {
     assert.equal(CBS_COLUMNS.originDutch, 'Nederland_14');

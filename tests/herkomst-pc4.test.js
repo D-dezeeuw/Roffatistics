@@ -49,11 +49,17 @@ describe('herkomst-pc4: helpers', () => {
       assert.ok(ORIGIN_KEYS.includes(g.metric), g.metric);
       const d = DATASETS[g.metric];
       assert.equal(d.group, 'herkomstLand', 'layers again since 16 Nov 2026 (Gemeenschappen per land)');
-      assert.equal(d.estimated, true);
       assert.equal(d.higherIsBetter, null);
       assert.equal(d.inOverall, false);
-      assert.equal(d.scope, 'rotterdam');
-      assert.match(d.title, /geschat via postcode 2023/);
+      if (['euNietEu', 'oceanie'].includes(g.key)) {   // postcode-only groups
+        assert.equal(d.estimated, true);
+        assert.equal(d.scope, 'rotterdam');
+        assert.match(d.title, /geschat via postcode 2023/);
+      } else {   // v0.55.0: one CBS country, also per gemeente (herkomst-land.js)
+        assert.equal(d.scope, 'all', g.key);
+        assert.equal(d.levelSources.wijk, 'geschat via postcode 2023');
+        assert.equal(d.levelSources.gemeente, 'CBS 2026');
+      }
       assert.ok(d.caveats.some(c => /dezelfde mix/.test(c)) && d.caveats.some(c => /afgerond op 5|af op 5/.test(c)) && d.caveats.some(c => /2025/.test(c)));
     }
     assert.ok(isPc4Key('hk_suriname') && !isPc4Key('hk_egypte'));
