@@ -2,6 +2,7 @@ import { BOUW_SOURCE_URL, BOUW_MIN_DWELLINGS, OLD_BUILD_BEFORE, MODERN_BUILD_FRO
 import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, pc4RegionComposition, regionAtBuurt } from './herkomst-pc4.js';
 import { REGIONS, REGIO_TABLE, REGIO_YEAR, regionComposition } from './herkomst-regio.js';
 import { P2000_SOURCE_URL, P2000_COVERAGE, P2000_MIN_POPULATION } from './p2000.js';
+import { HINDER_YEAR, PET_YEAR, SHADE_YEAR } from './milieu.js';
 import { SMALL_N as EDU_SMALL_N, NEAR_RADIUS_KM, NEAR_BEST_KM, YEARS as EDU_YEARS } from './schools.js';
 
 import { odataUrl, getRows } from './source.js';
@@ -179,6 +180,10 @@ const SRC = Object.freeze({
   crimeNl: Object.freeze({ id: '83648NED', name: 'Geregistreerde criminaliteit; soort misdrijf, regio', publisher: 'CBS', url: statline('83648NED'), scope: 'Nederland' }),
   duoRef:  Object.freeze({ id: 'wporeferentieniveau-v1', name: 'Referentieniveaus per toets en vestiging (basisonderwijs, groep 8)', publisher: 'DUO', url: 'https://onderwijsdata.duo.nl/dataset/wporeferentieniveau-v1', scope: 'Nederland (schoolvestigingen)' }),
   duoEind: Object.freeze({ id: 'wpo-eindscores', name: 'Gemiddelde eindscores per vestiging (aantal getoetste leerlingen)', publisher: 'DUO', url: 'https://onderwijsdata.duo.nl/dataset/wpo-eindscores', scope: 'Nederland (schoolvestigingen)' }),
+  // Milieu (plan-milieu phase 1): licence from the metadata (Nationaal Georegister / Klimaateffectatlas), checked 16 Nov 2026.
+  rivmHinder: Object.freeze({ id: 'RIVM ALO', name: `Ernstig ervaren geluidhinder per buurt ${HINDER_YEAR} (GGD Gezondheidsmonitor, modelschatting), Atlas Leefomgeving`, publisher: 'RIVM / GGD\'en, publiek domein (Public Domain Mark 1.0)', url: 'https://www.nationaalgeoregister.nl/geonetwork/srv/dut/catalog.search#/metadata/64d24969-6abf-4208-b7b4-a8d582382829', scope: 'Nederland (buurten 2024)' }),
+  keaPet:  Object.freeze({ id: 'KEA', name: `Gevoelstemperatuur per buurt (hittekaart ${PET_YEAR}), Klimaateffectatlas`, publisher: 'Klimaateffectatlas, 2026 (CC BY 4.0)', url: 'https://www.klimaateffectatlas.nl/nl/data-opvragen', scope: 'Nederland (buurten 2024)' }),
+  keaShade: Object.freeze({ id: 'KEA', name: `Schaduw op fiets- en wandelpaden per buurt (${SHADE_YEAR}), Klimaateffectatlas buurtdashboard`, publisher: 'Klimaateffectatlas, 2026 (CC BY 4.0)', url: 'https://www.klimaateffectatlas.nl/nl/data-opvragen', scope: 'Nederland (buurten 2024)' }),
   duoAdres: Object.freeze({ id: 'adressen_bo', name: 'Adressen vestigingen basisonderwijs', publisher: 'DUO', url: 'https://onderwijsdata.duo.nl/dataset/adressen_bo', scope: 'Nederland (schoolvestigingen)' }),
 });
 
@@ -249,7 +254,51 @@ export const BOUW_NOTES = Object.freeze([
   'Indeling 2023 en peiljaar 2023; buurten en wijken van 2025 zonder dezelfde code in 2023 hebben geen gegevens (er wordt niets bijgeschat).',
 ]);
 
+// Milieu (plan-milieu phase 1, modules/milieu.js): texts shared by the five layers.
+const MILIEU_MODEL_NOTE = `Modelschatting, geen meting: RIVM en de GGD'en schatten het cijfer per buurt uit de GGD Gezondheidsmonitor Volwassenen en Ouderen ${HINDER_YEAR} (een vragenlijst) met een statistisch model dat onder meer leeftijd, inkomen en de berekende geluidbelasting gebruikt. Voor één buurt kan het werkelijke aandeel afwijken.`;
+const MILIEU_SMALL_NOTE = 'Voor kleine buurten publiceert het RIVM geen schatting ("geen data").';
+const MILIEU_MAP_NOTE = 'De bronnen gebruiken de buurtindeling 2024. Buurten met dezelfde code in 2025 nemen het cijfer over; een nieuwe of gewijzigde buurt krijgt het cijfer van de buurt uit 2024 waarmee hij het meest overlapt.';
+const MILIEU_AGG_NOTE = 'Wijken, gemeenten en provincies: het gemiddelde van hun buurten, gewogen naar het aantal inwoners.';
+const MILIEU_SCORE_NOTE = 'Telt niet mee in de totaalscore van de Ranglijst of de Woonscore; wel te gebruiken in Mijn stapel.';
+const HINDER_DEF = '"Ernstig gehinderd" betekent dat iemand op een schaal van 0 tot 10 een 8, 9 of 10 geeft op de vraag hoeveel hinder hij of zij thuis het afgelopen jaar ondervond.';
+
 const INFO = {
+  // Milieu (plan-milieu phase 1).
+  noiseAnyPct: {
+    description: `Stilte-index: het geschatte aandeel volwassenen dat ernstige geluidhinder ondervindt van ten minste één bron (wegverkeer, treinen, vliegverkeer, windturbines of buren). Lager is rustiger. ${HINDER_DEF}`,
+    formula: '1 − (1 − weg) × (1 − trein) × (1 − vliegverkeer) × (1 − windturbines) × (1 − buren), met elk aandeel als fractie; de bronnen worden als onafhankelijk beschouwd (het RIVM publiceert geen gecombineerd cijfer)',
+    source: [SRC.rivmHinder],
+    year: `${HINDER_YEAR} (modelschatting)`,
+    caveats: [MILIEU_MODEL_NOTE, 'Eigen berekening: wie last heeft van meer bronnen tegelijk telt één keer, maar hoe vaak dat samen voorkomt is per buurt niet bekend.', MILIEU_SMALL_NOTE, MILIEU_MAP_NOTE, MILIEU_AGG_NOTE, MILIEU_SCORE_NOTE],
+  },
+  noiseRoadPct: {
+    description: `Het geschatte aandeel volwassenen dat ernstige geluidhinder ondervindt van wegverkeer (alle wegen, binnen en buiten de bebouwde kom). Lager is beter. ${HINDER_DEF}`,
+    formula: '% volwassenen (18+) ernstig gehinderd door geluid van wegverkeer, schatting per buurt',
+    source: [SRC.rivmHinder],
+    year: `${HINDER_YEAR} (modelschatting)`,
+    caveats: [MILIEU_MODEL_NOTE, MILIEU_SMALL_NOTE, MILIEU_MAP_NOTE, MILIEU_AGG_NOTE, MILIEU_SCORE_NOTE],
+  },
+  noiseNeighbourPct: {
+    description: `Het geschatte aandeel volwassenen dat ernstige geluidhinder ondervindt van buren (stemmen, muziek, lopen, klussen). Lager is beter. ${HINDER_DEF}`,
+    formula: '% volwassenen (18+) ernstig gehinderd door geluid van buren, schatting per buurt',
+    source: [SRC.rivmHinder],
+    year: `${HINDER_YEAR} (modelschatting)`,
+    caveats: [MILIEU_MODEL_NOTE, 'Burenhinder hangt vooral af van het type woning (gestapeld of vrijstaand) en de geluidsisolatie; de schatting kent de woning zelf niet.', MILIEU_SMALL_NOTE, MILIEU_MAP_NOTE, MILIEU_AGG_NOTE, MILIEU_SCORE_NOTE],
+  },
+  heatPet: {
+    description: 'Gevoelstemperatuur (PET, physiological equivalent temperature) in de buitenruimte op een hete zomerdag, gemiddeld over de buurt. Hoe warm het voelt hangt af van luchttemperatuur, zon of schaduw, wind en vocht. Lager is beter: boven 41 °C spreekt men van extreme hittestress.',
+    formula: `gemiddelde PET in °C over de buurt op een hete dag, uit de hittekaart gevoelstemperatuur ${PET_YEAR} (10 m-raster)`,
+    source: [SRC.keaPet],
+    year: `${PET_YEAR} (kaart), buurtindeling 2024`,
+    caveats: ['Een modelkaart van één hete middag, geen meting; binnen in huis kan het anders zijn.', MILIEU_MAP_NOTE, MILIEU_AGG_NOTE, MILIEU_SCORE_NOTE],
+  },
+  shadePct: {
+    description: 'Het aandeel van de fiets- en wandelpaden in de buurt dat in de zomer in de schaduw ligt (van bomen en gebouwen). Hoger is beter: schaduw maakt hitte draaglijker.',
+    formula: `oppervlak fiets- en wandelpad in de schaduw / oppervlak fiets- en wandelpad × 100 (Klimaateffectatlas buurtdashboard, schaduwkaart ${SHADE_YEAR})`,
+    source: [SRC.keaShade],
+    year: `${SHADE_YEAR}, buurtindeling 2024`,
+    caveats: ['Buurten zonder fiets- of wandelpaden hebben geen waarde ("geen data").', MILIEU_MAP_NOTE, MILIEU_AGG_NOTE, MILIEU_SCORE_NOTE],
+  },
   population: {
     description: 'Het aantal inwoners dat op 1 januari in het gebied staat ingeschreven. Een groot getal betekent alleen een groot of dichtbevolkt gebied; het zegt niets over hoe goed het er is.',
     formula: 'Aantal inwoners (CBS)',
@@ -854,6 +903,12 @@ export const DATASETS = Object.freeze({
   distOv:           ds('distOv',           'Afstand OV',           'Tot trein-, metro- of tramstation (km)', 'km',  null,  'voorzieningen', { inOverall: false }),
   distCentrum:      ds('distCentrum',      'Afstand centrum',      `Hemelsbreed tot ${CITY.centrum.name} (km)`, 'km', null, 'voorzieningen', { ...RTM, inOverall: false }),
   // Live (W30): values only exist once modules/p2000.js loaded them; `live` keeps them out of Ranglijst and Vergelijken.
+  // Milieu (plan-milieu phase 1): per buurt, all of NL (modules/milieu.js loads them on first use).
+  noiseAnyPct:      ds('noiseAnyPct',      'Stilte-index (geluidhinder totaal)', `Ernstige geluidhinder, alle bronnen (% volwassenen, schatting ${HINDER_YEAR})`, '%', false, 'milieu', { inOverall: false, estimated: true }),
+  noiseRoadPct:     ds('noiseRoadPct',     'Geluidhinder wegverkeer', `Ernstige geluidhinder door wegverkeer (% volwassenen, schatting ${HINDER_YEAR})`, '%', false, 'milieu', { inOverall: false, estimated: true }),
+  noiseNeighbourPct: ds('noiseNeighbourPct', 'Geluidhinder buren',    `Ernstige geluidhinder door buren (% volwassenen, schatting ${HINDER_YEAR})`, '%', false, 'milieu', { inOverall: false, estimated: true }),
+  heatPet:          ds('heatPet',          'Gevoelstemperatuur',   `Gevoelstemperatuur op een hete dag (°C, PET ${PET_YEAR})`, '°C', false, 'milieu', { inOverall: false }),
+  shadePct:         ds('shadePct',         'Schaduw',              `Schaduw op fiets- en wandelpaden (%, ${SHADE_YEAR})`, '%', true, 'milieu', { inOverall: false }),
   p2000Totaal:      ds('p2000Totaal',      'Alle meldingen',       'Meldingen hulpdiensten (P2000) per 1.000 inw.', 'per 1.000', null, 'actueel', { inOverall: false, live: true }),
   p2000Verkeer:     ds('p2000Verkeer',     'Verkeersongevallen',   'Verkeersongevallen (P2000) per 1.000 inw.', 'per 1.000', null, 'actueel', { inOverall: false, live: true }),
   p2000Brand:       ds('p2000Brand',       'Branden',              'Branden (P2000) per 1.000 inw.',   'per 1.000', null, 'actueel', { inOverall: false, live: true }),
@@ -880,6 +935,7 @@ const ALL_DATASET_GROUPS = Object.freeze([
   Object.freeze({ key: 'criminaliteit',  label: 'Criminaliteit',                 headline: 'crimeRate' }),
   Object.freeze({ key: 'opleiding',      label: 'Opleiding',                     headline: 'highEdu' }),
   Object.freeze({ key: 'welvaart',       label: 'Welvaart & wonen',              headline: 'avgIncome' }),
+  Object.freeze({ key: 'milieu',         label: 'Milieu',                        headline: 'noiseAnyPct' }),
   Object.freeze({ key: 'voorzieningen',  label: 'Voorzieningen',                 headline: 'distSupermarket' }),
   Object.freeze({ key: 'actueel',        label: 'Actueel: meldingen hulpdiensten', headline: 'p2000Totaal', live: true }),
   Object.freeze({ key: 'herkomstDetail', label: 'Gemeenschappen (overige indelingen)', headline: null, layer: false }),

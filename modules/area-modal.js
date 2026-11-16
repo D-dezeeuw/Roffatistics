@@ -17,6 +17,7 @@ import { infoButton } from './explain.js';
 import { outlierLabel } from './scale.js';
 import { scoreKind, scoreLabel } from './wizard-model.js';
 import { scoreResult } from './presets.js';
+import { loadMilieu, getMilieuEntry, milieuPanelHtml } from './milieu.js';
 import { loadEduAreas, loadEduSchools, loadBuurtCentres, getEduEntry, getEduSchools, getBuurtCentre, eduAreaDetail, eduPanelHtml } from './onderwijs.js';
 import { CITY, isCityAreaCode } from './city.js';
 import { stackResult, stackItemText } from './stapel.js';
@@ -221,6 +222,8 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
   if (d.education) extras.push(`<div class="area-extra"><span class="area-extra-label">Opleiding</span>${eduDonutHtml(d.education)}</div>`);
   const po = eduPanelHtml(d.onderwijs, { info: infoButton('eduScore', 'Onderwijsprestatie basisscholen') });   // loaded by render()
   if (po) extras.push(po);
+  const mil = d.code ? milieuPanelHtml(getMilieuEntry(d.code), { info: infoButton('noiseAnyPct', 'Milieu') }) : '';   // loaded by render()
+  if (mil) extras.push(mil);
   if (d.outliers.length) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Uitschieter</span><p>${d.outliers.map(e => `${esc(e.label)}: ${outlierLabel(e.outlier)}`).join(' · ')}</p></div>`);
   if (dataYears) extras.push(`<div class="area-extra"><span class="area-extra-label">Peiljaar</span><p>${esc(dataYears)} · misdrijven 2025</p></div>`);
 
@@ -285,9 +288,10 @@ const NATIONAL_WAIT_MS = 8000;   // the splash can open a gemeente before the CB
  * area file, the school list and, for a buurt, the centres. Never rejects.
  */
 function loadOnderwijs(code) {
-  if (!/^(BU|WK|GM)/.test(String(code ?? ''))) return Promise.resolve();
+  if (!/^(BU|WK|GM|PV)/.test(String(code ?? ''))) return Promise.resolve();
+  if (String(code).startsWith('PV')) return loadMilieu().catch(() => null);
   const quiet = p => p.catch(err => console.warn('onderwijsprestatie:', err));
-  return Promise.all([quiet(loadEduAreas()), quiet(loadEduSchools()), String(code).startsWith('BU') ? quiet(loadBuurtCentres()) : null]);
+  return Promise.all([loadMilieu().catch(err => console.warn('milieu:', err)), quiet(loadEduAreas()), quiet(loadEduSchools()), String(code).startsWith('BU') ? quiet(loadBuurtCentres()) : null]);
 }
 const onderwijsDetail = code => eduAreaDetail(code, { entry: getEduEntry(code), schools: getEduSchools(), centre: getBuurtCentre(code) });
 

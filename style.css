@@ -2362,3 +2362,8 @@ footer {
 .stack-foot { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; padding: 0.6rem 0.9rem; border-top: 1px solid rgba(var(--accent-rgb), 0.2); }
 .stack-status { flex: 1 1 12rem; font-size: 0.8rem; color: var(--text-muted); }
 .area-stack-value { margin: 0.2rem 0 0.4rem; }
+
+/* Milieu block of the area modal (plan-milieu phase 1, modules/milieu.js). */
+.area-milieu-list { list-style: none; margin: 0; padding: 0; }
+.area-milieu-list li { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.15rem 0; }
+.area-milieu-list strong { white-space: nowrap; }
