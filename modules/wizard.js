@@ -17,11 +17,11 @@ import { explain } from './score.js';
 import { openAreaModal } from './area-modal.js';
 import { infoButton } from './explain.js';
 import {
-  STEPS, LEVENSTYPEN, LEVENSTYPE_HINT, BOUW_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
+  STEPS, LEVENSTYPEN, LEVENSTYPE_HINT, LEVENSTYPE_HINTS, SITUATIE_HINT, GEMEENSCHAP_HINT, BOUW_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
   GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS, gemeenschapOptgroups,
-  SITUATIE_EDU, SITUATIE_INCOME, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance, DICHTBIJ, DICHTBIJ_LEVELS,
+  SITUATIE_EDU, SITUATIE_INCOME, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance, themeWeights, DICHTBIJ, DICHTBIJ_LEVELS,
 } from './wizard-model.js';
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
 import { loadPc4Herkomst, presetUsesPc4 } from './herkomst-pc4.js';
@@ -90,7 +90,8 @@ function stepBody(key) {
   if (key === 'levensfase') return `
     <p class="wiz-q" id="wiz-q">Welk levenstype past het best bij jou?</p>
     <div class="wiz-opts" role="group" aria-labelledby="wiz-q">${Object.entries(LEVENSTYPEN).map(([k, l]) => optBtn('levensfase', k, l, a.levensfase === k)).join('')}</div>
-    <p class="wiz-hint">${esc(LEVENSTYPE_HINT)}</p>
+    <p class="wiz-hint">${esc(LEVENSTYPE_HINT)}</p>${a.levensfase ? `
+    <p class="wiz-hint wiz-lt-hint">${esc(LEVENSTYPE_HINTS[a.levensfase])}</p>` : ''}
     <p class="wiz-q" id="wiz-q2">Wat voor huizen zoek je: een oudere buurt met karakter of juist moderne woningen?</p>
     <div class="wiz-opts" role="group" aria-labelledby="wiz-q2">${Object.entries(BOUW_OPTIONS).map(([k, l]) => optBtn('bouw', k, l, a.bouw === k)).join('')}${optBtn('bouw', '', 'Maakt niet uit', !a.bouw)}</div>
     <p class="wiz-hint">Oudere bouw: meer woningen van vóór 1945. Moderne woningen: meer woningen van 2005 of later. Per wijk en buurt, geschat via de postcode.</p>`;
@@ -133,6 +134,7 @@ function stepBody(key) {
     const g = a.gemeenschap;
     const level = gemeenschapLevel(g?.pct ?? GEMEENSCHAP_DEFAULT_PCT);
     return `
+    <p class="wiz-hint">${esc(GEMEENSCHAP_HINT)}</p>
     <p class="wiz-hint">Optioneel en standaard uit. Wil je graag dichter bij mensen met dezelfde herkomst wonen, dan kun je hier een groep kiezen. Herkomst volgt de CBS-definitie: je eigen geboorteland, of als je in Nederland bent geboren dat van je moeder (of anders je vader). Het zijn totalen per gebied, geen gegevens over personen.</p>
     <label class="wiz-field" id="wiz-q">Herkomstgroep
       <select data-field="gemDetail">
@@ -147,6 +149,7 @@ function stepBody(key) {
     const st = a.situatie;
     const eduPos = situatiePos(SITUATIE_EDU, st?.edu), incPos = situatiePos(SITUATIE_INCOME, st?.income);
     return `
+    <p class="wiz-hint">${esc(SITUATIE_HINT)}</p>
     <p class="wiz-hint">Optioneel. Dit zoekt alleen naar gebieden waar meer mensen in een vergelijkbare situatie wonen: vaak vind je daar sneller aansluiting. Beide schuiven staan standaard op “Niet invullen” en tellen dan niet mee. Je antwoorden blijven in je browser; er wordt niets verstuurd.</p>
     ${sitSlider('sitIncome', 'wiz-q', 'Huishoudinkomen per maand (netto, ongeveer)', SITUATIE_INCOME, incPos)}
     <p class="wiz-hint">Gebieden waar het gemiddelde inkomen in de buurt van het jouwe ligt tellen als plus, in plaats van het Standaard-cijfer “meer inkomen = beter”. Bij de laagste standen telt ook een groter aandeel mensen met bijstand als plus, waar dat cijfer er is.</p>
@@ -208,6 +211,14 @@ async function resultItems() {
   const index = await getAreaIndex().catch(() => []);
   const names = new Map(index.map(e => [e.code, e.name]));
   return { level: level === 'gemeente' ? 'gemeenten' : 'provincies', items: rows.map(r => ({ code: r.regionCode, name: names.get(r.regionCode) ?? r.regionCode })) };
+}
+
+/** The starting weights (Gemiddeld = the levenstype profile's weight), in one line above the sliders. */
+function baseHint() {
+  const w = Object.entries(themeWeights(answers)).filter(([k, v]) => k !== 'gemeenschap' && v > 0);
+  if (!w.length) return '';
+  const who = answers.levensfase ? LEVENSTYPEN[answers.levensfase].toLowerCase() : 'Standaard';
+  return `<p class="wiz-hint">Startpunt (Gemiddeld) voor ${esc(who)}: ${w.map(([k, v]) => `${esc(THEME_LABELS[k] ?? k)} ${String(v).replace('.', ',')}`).join(', ')}.</p>`;
 }
 
 /** One 5-step importance slider per theme; Gemeenschap's levels map to its % of the total. */
@@ -280,7 +291,7 @@ async function resultHtml() {
       ${hidden ? `<p class="wiz-hint">${hidden} ${esc(levelLabel)} boven je budget zijn verborgen (grijs op de kaart).</p>` : ''}
       ${list}
       <p class="wiz-hint">Match = ${esc(scoreLabel(state.score))}, 0–100 t.o.v. de andere ${esc(levelLabel)} op de kaart. Std = de Woonscore (Standaard) ter vergelijking.</p>
-      ${kind === 'custom' || kind === 'standaard' ? `<details class="wiz-tune"${kind === 'custom' ? ' open' : ''}><summary>Hoe belangrijk is elk thema?</summary><div class="wiz-sliders">${themeSliders()}</div></details>` : ''}
+      ${kind === 'custom' || kind === 'standaard' ? `<details class="wiz-tune"${kind === 'custom' ? ' open' : ''}><summary>Hoe belangrijk is elk thema?</summary>${baseHint()}<div class="wiz-sliders">${themeSliders()}</div></details>` : ''}
       ${shareHtml()}
     </div>
     <footer class="wiz-foot">

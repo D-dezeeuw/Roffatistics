@@ -16,7 +16,7 @@
 // v0.26.0: Gemeenschap is one detailed group (Nederland included, the broad
 // groups are gone); nothing sensitive goes into a link unless the user ticks
 // it in "Deellink maken" (shareableAnswers / shareableScore).
-import { STANDAARD, GELIJK, THEME_LABELS, ORIGIN_KEYS } from './presets.js';
+import { STANDAARD, GELIJK, THEME_LABELS, ORIGIN_KEYS, PROFILES, PROFILE_THEMES, profileThemes } from './presets.js';
 import { DETAIL_GROUPS } from './herkomst-gemeente.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
@@ -65,7 +65,7 @@ export function normalizeDichtbij(d) {
  */
 const OLD_BROAD = Object.freeze({ d: 'nederland', e: null, b: null });
 /** Gemeenschap weight as a share (%) of the total weight: default modest, never above the cap. */
-export const GEMEENSCHAP_DEFAULT_PCT = 10;
+export const GEMEENSCHAP_DEFAULT_PCT = 20;   // 10 → 20 (addendum 16 Nov 2026)
 export const GEMEENSCHAP_MIN_PCT = 5;
 export const GEMEENSCHAP_MAX_PCT = 30;
 export const GEMEENSCHAP_LABEL = 'Nabijheid gemeenschap';
@@ -179,10 +179,21 @@ export const LEVENSTYPEN = Object.freeze({
 });
 /** Helper line under the Levenstype options. */
 export const LEVENSTYPE_HINT = 'Het gaat om hoe je graag woont, niet om relaties of plannen. Solo onder de mensen: levendig, dichter bij het centrum, horeca om de hoek. Solo op jezelf: rustig, ruimte en water in de buurt. Elke keuze geeft alleen pluspunten.';
+/** One line per levenstype naming its starting weights (presets.js PROFILES), shown once one is chosen. */
+export const LEVENSTYPE_HINTS = Object.freeze({
+  student:    'Student of starter: sfeer en uitgaan zwaar, veiligheid licht; welvaart, opleiding en woningmarkt tellen niet mee. Je kunt alles bijstellen.',
+  stel:       'Stel (jong stel, graag wat te doen): veiligheid, voorzieningen en een levendige buurt wegen het zwaarst. Je kunt alles bijstellen.',
+  gezin:      'Gezin: veiligheid en voorzieningen zwaar, met goede basisscholen en kinderopvang dichtbij; een rustige buurt telt licht. Je kunt alles bijstellen.',
+  '50plus':   '50-plusser: veiligheid en voorzieningen zwaar, huisarts en supermarkt dichtbij, een rustige buurt telt mee. Je kunt alles bijstellen.',
+  senior:     'Senior: voorzieningen het zwaarst (huisarts, supermarkt, OV), dan veiligheid op straat; woningmarkt telt niet mee. Je kunt alles bijstellen.',
+  soloMensen: 'Solo onder de mensen: sfeer zwaar (druk, horeca, centrum dichtbij), veiligheid wat lichter. Je kunt alles bijstellen.',
+  soloRust:   'Solo op mezelf: veiligheid zwaar, een rustige buurt met groen en water in de buurt. Je kunt alles bijstellen.',
+});
+/** Hint lines of the opt-in steps (addendum 16 Nov 2026). */
+export const SITUATIE_HINT = 'Mensen kiezen vaak een buurt met mensen in een vergelijkbare situatie; daar voel je je thuis.';
+export const GEMEENSCHAP_HINT = 'Net in Nederland of graag dicht bij mensen met dezelfde achtergrond? Een eigen gemeenschap in de buurt kan veel steun geven.';
 /** @deprecated name before v0.30; same object. */
 export const LEVENSFASEN = LEVENSTYPEN;
-/** Sfeer theme weight the solo options add while the Sfeer step is unanswered. */
-export const SOLO_SFEER_WEIGHT = 12;
 /** Bouwstijl (v0.29.0): older buildings with character or modern dwellings. Replaces the v0.21 "oud" question. */
 export const BOUW_OPTIONS = Object.freeze({ karakter: 'Oudere bouw met karakter', modern: 'Moderne woningen' });
 export const VERVOER = Object.freeze({ fiets: 'Fiets', ov: 'OV', auto: 'Auto', lopen: 'Lopen' });
@@ -206,8 +217,14 @@ export const WOZ_TOLERANCE_SHARE = 0.3;
 /** "Verberg duidelijk te duur": WOZ above 1.2 × the ceiling. */
 export const TOO_EXPENSIVE_SHARE = 1.2;
 
-/** Extra themes (weight) the steps can add next to Standaard's five. */
-export const EXTRA_THEME_WEIGHTS = Object.freeze({ leeftijd: 15, nieuwbouw: 10, budget: 20, sfeer: 20, situatie: 15 });
+/**
+ * Extra themes (weight) the steps can add next to the levenstype profile
+ * (v0.45.0: Levenstype and the profile's Sfeer come from presets.js PROFILES;
+ * `sfeer` is the weight of an answered Sfeer step when the profile has none).
+ */
+export const EXTRA_THEME_WEIGHTS = Object.freeze({ nieuwbouw: 5, budget: 20, sfeer: 20, situatie: 30 });
+/** Importance base of a theme whose profile weight is 0 (Woningmarkt, a student's Welvaart): Gemiddeld = 10. */
+export const NOMINAL_BASE = 10;
 /** Sfeer theme weight when only "auto" asks for a quieter area. */
 export const AUTO_SFEER_WEIGHT = 8;
 /** Share inside a theme for a metric the answers stress (Standaard metrics have 1). */
@@ -309,7 +326,7 @@ export function parseEuroK(text) {
 
 /** Working copy of a preset: themes keyed, metrics keyed, mutable. */
 function draft() {
-  const themes = new Map(STANDAARD.themes.map(t => [t.key, { key: t.key, label: t.label, weight: t.weight, metrics: new Map(t.metrics.map(m => [m.key, { ...m }])) }]));
+  const themes = new Map(profileDraft('standaard'));
   return { themes, targets: {}, filters: [] };
 }
 function theme(d, key, weight) {
@@ -324,31 +341,19 @@ function metric(d, themeKey, key, pref, w = 1, themeWeight = 0) {
   else t.metrics.set(key, w === 1 ? { key, pref } : { key, pref, w });
 }
 
-const LIFE_METRICS = {
-  student:  [['pop15to24', 2], ['pop25to44', 1]],
-  stel:     [['pop25to44', 1]],
-  gezin:    [['hhWithKidsPct', 1]],
-  '50plus': [['pop45to64', 1]],
-  senior:   [['pop65plus', 1]],
-  soloMensen: [['singleHhPct', 2], ['pop25to44', 1]],
-  soloRust:   [['waterPct', 1]],
-};
-/** Busy vs quiet for the solo options, only while the Sfeer step is unanswered (an explicit Sfeer wins). */
-const SOLO_SFEER = {
-  soloMensen: [['density', 'higher', 2], ['horeca1km', 'higher', 1], ['distCentrum', 'lower', 1]],
-  soloRust:   [['density', 'lower', 2], ['distCentrum', 'higher', 1]],
-};
+/** Draft themes of a profile (presets.js PROFILES), mutable. */
+const profileDraft = key => profileThemes(key).map(t => [t.key, { key: t.key, label: t.label, weight: t.weight, metrics: new Map(t.metrics.map(m => [m.key, { ...m }])) }]);
 
 /** Step appliers, in STEPS order. Each mutates the draft from normalised answers. */
 export const APPLY = Object.freeze({
+  // v0.45.0: the levenstype profile (presets.js PROFILES) sets the base of every
+  // theme and the metrics of Veiligheid, Voorzieningen, Levenstype and Sfeer; it
+  // replaces Standaard's themes (this step runs first). No levenstype = Standaard.
   levensfase(d, a) {
-    const L = EXTRA_THEME_WEIGHTS.leeftijd;
-    if (a.levensfase) for (const [key, w] of LIFE_METRICS[a.levensfase]) metric(d, 'leeftijd', key, 'higher', w, L);
-    if (a.levensfase === 'gezin') {   // school close by and good (eduNearScore, W31), plus kinderopvang
-      metric(d, 'voorzieningen', 'distSchool', 'lower', STRESS_W); metric(d, 'voorzieningen', 'eduNearScore', 'higher', STRESS_W); metric(d, 'voorzieningen', 'distKinderopvang', 'lower', STRESS_W);
+    if (a.levensfase) {
+      const own = new Set(PROFILE_THEMES);
+      d.themes = new Map([...profileDraft(a.levensfase), ...[...d.themes].filter(([k]) => !own.has(k))]);
     }
-    if (a.levensfase === 'senior') { metric(d, 'voorzieningen', 'distGP', 'lower', STRESS_W); metric(d, 'voorzieningen', 'distSupermarket', 'lower', 2); }
-    if (SOLO_SFEER[a.levensfase] && a.sfeer == null) for (const [key, pref, w] of SOLO_SFEER[a.levensfase]) metric(d, 'sfeer', key, pref, w, SOLO_SFEER_WEIGHT);
     // Bouwstijl (v0.29.0): buildings only, never the people. Living among young
     // families comes from levenstype Gezin (hhWithKidsPct), busy vs quiet from Sfeer.
     // Shares estimated via postcode (bouwjaar-pc4.js); modern also keeps the CBS
@@ -360,7 +365,7 @@ export const APPLY = Object.freeze({
   budget(d, a) {
     const b = a.budget;
     if (!b) return;
-    const woning = theme(d, 'woningmarkt', 10);
+    const woning = theme(d, 'woningmarkt', 0);   // base 0 in every profile: only the slider switches it on
     if (b.mode === 'huur') { woning.metrics.delete('ownerOccupiedPct'); metric(d, 'woningmarkt', 'rentalPct', 'higher'); return; }
     const ceiling = budgetCeiling(b);
     if (ceiling == null) return;
@@ -379,10 +384,13 @@ export const APPLY = Object.freeze({
       if (a.sfeer == null) metric(d, 'sfeer', 'density', 'lower', 1, AUTO_SFEER_WEIGHT);
     }
   },
+  // An answered Sfeer wins the direction: its targets replace the profile's
+  // busy/quiet metrics; the theme weight stays the profile's (else 20).
   sfeer(d, a) {
     if (a.sfeer == null) return;
     const s = clamp(a.sfeer + (a.vervoer.includes('auto') ? 15 : 0), 0, 100) / 100;   // 0 = midden in de drukte, 1 = rustig
     const S = EXTRA_THEME_WEIGHTS.sfeer;
+    theme(d, 'sfeer', S).metrics.clear();
     metric(d, 'sfeer', 'density', 'target', 2, S);
     metric(d, 'sfeer', 'distCentrum', 'target', 1, S);
     d.targets.density = { quantile: clamp(1 - s, 0.05, 0.95) };
@@ -473,7 +481,7 @@ export function themeImportance(answers) {
   const out = {};
   for (const t of answersToPreset(a).themes) {
     if (t.key === 'gemeenschap') continue;
-    out[t.key] = a.importance[t.key] ?? (base[t.key] > 0 ? importanceFromRatio(t.weight / base[t.key]) : IMPORTANCE_DEFAULT);
+    out[t.key] = a.importance[t.key] ?? importanceFromRatio(t.weight / (base[t.key] > 0 ? base[t.key] : NOMINAL_BASE));   // base 0 and weight 0 → Niet belangrijk
   }
   return out;
 }
@@ -490,7 +498,7 @@ export function answersToPreset(answers) {
   const base = new Map([...d.themes].map(([k, t]) => [k, t.weight]));
   for (const [k, w] of Object.entries(a.weights)) if (d.themes.has(k)) d.themes.get(k).weight = w;
   // The 5-step scale (v0.23.0) wins over an old absolute weight for the same theme.
-  for (const [k, lvl] of Object.entries(a.importance)) if (d.themes.has(k)) d.themes.get(k).weight = Math.round(base.get(k) * IMPORTANCE[lvl].factor * 10) / 10;
+  for (const [k, lvl] of Object.entries(a.importance)) if (d.themes.has(k)) d.themes.get(k).weight = Math.round((base.get(k) > 0 ? base.get(k) : NOMINAL_BASE) * IMPORTANCE[lvl].factor * 10) / 10;
   APPLY.gemeenschap(d, a);
   return guardOrigin({
     id: 'jouwscore', label: 'Jouw score',

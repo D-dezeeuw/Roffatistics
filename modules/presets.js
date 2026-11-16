@@ -16,22 +16,108 @@ const isNum = v => typeof v === 'number' && Number.isFinite(v);
 export const NEARBY_W = 1;
 
 /**
- * "Standaard": average preferable circumstances, no lifestyle metrics. A theme
- * weight is shared by the metrics of that theme that have data; a theme with
- * none is dropped and the rest renormalise, so NL gemeenten (few metrics) and
- * Rotterdam buurten use the same preset.
+ * Levenstype profiles (docs/plan-levenstype-gewichten.md, v0.45.0): the
+ * starting weight of every theme (each profile sums to 100; a theme at 0
+ * stays in the preset at weight 0, so its importance slider can switch it on,
+ * but counts for nothing) and the metrics of Veiligheid, Voorzieningen, Levenstype
+ * (buurtgenoten) and Sfeer. Welvaart, Opleiding and Woningmarkt always use
+ * THEME_METRICS. One data table: tweaking a number is one edit here.
+ * Metric tuples: [key, pref, w?] (w omitted = 1). A metric without data among
+ * the peers drops out (resolvePreset), as does a theme without any.
+ * Addendum (16 Nov 2026): Woningmarkt is 0 everywhere (a luxury issue);
+ * Standaard's freed 5 went to Voorzieningen, the others' to Levenstype.
+ */
+const VEILIG_STD = [['crimeRate', 'lower'], ['crimeBurglary', 'lower'], ['crimeViolence', 'lower'], ['crimeStreetRobbery', 'lower'], ['crimeVandalism', 'lower'], ['crimeNearby', 'lower', NEARBY_W]];
+/** Sfeer metrics per profile direction; an explicit Sfeer answer replaces them with its targets. */
+export const SFEER_METRICS = Object.freeze({
+  druk:   [['density', 'higher', 2], ['horeca1km', 'higher', 2], ['distCentrum', 'lower', 1], ['distPodium', 'lower', 1]],
+  rustig: [['density', 'lower', 2], ['distCentrum', 'higher', 1], ['waterPct', 'higher', 1]],
+});
+const THEME_METRICS = {
+  welvaart:    [['avgIncome', 'higher'], ['welfarePer1000', 'lower']],
+  opleiding:   [['highEdu', 'higher']],
+  woningmarkt: [['ownerOccupiedPct', 'higher']],
+};
+/** Theme order of a profile preset. */
+export const PROFILE_THEMES = Object.freeze(['veiligheid', 'welvaart', 'voorzieningen', 'opleiding', 'woningmarkt', 'leeftijd', 'sfeer']);
+export const PROFILES = Object.freeze({
+  standaard: {
+    weights: { veiligheid: 35, voorzieningen: 40, welvaart: 15, opleiding: 10, woningmarkt: 0 },
+    veiligheid: VEILIG_STD,
+    voorzieningen: [['distGP', 'lower'], ['distSupermarket', 'lower'], ['distSchool', 'lower'], ['distStation', 'lower'], ['distKinderopvang', 'lower']],
+  },
+  student: {
+    weights: { veiligheid: 10, voorzieningen: 30, welvaart: 0, opleiding: 0, woningmarkt: 0, leeftijd: 20, sfeer: 40 }, sfeer: 'druk',
+    veiligheid: [['crimeBike', 'lower', 2], ['crimeStreetRobbery', 'lower'], ['crimeViolence', 'lower']],
+    voorzieningen: [['distSupermarket', 'lower', 2], ['distStation', 'lower', 2], ['distOv', 'lower', 2], ['distGP', 'lower']],
+    leeftijd: [['pop15to24', 'higher', 2], ['pop25to44', 'higher']],
+  },
+  stel: {
+    weights: { veiligheid: 25, voorzieningen: 25, welvaart: 10, opleiding: 5, woningmarkt: 0, leeftijd: 15, sfeer: 20 }, sfeer: 'druk',
+    veiligheid: VEILIG_STD,
+    voorzieningen: [['distSupermarket', 'lower', 2], ['distStation', 'lower', 2], ['distOv', 'lower'], ['distGP', 'lower']],
+    leeftijd: [['pop25to44', 'higher']],
+  },
+  gezin: {
+    weights: { veiligheid: 35, voorzieningen: 35, welvaart: 10, opleiding: 0, woningmarkt: 0, leeftijd: 15, sfeer: 5 }, sfeer: 'rustig',
+    veiligheid: [['crimeBurglary', 'lower', 2], ['crimeViolence', 'lower', 2], ['crimeStreetRobbery', 'lower'], ['crimeDrugs', 'lower'], ['crimeVandalism', 'lower'], ['crimeNearby', 'lower', NEARBY_W]],
+    // School close by and good (eduNearScore, W31) replaces Opleiding for a family.
+    voorzieningen: [['distSchool', 'lower', 3], ['eduNearScore', 'higher', 3], ['distKinderopvang', 'lower', 3], ['distGroen', 'lower', 2], ['distGP', 'lower'], ['distSupermarket', 'lower']],
+    leeftijd: [['hhWithKidsPct', 'higher']],
+  },
+  '50plus': {
+    weights: { veiligheid: 30, voorzieningen: 30, welvaart: 15, opleiding: 5, woningmarkt: 0, leeftijd: 10, sfeer: 10 }, sfeer: 'rustig',
+    veiligheid: VEILIG_STD,
+    voorzieningen: [['distGP', 'lower', 2], ['distSupermarket', 'lower', 2], ['distStation', 'lower'], ['distGroen', 'lower']],
+    leeftijd: [['pop45to64', 'higher']],
+  },
+  senior: {
+    weights: { veiligheid: 35, voorzieningen: 40, welvaart: 5, opleiding: 0, woningmarkt: 0, leeftijd: 10, sfeer: 10 }, sfeer: 'rustig',
+    veiligheid: [['crimeBurglary', 'lower', 2], ['crimeStreetRobbery', 'lower', 2], ['crimePickpocket', 'lower'], ['crimeViolence', 'lower'], ['crimeNearby', 'lower', NEARBY_W]],
+    voorzieningen: [['distGP', 'lower', 3], ['distSupermarket', 'lower', 2], ['distOv', 'lower', 2]],
+    leeftijd: [['pop65plus', 'higher']],
+  },
+  soloMensen: {
+    weights: { veiligheid: 20, voorzieningen: 25, welvaart: 10, opleiding: 5, woningmarkt: 0, leeftijd: 10, sfeer: 30 }, sfeer: 'druk',
+    veiligheid: VEILIG_STD,
+    voorzieningen: [['distSupermarket', 'lower', 2], ['distStation', 'lower'], ['distOv', 'lower'], ['distGP', 'lower']],
+    leeftijd: [['singleHhPct', 'higher', 2], ['pop25to44', 'higher']],
+  },
+  soloRust: {
+    weights: { veiligheid: 30, voorzieningen: 25, welvaart: 15, opleiding: 5, woningmarkt: 0, leeftijd: 5, sfeer: 20 }, sfeer: 'rustig',
+    veiligheid: VEILIG_STD,
+    voorzieningen: [['distSupermarket', 'lower'], ['distGP', 'lower'], ['distGroen', 'lower', 2], ['distOpenNatuur', 'lower']],
+    leeftijd: [['waterPct', 'higher']],
+  },
+});
+const LABELS = { veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding', woningmarkt: 'Woningmarkt', leeftijd: 'Levenstype', sfeer: 'Sfeer' };
+const toMetric = ([key, pref, w]) => Object.freeze(w == null ? { key, pref } : { key, pref, w });
+
+/**
+ * Themes of a levenstype profile (unknown key = Standaard): frozen
+ * [{ key, label, weight, metrics: [{ key, pref, w? }] }] in PROFILE_THEMES
+ * order. A theme without metrics in the profile (Standaard: Levenstype,
+ * Sfeer) is left out; a theme at weight 0 stays at 0.
+ */
+export function profileThemes(key) {
+  const p = PROFILES[key] ?? PROFILES.standaard;
+  const metricsOf = k => (k === 'sfeer' ? SFEER_METRICS[p.sfeer] : p[k] ?? THEME_METRICS[k]) ?? [];
+  return Object.freeze(PROFILE_THEMES
+    .filter(k => metricsOf(k).length)
+    .map(k => Object.freeze({ key: k, label: LABELS[k], weight: p.weights[k] ?? 0, metrics: Object.freeze(metricsOf(k).map(toMetric)) })));
+}
+
+/**
+ * "Standaard": the Standaard profile, no lifestyle metrics. A theme weight is
+ * shared by the metrics of that theme that have data; a theme with none is
+ * dropped and the rest renormalise, so NL gemeenten (few metrics) and
+ * Rotterdam buurten use the same preset. crimeNearby (omgeving.js): the area
+ * plus its neighbours, one sixth of Veiligheid next to the own five.
  */
 export const STANDAARD = Object.freeze({
   id: 'standaard',
   label: 'Standaard',
-  themes: Object.freeze([
-    // crimeNearby (omgeving.js): the area plus its neighbours, one sixth of Veiligheid next to the own five.
-    { key: 'veiligheid',    label: 'Veiligheid',    weight: 35, metrics: [['crimeRate', 'lower'], ['crimeBurglary', 'lower'], ['crimeViolence', 'lower'], ['crimeStreetRobbery', 'lower'], ['crimeVandalism', 'lower'], ['crimeNearby', 'lower', NEARBY_W]] },
-    { key: 'welvaart',      label: 'Welvaart',      weight: 20, metrics: [['avgIncome', 'higher'], ['welfarePer1000', 'lower']] },
-    { key: 'voorzieningen', label: 'Voorzieningen', weight: 25, metrics: [['distGP', 'lower'], ['distSupermarket', 'lower'], ['distSchool', 'lower'], ['distStation', 'lower'], ['distKinderopvang', 'lower']] },
-    { key: 'opleiding',     label: 'Opleiding',     weight: 10, metrics: [['highEdu', 'higher']] },
-    { key: 'woningmarkt',   label: 'Woningmarkt',   weight: 10, metrics: [['ownerOccupiedPct', 'higher']] },
-  ].map(t => Object.freeze({ ...t, metrics: Object.freeze(t.metrics.map(([key, pref, w]) => Object.freeze(w == null ? { key, pref } : { key, pref, w }))) }))),
+  themes: profileThemes('standaard'),
   targets: Object.freeze({}),
   filters: Object.freeze([]),
   shrink: true,

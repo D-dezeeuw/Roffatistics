@@ -135,9 +135,10 @@ describe('wizard: answers → preset', () => {
     assert.equal(metricOf(p, 'veiligheid', 'crimeDrugs').w, 3);
   });
   it('slider weights override theme weights; 0 drops a theme', () => {
-    const p = answersToPreset({ ...FULL, weights: { veiligheid: 0, opleiding: 40 } });
+    const p = answersToPreset({ ...FULL, weights: { veiligheid: 0, welvaart: 40, opleiding: 40 } });
     assert.equal(themeOf(p, 'veiligheid').weight, 0);
-    assert.equal(themeOf(p, 'opleiding').weight, 40);
+    assert.equal(themeOf(p, 'welvaart').weight, 40);
+    assert.equal(themeOf(p, 'opleiding').weight, 40, 'gezin: Opleiding at base 0, an override still switches it on');
     assert.ok(!resolvePreset(p, ALL).some(f => f.theme === 'veiligheid'));
     assert.equal(themeWeights(FULL).veiligheid, 35, 'themeWeights ignores the overrides');
   });
@@ -259,10 +260,10 @@ describe('wizard: result helpers', () => {
 });
 
 // v0.30: step "Levensfase" renamed "Levenstype", plus two solo options.
-import { LEVENSTYPEN, LEVENSFASEN, LEVENSTYPE_HINT, SOLO_SFEER_WEIGHT } from '../modules/wizard-model.js';
+import { LEVENSTYPEN, LEVENSFASEN, LEVENSTYPE_HINT, LEVENSTYPE_HINTS } from '../modules/wizard-model.js';
 import { GENERAL_SECTIONS } from '../modules/explain.js';
 import { DATASETS as DS, } from '../modules/datasets.js';
-import { THEME_LABELS } from '../modules/presets.js';
+import { THEME_LABELS, PROFILES } from '../modules/presets.js';
 import { extractAreaValues, WIJK_COLUMNS as WC } from '../modules/areas.js';
 
 describe('Levenstype (v0.30)', () => {
@@ -297,11 +298,11 @@ describe('Levenstype (v0.30)', () => {
     for (const lf of ['soloMensen', 'soloRust']) {
       const p = answersToPreset({ levensfase: lf });
       for (const t of p.themes) {
-        assert.ok(t.weight > 0, `${lf} ${t.key}`);
+        assert.ok(t.weight > 0 || t.key === 'woningmarkt', `${lf} ${t.key}`);
         for (const m of t.metrics) assert.ok((m.w ?? 1) > 0, `${lf} ${t.key}.${m.key}`);
       }
-      for (const m of themeOf(p, 'leeftijd').metrics) assert.equal(m.pref, 'higher', `${lf} ${m.key}`);
-      assert.equal(themeOf(p, 'sfeer').weight, SOLO_SFEER_WEIGHT);
+      for (const m of themeOf(p, 'leeftijd')?.metrics ?? []) assert.equal(m.pref, 'higher', `${lf} ${m.key}`);
+      assert.equal(themeOf(p, 'sfeer').weight, PROFILES[lf].weights.sfeer);
     }
   });
   it('solo onder de mensen: singles, 25–44, density, horeca, close to centre', () => {
@@ -315,6 +316,8 @@ describe('Levenstype (v0.30)', () => {
   it('solo op mezelf: water, low density, further from centre, no café term', () => {
     const p = answersToPreset({ levensfase: 'soloRust' });
     assert.equal(metricOf(p, 'leeftijd', 'waterPct').pref, 'higher');
+    assert.equal(metricOf(p, 'sfeer', 'waterPct').pref, 'higher');
+    assert.equal(metricOf(p, 'voorzieningen', 'distGroen').w, 2);
     assert.equal(metricOf(p, 'sfeer', 'density').pref, 'lower');
     assert.equal(metricOf(p, 'sfeer', 'distCentrum').pref, 'higher');
     assert.ok(!p.themes.some(t => t.metrics.some(m => m.key === 'horeca1km' || m.key === 'distCafe')));
@@ -322,7 +325,9 @@ describe('Levenstype (v0.30)', () => {
   it('an explicit Sfeer answer wins over the solo busy/quiet terms', () => {
     const p = answersToPreset({ levensfase: 'soloRust', sfeer: 10 });
     assert.equal(metricOf(p, 'sfeer', 'density').pref, 'target');
-    assert.ok(metricOf(p, 'leeftijd', 'waterPct'), 'water stays');
+    assert.ok(!metricOf(p, 'sfeer', 'waterPct'), 'the Sfeer targets replace the profile metrics');
+    assert.ok(metricOf(p, 'leeftijd', 'waterPct'), 'the Levenstype water term stays');
+    assert.equal(themeOf(p, 'sfeer').weight, PROFILES.soloRust.weights.sfeer, 'the profile keeps the theme weight');
   });
   it('new metrics come from 86165NED and are layers with an Uitleg', () => {
     assert.equal(WC.singleHouseholds, 'Eenpersoonshuishoudens_30');
@@ -343,5 +348,130 @@ describe('Levenstype (v0.30)', () => {
     assert.match(text, /relatief/);
     assert.ok(!GENERAL_SECTIONS.some(x => x.paragraphs.join(' ').includes('je levensfase')));
     assert.ok(!DS.woonscore.description.includes('levensfase'));
+  });
+});
+
+// v0.45.0: levenstype profiles (docs/plan-levenstype-gewichten.md).
+import { PROFILES as PROF, PROFILE_THEMES, profileThemes, SFEER_METRICS } from '../modules/presets.js';
+import { EXTRA_THEME_WEIGHTS as EXTRA, themeImportance as importanceOf, IMPORTANCE as IMP, NOMINAL_BASE, GEMEENSCHAP_DEFAULT_PCT, SITUATIE_HINT, GEMEENSCHAP_HINT } from '../modules/wizard-model.js';
+
+describe('Levenstype profiles (v0.45.0)', () => {
+  const weightsOf = p => Object.fromEntries(p.themes.filter(t => t.weight > 0).map(t => [t.key, t.weight]));
+  it('one profile per levenstype plus Standaard; each sums to 100 over known themes', () => {
+    assert.deepEqual(Object.keys(PROF).sort(), ['standaard', ...Object.keys(LEVENSTYPEN)].sort());
+    for (const [k, p] of Object.entries(PROF)) {
+      assert.equal(Object.values(p.weights).reduce((s, w) => s + w, 0), 100, k);
+      for (const t of Object.keys(p.weights)) assert.ok(PROFILE_THEMES.includes(t), `${k}.${t}`);
+      assert.equal(profileThemes(k).reduce((s, t) => s + t.weight, 0), 100, `${k}: no weight lost to a theme without metrics`);
+    }
+  });
+  it('every profile metric is a dataset, and directional ones point the right way', () => {
+    for (const k of Object.keys(PROF)) for (const t of profileThemes(k)) for (const m of t.metrics) {
+      assert.ok(DS[m.key], `${k} ${t.key}.${m.key} is a dataset`);
+      if (t.key === 'sfeer' || t.key === 'leeftijd' || m.key === 'ownerOccupiedPct') continue;
+      if (DS[m.key].higherIsBetter === true || DS[m.key].higherIsBetter === false) assert.equal(m.pref, DS[m.key].higherIsBetter ? 'higher' : 'lower', `${k} ${m.key}`);
+      else assert.equal(m.pref, 'lower', `${k} ${m.key}: a distance`);
+    }
+    for (const k of ['distOv', 'distGroen', 'distOpenNatuur', 'distPodium', 'waterPct', 'crimePickpocket', 'crimeDrugs', 'eduNearScore']) assert.ok(DS[k], k);
+  });
+  it('Standaard is the new column: 35/15/40/10, Woningmarkt 0, no Levenstype or Sfeer', () => {
+    assert.deepEqual(weightsOf(STANDAARD), { veiligheid: 35, welvaart: 15, voorzieningen: 40, opleiding: 10 });
+    assert.deepEqual(weightsOf(answersToPreset({})), weightsOf(STANDAARD));
+    assert.deepEqual(themeWeights({}), { ...weightsOf(STANDAARD), woningmarkt: 0 });
+  });
+  it('student: no distSchool, distKinderopvang or Woningmarkt; sfeer 40 busy', () => {
+    const p = answersToPreset({ levensfase: 'student' });
+    assert.deepEqual(weightsOf(p), { veiligheid: 10, voorzieningen: 30, leeftijd: 20, sfeer: 40 });
+    const keys = p.themes.flatMap(t => t.metrics.map(m => m.key));
+    for (const k of ['distSchool', 'distKinderopvang', 'eduNearScore']) assert.ok(!keys.includes(k), k);
+    for (const t of ['woningmarkt', 'welvaart', 'opleiding']) assert.equal(themeOf(p, t).weight, 0, t);
+    assert.ok(!resolvePreset(p, ALL).some(f => f.theme === 'woningmarkt'));
+    assert.equal(metricOf(p, 'sfeer', 'density').pref, 'higher');
+    assert.equal(metricOf(p, 'veiligheid', 'crimeBike').w, 2);
+    assert.equal(metricOf(p, 'voorzieningen', 'distOv').w, 2);
+  });
+  it('gezin: eduNearScore in Voorzieningen, no Opleiding, a quiet Sfeer of 5', () => {
+    const p = answersToPreset({ levensfase: 'gezin' });
+    assert.deepEqual(metricOf(p, 'voorzieningen', 'eduNearScore'), { key: 'eduNearScore', pref: 'higher', w: 3 });
+    assert.equal(themeOf(p, 'opleiding').weight, 0);
+    assert.ok(!resolvePreset(p, ALL).some(f => f.theme === 'opleiding'));
+    assert.equal(themeOf(p, 'sfeer').weight, 5);
+    assert.equal(themeOf(p, 'leeftijd').weight, 15, 'freed Woningmarkt 5 → Levenstype');
+    assert.equal(metricOf(p, 'sfeer', 'density').pref, 'lower');
+    assert.equal(metricOf(p, 'veiligheid', 'crimeDrugs').w, undefined, 'weight 1');
+    assert.ok(!metricOf(p, 'veiligheid', 'crimeRate'));
+  });
+  it('senior: GP 3, pickpocketing in Veiligheid, no Woningmarkt or Opleiding', () => {
+    const p = answersToPreset({ levensfase: 'senior' });
+    assert.deepEqual(weightsOf(p), { veiligheid: 35, welvaart: 5, voorzieningen: 40, leeftijd: 10, sfeer: 10 });
+    assert.equal(themeOf(p, 'woningmarkt').weight, 0);
+    assert.equal(metricOf(p, 'voorzieningen', 'distGP').w, 3);
+    assert.ok(metricOf(p, 'veiligheid', 'crimePickpocket'));
+  });
+  it('an explicit Sfeer answer overrides the profile direction and keeps the profile weight', () => {
+    const p = answersToPreset({ levensfase: 'student', sfeer: 90 });
+    assert.equal(themeOf(p, 'sfeer').weight, 40);
+    assert.deepEqual(themeOf(p, 'sfeer').metrics.map(m => [m.key, m.pref]), [['density', 'target'], ['distCentrum', 'target']]);
+    assert.ok(p.targets.density.quantile < 0.5, 'quiet wins over the busy profile');
+    assert.equal(themeOf(answersToPreset({ sfeer: 90 }), 'sfeer').weight, EXTRA.sfeer, 'Standaard: the step weight');
+    assert.deepEqual(SFEER_METRICS.druk.map(m => m[0]), ['density', 'horeca1km', 'distCentrum', 'distPodium']);
+  });
+  it('the importance slider scales from the profile weight', () => {
+    for (const [lvl, f] of IMP.map((l, i) => [i, l.factor])) {
+      const p = answersToPreset({ levensfase: 'student', importance: { sfeer: lvl, veiligheid: lvl } });
+      assert.equal(themeOf(p, 'sfeer')?.weight ?? 0, 40 * f);
+      assert.equal(themeOf(p, 'veiligheid')?.weight ?? 0, 10 * f);
+    }
+    assert.equal(themeWeights({ levensfase: 'gezin', importance: { veiligheid: 4 } }).veiligheid, 35);
+    assert.equal(importanceOf({ levensfase: 'senior' }).voorzieningen, 2, 'the profile weight is Gemiddeld');
+  });
+  it('Bouwstijl only when answered, at 5', () => {
+    assert.equal(EXTRA.nieuwbouw, 5);
+    assert.equal(themeOf(answersToPreset({ bouw: 'karakter' }), 'nieuwbouw').weight, 5);
+    assert.ok(!themeOf(answersToPreset({ levensfase: 'stel' }), 'nieuwbouw'));
+  });
+  it('old hashes still decode; their weights follow the new profiles', () => {
+    for (const [code, lf] of [['ls', 'student'], ['lg', 'gezin'], ['lr', 'senior'], ['lo', 'soloMensen'], ['lm', 'soloRust']]) {
+      const a = decodeAnswers(code);
+      assert.equal(a.levensfase, lf);
+      assert.deepEqual(weightsOf(answersToPreset(a)), Object.fromEntries(profileThemes(lf).filter(t => t.weight > 0).map(t => [t.key, t.weight])), code);
+    }
+    const old = answersToPreset(decodeAnswers('lg.wv70'));
+    assert.equal(themeOf(old, 'veiligheid').weight, 70, 'an old absolute weight still applies');
+    assert.equal(themeOf(old, 'voorzieningen').weight, 35);
+    assert.equal(themeOf(old, 'woningmarkt').weight, 0, 'an old link loses Woningmarkt as intended');
+  });
+  it('a hint line per levenstype, Stel read as a young couple', () => {
+    for (const k of Object.keys(LEVENSTYPEN)) assert.match(LEVENSTYPE_HINTS[k], /Je kunt alles bijstellen\.$/, k);
+    assert.match(LEVENSTYPE_HINTS.stel, /jong stel, graag wat te doen/);
+    assert.match(LEVENSTYPE_HINTS.student, /veiligheid licht/);
+  });
+  it('addendum 3: Woningmarkt 0 everywhere; freed points to Voorzieningen (Standaard) or Levenstype', () => {
+    for (const [k, p] of Object.entries(PROF)) assert.equal(p.weights.woningmarkt, 0, k);
+    assert.equal(PROF.standaard.weights.voorzieningen, 40);
+    assert.deepEqual(['stel', 'gezin', '50plus', 'soloRust'].map(k => PROF[k].weights.leeftijd), [15, 15, 10, 5]);
+    const huur = answersToPreset({ levensfase: 'student', budget: { mode: 'huur' } });
+    assert.equal(themeOf(huur, 'woningmarkt').weight, 0, 'huur only changes the metric, not the weight');
+    assert.deepEqual(themeOf(huur, 'woningmarkt').metrics, [{ key: 'rentalPct', pref: 'higher' }]);
+  });
+  it('addendum 3: a slider on a base-0 theme uses a nominal base of 10', () => {
+    assert.equal(NOMINAL_BASE, 10);
+    for (const [lvl, f] of IMP.map((l, i) => [i, l.factor])) {
+      assert.equal(themeOf(answersToPreset({ importance: { woningmarkt: lvl } }), 'woningmarkt').weight, 10 * f);
+      assert.equal(themeOf(answersToPreset({ levensfase: 'student', importance: { welvaart: lvl } }), 'welvaart').weight, 10 * f);
+    }
+    assert.equal(importanceOf({}).woningmarkt, 0, 'base 0 shows as Niet belangrijk');
+    assert.equal(importanceOf({ importance: { woningmarkt: 3 } }).woningmarkt, 3);
+    assert.ok(resolvePreset(answersToPreset({ importance: { woningmarkt: 2 } }), ALL).some(f => f.theme === 'woningmarkt'));
+  });
+  it('addendum 1–2: Situatie 30 when answered, Gemeenschap default 20%, hint lines', () => {
+    assert.equal(EXTRA.situatie, 30);
+    assert.equal(themeOf(answersToPreset({ situatie: { edu: 'hoog' } }), 'situatie').weight, 30);
+    assert.ok(!themeOf(answersToPreset({}), 'situatie'));
+    assert.equal(GEMEENSCHAP_DEFAULT_PCT, 20);
+    assert.equal(normalizeAnswers({ gemeenschap: { detail: 'nederland' } }).gemeenschap.pct, 20);
+    assert.equal(normalizeAnswers({ gemeenschap: { detail: 'nederland', pct: 10 } }).gemeenschap.pct, 10, 'an explicit (old) pct is kept');
+    assert.match(SITUATIE_HINT, /vergelijkbare situatie; daar voel je je thuis/);
+    assert.match(GEMEENSCHAP_HINT, /dezelfde achtergrond/);
   });
 });

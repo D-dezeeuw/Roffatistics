@@ -10,11 +10,11 @@ const ROTTERDAM_KEYS = ['crimeRate', 'crimeBurglary', 'crimeViolence', 'crimeStr
   'avgIncome', 'welfarePer1000', 'distGP', 'distSupermarket', 'highEdu', 'ownerOccupiedPct', 'population', 'density'];
 
 describe('Standaard preset', () => {
-  it('follows the plan table: themes 35/20/25/10/10 and no taste metrics', () => {
+  it('follows the plan table: themes 35/15/40/10/0 (v0.45.0) and no taste metrics', () => {
     assert.equal(DEFAULT_PRESET, 'standaard');
     assert.equal(PRESETS.standaard, STANDAARD);
     assert.deepEqual(STANDAARD.themes.map(t => [t.key, t.weight]),
-      [['veiligheid', 35], ['welvaart', 20], ['voorzieningen', 25], ['opleiding', 10], ['woningmarkt', 10]]);
+      [['veiligheid', 35], ['welvaart', 15], ['voorzieningen', 40], ['opleiding', 10], ['woningmarkt', 0]]);
     const keys = STANDAARD.themes.flatMap(t => t.metrics.map(m => m.key));
     for (const k of keys) assert.ok(DATASETS[k], `${k} is a dataset`);
     for (const taste of ['density', 'pop65plus', 'originDutchPct', 'nonWesternPct', 'wozValue']) assert.ok(!keys.includes(taste));
@@ -25,18 +25,18 @@ describe('Standaard preset', () => {
   });
   it('Rotterdam: every metric, theme weight split within the theme, sums to 1', () => {
     const f = resolvePreset(STANDAARD, ROTTERDAM_KEYS);
-    assert.equal(f.length, 11);
+    assert.equal(f.length, 10, 'ownerOccupiedPct out: Woningmarkt 0');
     near(sum(f), 1);
     near(sum(f.filter(x => x.theme === 'veiligheid')), 0.35);
     near(f.find(x => x.key === 'crimeBurglary').weight, 0.07);
-    near(f.find(x => x.key === 'distGP').weight, 0.125);
+    near(f.find(x => x.key === 'distGP').weight, 0.2);
   });
   it('NL gemeenten: missing metrics dropped, themes renormalised', () => {
     const f = resolvePreset(STANDAARD, new Set(['crimeRate', 'avgIncome', 'highEdu', 'population']));
     assert.deepEqual(f.map(x => x.key), ['crimeRate', 'avgIncome', 'highEdu']);
     near(sum(f), 1);
-    near(f[0].weight, 35 / 65);
-    near(f[1].weight, 20 / 65);
+    near(f[0].weight, 35 / 60);
+    near(f[1].weight, 15 / 60);
     assert.deepEqual(resolvePreset(STANDAARD, []), []);
   });
   it('a target in the preset switches that metric to the target preference', () => {
