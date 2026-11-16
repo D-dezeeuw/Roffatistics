@@ -128,3 +128,40 @@ weight from the table.
 5. Add an entry in `docs/decisions.md` saying that the Standaard and
    Totaalscore weights changed: Voorzieningen 25→35, Welvaart 20→15,
    Woningmarkt 10→5.
+
+## Addendum (operator, 16 Nov 2026): background weighs heavily, luxury themes off
+
+Operator: people strongly look for neighbours like themselves.
+- Well-off people live among other well-off people because of status and social
+  expectation.
+- People on a low income often prefer a volkswijk with like-minded neighbours,
+  where they feel at home even if it is not the safest.
+- Newcomers and people with a specific cultural background find support among
+  people with the same background; settling in takes years.
+- The type of home and the state of the housing market are luxury issues.
+
+Changes on top of the table above:
+
+1. **Vergelijkbare situatie** (income band and/or education level, opt-in in
+   the wizard): theme weight 15 → **30** when answered. The income band already
+   works as a *target* around your own band in both directions (high → among
+   high incomes, low → among lower incomes); keep that. Add one hint line to
+   the step: "Mensen kiezen vaak een buurt met mensen in een vergelijkbare
+   situatie; daar voel je je thuis."
+2. **Nabijheid gemeenschap** (opt-in, origin): default level when chosen 10% →
+   **20%** of the total (`GEMEENSCHAP_DEFAULT_PCT`; level scale unchanged). Hint
+   line: "Net in Nederland of graag dicht bij mensen met dezelfde achtergrond?
+   Een eigen gemeenschap in de buurt kan veel steun geven." The §5 guard stays
+   as it is: origin counts only as a plus, never as a minus, a target or a
+   filter.
+3. **Woningmarkt → 0 in every column, Standaard included.** Bouwstijl only
+   when answered (5). The importance slider must still be able to switch a
+   theme back on when its base is 0: a slider on a base-0 theme uses a nominal
+   base of 10 (so "Gemiddeld" = 10).
+   Re-balance: the Standaard column's freed 5 goes to Voorzieningen (40).
+   Every other column adds its freed Woningmarkt points to Levenstype
+   (buurtgenoten).
+4. **No automatic safety discount by income.** We do not infer that a lower
+   income wants less safety. Safety's share drops only through renormalisation
+   when Situatie or Gemeenschap weigh in, and the user can lower it on the
+   slider. Record this in decisions.md.
