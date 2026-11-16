@@ -10,11 +10,11 @@ const ROTTERDAM_KEYS = ['crimeRate', 'crimeBurglary', 'crimeViolence', 'crimeStr
   'avgIncome', 'welfarePer1000', 'distGP', 'distSupermarket', 'highEdu', 'ownerOccupiedPct', 'population', 'density'];
 
 describe('Standaard preset', () => {
-  it('is neutral (v0.54.0): every theme Gemiddeld 10, Veiligheid/Welvaart/Opleiding one step up (15), no taste metrics', () => {
+  it('is neutral (v0.54.0): every theme Gemiddeld 10, Welvaart/Opleiding one step up (15), Veiligheid 20 (v0.58.0), no taste metrics', () => {
     assert.equal(DEFAULT_PRESET, 'standaard');
     assert.equal(PRESETS.standaard, STANDAARD);
     assert.deepEqual(STANDAARD.themes.map(t => [t.key, t.weight]),
-      [['veiligheid', 15], ['welvaart', 15], ['voorzieningen', 10], ['opleiding', 15], ['milieu', 10], ['woningmarkt', 0]]);
+      [['veiligheid', 20], ['welvaart', 15], ['voorzieningen', 10], ['opleiding', 15], ['milieu', 10], ['woningmarkt', 0]]);
     const metric = (theme, key) => STANDAARD.themes.find(t => t.key === theme).metrics.find(m => m.key === key);
     assert.deepEqual(metric('welvaart', 'avgIncome'), { key: 'avgIncome', pref: 'higher', w: 2 });
     assert.deepEqual(metric('opleiding', 'eduScore'), { key: 'eduScore', pref: 'higher', w: 2, optional: true }, 'the general basisschool layer');
@@ -32,28 +32,28 @@ describe('Standaard preset', () => {
     const f = resolvePreset(STANDAARD, ROTTERDAM_KEYS);
     assert.equal(f.length, 10, 'ownerOccupiedPct out: Woningmarkt 0');
     near(sum(f), 1);
-    near(sum(f.filter(x => x.theme === 'veiligheid')), 15 / 55);
-    near(f.find(x => x.key === 'crimeBurglary').weight, 3 / 55);
-    near(f.find(x => x.key === 'distGP').weight, 5 / 55);
-    near(f.find(x => x.key === 'highEdu').weight, 15 / 55);   // no eduScore: highEdu carries Opleiding
+    near(sum(f.filter(x => x.theme === 'veiligheid')), 20 / 60);
+    near(f.find(x => x.key === 'crimeBurglary').weight, 4 / 60);
+    near(f.find(x => x.key === 'distGP').weight, 5 / 60);
+    near(f.find(x => x.key === 'highEdu').weight, 15 / 60);   // no eduScore: highEdu carries Opleiding
   });
   it('with eduScore and geluidhinder buren: each emphasised metric weighs as much as a neutral theme', () => {
     const f = resolvePreset(STANDAARD, [...ROTTERDAM_KEYS, 'distSchool', 'distStation', 'distKinderopvang', 'crimeNearby', 'eduScore', 'noiseNeighbourPct']);
     near(sum(f), 1);
     const w = k => f.find(x => x.key === k).weight;
-    near(sum(f.filter(x => x.theme === 'veiligheid')), 15 / 65);
-    for (const k of ['avgIncome', 'eduScore', 'noiseNeighbourPct']) near(w(k), 10 / 65);
-    near(sum(f.filter(x => x.theme === 'voorzieningen')), 10 / 65);
-    near(w('welfarePer1000'), 5 / 65);
-    near(w('highEdu'), 5 / 65);
+    near(sum(f.filter(x => x.theme === 'veiligheid')), 20 / 70);
+    for (const k of ['avgIncome', 'eduScore', 'noiseNeighbourPct']) near(w(k), 10 / 70);
+    near(sum(f.filter(x => x.theme === 'voorzieningen')), 10 / 70);
+    near(w('welfarePer1000'), 5 / 70);
+    near(w('highEdu'), 5 / 70);
     assert.equal(f.find(x => x.key === 'noiseNeighbourPct').pref, 'lower');
   });
   it('NL gemeenten: missing metrics dropped, themes renormalised', () => {
     const f = resolvePreset(STANDAARD, new Set(['crimeRate', 'avgIncome', 'highEdu', 'population']));
     assert.deepEqual(f.map(x => x.key), ['crimeRate', 'avgIncome', 'highEdu']);
     near(sum(f), 1);
-    near(f[0].weight, 1 / 3);
-    near(f[1].weight, 1 / 3);
+    near(f[0].weight, 20 / 50);   // Veiligheid 20, Welvaart 15, Opleiding 15 (v0.58.0)
+    near(f[1].weight, 15 / 50);
     assert.deepEqual(resolvePreset(STANDAARD, []), []);
   });
   it('a target in the preset switches that metric to the target preference', () => {

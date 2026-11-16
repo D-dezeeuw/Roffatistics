@@ -145,6 +145,15 @@ export function overallRank(code, peers, mode = 'rate') {
 }
 
 /**
+ * Label of a Woonscore factor in Sterk/Zwak: a value taken from the parent
+ * (score.js imputed, v0.58.0) says so, "(waarde van de wijk)" or "(… gemeente)".
+ */
+export function factorLabel(f) {
+  if (!f?.imputed) return f?.label ?? '';
+  return `${f.label} (waarde van de ${String(f.imputedFrom ?? '').startsWith('GM') ? 'gemeente' : 'wijk'})`;
+}
+
+/**
  * The Woonscore block of the modal: { score, rank, of, coverage, shrunk, plus, minus }
  * from the score.js result that areas.js attached (area.woonscore), or null.
  */

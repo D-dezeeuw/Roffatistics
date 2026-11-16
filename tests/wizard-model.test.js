@@ -386,9 +386,9 @@ describe('Levenstype profiles (v0.45.0)', () => {
     assert.deepEqual(Object.keys(PROF).sort(), ['standaard', ...Object.keys(LEVENSTYPEN)].sort());
     for (const [k, p] of Object.entries(PROF)) {
       for (const t of Object.keys(p.weights)) assert.ok(PROFILE_THEMES.includes(t), `${k}.${t}`);
-      // Standaard (v0.54.0): importance steps, not a 100 split (Gemiddeld 10, Belangrijk 15).
+      // Standaard (v0.54.0): importance steps, not a 100 split (Gemiddeld 10, Belangrijk 15, Heel belangrijk 20: Veiligheid v0.58.0).
       if (k === 'standaard') {
-        assert.ok(Object.values(p.weights).every(w => [0, NOMINAL_BASE, NOMINAL_BASE * 1.5].includes(w)), k);
+        assert.ok(Object.values(p.weights).every(w => [0, NOMINAL_BASE, NOMINAL_BASE * 1.5, NOMINAL_BASE * 2].includes(w)), k);
         continue;
       }
       // Nieuwkomer: Sfeer 10 has no direction, so 90 of its 100 has metrics until Sfeer is answered.
@@ -411,7 +411,7 @@ describe('Levenstype profiles (v0.45.0)', () => {
     for (const k of ['distOv', 'distGroen', 'distOpenNatuur', 'distPodium', 'waterPct', 'crimePickpocket', 'crimeDrugs', 'eduNearScore']) assert.ok(DS[k], k);
   });
   it('Standaard is neutral (v0.54.0): 15/15/10/15/10, Woningmarkt 0, no Levenstype or Sfeer', () => {
-    assert.deepEqual(weightsOf(STANDAARD), { veiligheid: 15, welvaart: 15, voorzieningen: 10, opleiding: 15, milieu: 10 });
+    assert.deepEqual(weightsOf(STANDAARD), { veiligheid: 20, welvaart: 15, voorzieningen: 10, opleiding: 15, milieu: 10 });
     assert.deepEqual(weightsOf(answersToPreset({})), weightsOf(STANDAARD));
     assert.deepEqual(themeWeights({}), { ...weightsOf(STANDAARD), woningmarkt: 0 });
   });

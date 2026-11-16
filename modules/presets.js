@@ -7,6 +7,8 @@ import { ALL_DETAIL_KEYS, withDetailShares } from './herkomst-gemeente.js';
 import { LAND_METRICS } from './herkomst-land.js';
 import { classifyWoongebied } from './woongebied.js';
 import { assignStack, assignStackRows } from './stapel.js';
+import { getEduEntry } from './onderwijs.js';
+import { getMilieuEntry } from './milieu.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 
@@ -47,7 +49,8 @@ export const PROFILE_THEMES = Object.freeze(['veiligheid', 'welvaart', 'voorzien
 /**
  * Standaard (v0.54.0, operator 16 Nov 2026): neutral. Every theme at
  * Gemiddeld (NOMINAL_BASE 10) except a slight emphasis, one importance step up
- * (Belangrijk, ×1.5 = 15) on Veiligheid, Welvaart and Opleiding; inside the last
+ * (Belangrijk, ×1.5 = 15) on Welvaart and Opleiding, and Veiligheid at 20
+ * (v0.58.0, operator 16 Nov 2026: Centrum ranked 3rd of 15 while worst on crime); inside the last
  * two, inkomen (avgIncome) and the basisschoolscore (eduScore) count double, and
  * geluidhinder door buren (noiseNeighbourPct) is the theme Milieu on its own.
  * So each emphasised metric weighs 10, as much as a whole neutral theme; the
@@ -56,12 +59,13 @@ export const PROFILE_THEMES = Object.freeze(['veiligheid', 'welvaart', 'voorzien
  */
 export const PROFILES = Object.freeze({
   standaard: {
-    weights: { veiligheid: 15, voorzieningen: 10, welvaart: 15, opleiding: 15, milieu: 10, woningmarkt: 0 },
+    weights: { veiligheid: 20, voorzieningen: 10, welvaart: 15, opleiding: 15, milieu: 10, woningmarkt: 0 },
     veiligheid: VEILIG_STD,
     voorzieningen: [['distGP', 'lower'], ['distSupermarket', 'lower'], ['distSchool', 'lower'], ['distStation', 'lower'], ['distKinderopvang', 'lower']],
     welvaart: [['avgIncome', 'higher', 2], ['welfarePer1000', 'lower']],
     // Optional (4th element): where an area has no value (no basisschool inside, no milieu
-    // estimate) the factor drops out of the coverage too, so it never costs a buurt its score.
+    // estimate) it takes its parent's (IMPUTE_KEYS, v0.58.0); only when that is missing
+    // too does the factor drop out of the coverage, so it never costs a buurt its score.
     opleiding: [['eduScore', 'higher', 2, OPTIONAL], ['highEdu', 'higher']],
     milieu: [['noiseNeighbourPct', 'lower', 1, OPTIONAL]],
   },
@@ -272,6 +276,9 @@ export const GELIJK = Object.freeze({
   filters: Object.freeze([]),
   shrink: false,
   minCoverage: 0,
+  // Equal to the Ranglijst Totaalscore: plain percentile ranks, no values from the parent.
+  scale: 'rank',
+  impute: false,
 });
 
 export const PRESETS = Object.freeze({ standaard: STANDAARD, gelijk: GELIJK });
@@ -279,6 +286,27 @@ export const DEFAULT_PRESET = 'standaard';
 
 /** Metric keys that are rates per 1.000 inwoners: these get small-area shrinkage. */
 export const RATE_KEYS = Object.freeze(DATASET_KEYS.filter(k => DATASETS[k].unit === 'per 1.000'));
+
+/**
+ * Crime metrics (per 1.000 inwoners, and crimeDensity/crimeNearby per km²) are
+ * scored by magnitude (v0.58.0): score.js `scale: 'robustZ'` instead of the
+ * percentile rank, so 232 misdrijven per 1.000 against a median of 63 costs
+ * more than merely being last. In every preset unless it sets scale: 'rank'
+ * (Gelijk gewogen). welfarePer1000 stays rank-based (docs/decisions.md).
+ */
+export const ROBUST_Z_KEYS = Object.freeze(DATASET_KEYS.filter(k => k.startsWith('crime') && DATASETS[k].higherIsBetter === false));
+
+/**
+ * Optional metrics that take the parent's value where an area has none
+ * (v0.58.0): buurt → wijk (the `parents` given), wijk → gemeente (the loaded
+ * onderwijs/milieu files). Unless the preset sets impute: false (Gelijk).
+ */
+export const IMPUTE_KEYS = Object.freeze(['eduScore', 'noiseNeighbourPct']);
+const GEMEENTE_SOURCES = Object.freeze({ eduScore: getEduEntry, noiseNeighbourPct: getMilieuEntry });
+/** Values of a gemeente code for IMPUTE_KEYS from the loaded files ({} when none is loaded). */
+function gemeenteImputeValues(code) {
+  return Object.fromEntries(IMPUTE_KEYS.map(k => [k, GEMEENTE_SOURCES[k](code)?.[k] ?? null]));
+}
 
 /**
  * Factors of `preset` for the metrics in `available` (a Set or array of keys
@@ -319,6 +347,7 @@ export function resolvePreset(preset, available) {
         key: m.key, label: m.label ?? DATASETS[m.key]?.label ?? m.key, theme: theme.key,
         weight: (theme.weight * (isNum(m.w) ? m.w : 1)) / wSum, pref: target ? 'target' : m.pref,
         ...(m.optional ? { optional: true } : {}),
+        ...(!target && preset.scale !== 'rank' && ROBUST_Z_KEYS.includes(m.key) ? { scale: 'robustZ' } : {}),
         ...(target ? { ideal: target.ideal, tolerance: target.tolerance, log: !!target.log } : {}),
       });
     }
@@ -381,7 +410,9 @@ export function scoreWithPreset(areas, preset = DEFAULT_PRESET, { parents = null
   const p = resolveTargets(raw, peers);
   const factors = resolvePreset(p, availableKeys(peers));
   const shrinkKeys = p.shrink && parents ? factors.map(f => f.key).filter(k => RATE_KEYS.includes(k)) : [];
-  const scored = peers.length ? scoreAreas(peers, factors, { parents, shrinkKeys, filters: (p.filters ?? []).filter(f => !ORIGIN_KEYS.includes(f.key)), minCoverage: p.minCoverage ?? MIN_COVERAGE }) : [];
+  const imputeKeys = p.impute === false ? [] : factors.filter(f => IMPUTE_KEYS.includes(f.key)).map(f => f.key);
+  const imputeParent = code => (String(code).startsWith('GM') ? gemeenteImputeValues(code) : (parents instanceof Map ? parents.get(code) : parents?.[code]) ?? null);
+  const scored = peers.length ? scoreAreas(peers, factors, { parents, shrinkKeys, imputeKeys, imputeParent, filters: (p.filters ?? []).filter(f => !ORIGIN_KEYS.includes(f.key)), minCoverage: p.minCoverage ?? MIN_COVERAGE }) : [];
   if (peers.length === areas.length) return { factors, results: scored };
   let j = 0;
   const results = areas.map((a, i) => (kinds[i].residential ? scored[j++]

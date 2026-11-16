@@ -3,7 +3,8 @@
 // are scored together), 0–100, built from per-metric factors 0..1.
 //
 // factor spec: { key, weight, pref: 'higher'|'lower'|'target', ideal?, tolerance?,
-//                log?, label?, min?, max? }  (filters: { key, min?, max? })
+//                log?, label?, min?, max?, optional?, scale?: 'rank'|'robustZ' }
+//   (filters: { key, min?, max? })
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 
@@ -71,6 +72,81 @@ export function preferenceFactor(spec, pct, value) {
   }
 }
 
+/** |z| beyond which a robust z-score is clipped (so f stays in [Φ(−3), Φ(3)]). */
+export const ROBUST_Z_CLIP = 3;
+/** Fewer peers with a value than this: robustZ falls back to the percentile rank. */
+export const ROBUST_Z_MIN_N = 5;
+/** 1.4826 · MAD estimates the standard deviation of a normal distribution. */
+const MAD_SCALE = 1.4826;
+
+/**
+ * Standard normal CDF Φ(x) via erf (Abramowitz & Stegun 7.1.26, |error| <
+ * 1.5·10⁻⁷), mirrored around 0 so Φ(0) = 0.5 exactly and Φ(−x) = 1 − Φ(x).
+ */
+export function normalCdf(x) {
+  if (!isNum(x)) return null;
+  const t = Math.abs(x) / Math.SQRT2;
+  const k = 1 / (1 + 0.3275911 * t);
+  const erf = 1 - (((((1.061405429 * k - 1.453152027) * k) + 1.421413741) * k - 0.284496736) * k + 0.254829592) * k * Math.exp(-t * t);
+  return 0.5 * (1 + Math.sign(x) * erf);
+}
+
+const medianOf = sorted => {
+  const n = sorted.length, h = n >> 1;
+  return n % 2 ? sorted[h] : (sorted[h - 1] + sorted[h]) / 2;
+};
+
+/**
+ * Magnitude-aware factor 0..1 (v0.58.0) for skewed rates such as misdrijven
+ * per 1.000: a bounded robust z-score. y = log(1 + x), z = (y − median y) /
+ * (1.4826 · MAD y), clipped to ±ROBUST_Z_CLIP, f = Φ(z) for 'higher' and
+ * Φ(−z) for 'lower'. Equal values get equal factors. With fewer than
+ * ROBUST_Z_MIN_N values or MAD = 0 it falls back to the percentile rank
+ * (1 − p for 'lower'). Non-numbers → null. Returns { f: [], fallback }.
+ */
+export function robustZFactors(values, pref = 'lower') {
+  const y = v => Math.log1p(Math.max(v, 0));
+  const ys = values.filter(isNum).map(y).sort((a, b) => a - b);
+  const sign = pref === 'higher' ? 1 : -1;
+  const med = ys.length ? medianOf(ys) : 0;
+  const mad = ys.length ? medianOf(ys.map(v => Math.abs(v - med)).sort((a, b) => a - b)) : 0;
+  if (ys.length < ROBUST_Z_MIN_N || !(mad > 0)) {
+    const p = percentileRanks(values);
+    return { f: p.map(v => (v == null ? null : sign > 0 ? v : 1 - v)), fallback: true };
+  }
+  const s = MAD_SCALE * mad;
+  return {
+    f: values.map(v => {
+      if (!isNum(v)) return null;
+      const z = Math.max(-ROBUST_Z_CLIP, Math.min(ROBUST_Z_CLIP, (y(v) - med) / s));
+      return normalCdf(sign * z);
+    }),
+    fallback: false,
+  };
+}
+
+/**
+ * Missing values of `keys` taken from the parent (v0.58.0): an area without a
+ * value gets its parent's (buurt → wijk, wijk → gemeente), ranked among the
+ * peers like a real value. `parentOf(code)` → values object or null. Returns
+ * new objects with `imputed` = { key: parentCode } for the keys filled in.
+ */
+export function imputeFromParent(areas, keys, parentOf) {
+  return areas.map(a => {
+    if (!keys.length || a.parent == null) return a;
+    let values = null, imputed = null;
+    for (const key of keys) {
+      if (isNum(a.values?.[key])) continue;
+      const pv = parentOf(a.parent)?.[key];
+      if (!isNum(pv)) continue;
+      values = values ?? { ...a.values };
+      values[key] = pv;
+      (imputed = imputed ?? {})[key] = a.parent;
+    }
+    return values ? { ...a, values, imputed } : a;
+  });
+}
+
 /** True when `value` passes a filter { min?, max? }; a missing value never passes. */
 export function passesFilter(value, filter) {
   if (!filter) return true;
@@ -119,22 +195,34 @@ export function shrinkAreas(areas, parents, keys, { k = SHRINK_K } = {}) {
 
 /**
  * Scores every area. areas: [{ code, values, parent? }], factors: specs with
- * weight > 0 (`optional: true` = a missing value does not lower the coverage). Options: parents + shrinkKeys (small-area shrinkage), filters
- * [{ key, min?, max? }], minCoverage (default MIN_COVERAGE), k.
+ * weight > 0 (`optional: true` = a missing value does not lower the coverage;
+ * `scale: 'robustZ'` = robustZFactors instead of the percentile rank). Options:
+ * parents + shrinkKeys (small-area shrinkage), imputeKeys + imputeParent
+ * (code → values; default the parents) for missing values taken from the
+ * parent, filters [{ key, min?, max? }], minCoverage (default MIN_COVERAGE), k.
  * Returns [{ code, score: 0–100|null, coverage: 0..1, shrunk, filtered, factors }]
- * where factors = [{ key, label, weight, value, f, contribution, impact }]:
+ * where factors = [{ key, label, weight, value, f, contribution, impact, imputed?, imputedFrom? }]
+ * (imputed: the value is the parent's, imputedFrom its code):
  * contribution = 100·w·f/Σw (points of the score), impact = 100·w·(f − 0.5)/Σw
  * (plus above the middle, minus below). Σw runs over the factors with data.
  */
-export function scoreAreas(areas, factors, { parents = null, shrinkKeys = [], filters = [], minCoverage = MIN_COVERAGE, k = SHRINK_K } = {}) {
-  const list = parents && shrinkKeys.length ? shrinkAreas(areas, parents, shrinkKeys, { k }) : areas.map(a => ({ ...a, shrunk: false }));
+export function scoreAreas(areas, factors, { parents = null, shrinkKeys = [], imputeKeys = [], imputeParent = null, filters = [], minCoverage = MIN_COVERAGE, k = SHRINK_K } = {}) {
+  const get = code => (parents instanceof Map ? parents.get(code) : parents?.[code]);
+  const filled = imputeKeys.length ? imputeFromParent(areas, imputeKeys, imputeParent ?? get) : areas;
+  const list = parents && shrinkKeys.length ? shrinkAreas(filled, parents, shrinkKeys, { k }) : filled.map(a => ({ ...a, shrunk: false }));
   const specs = factors.filter(f => isNum(f.weight) && f.weight > 0 && PREFS.includes(f.pref));
   const totalWeight = specs.reduce((s, f) => s + f.weight, 0);
-  const pcts = Object.fromEntries(specs.map(f => [f.key, percentileRanks(list.map(a => a.values?.[f.key]), { log: !!f.log })]));
+  const column = f => list.map(a => a.values?.[f.key]);
+  const pcts = Object.fromEntries(specs.map(f => [f.key, percentileRanks(column(f), { log: !!f.log })]));
+  // robustZ (v0.58.0): the factor itself, per key, for 'higher'/'lower' specs that ask for it.
+  const robust = Object.fromEntries(specs.filter(f => f.scale === 'robustZ' && f.pref !== 'target').map(f => [f.key, robustZFactors(column(f), f.pref).f]));
   return list.map((a, i) => {
     const rows = specs.map(f => {
       const value = a.values?.[f.key];
-      return { key: f.key, label: f.label ?? f.key, ...(f.theme ? { theme: f.theme } : {}), weight: f.weight, value: isNum(value) ? value : null, f: preferenceFactor(f, pcts[f.key][i], value) };
+      const imp = filled[i].imputed?.[f.key];
+      const fac = robust[f.key] && f.pref !== 'target' ? robust[f.key][i] : preferenceFactor(f, pcts[f.key][i], value);
+      return { key: f.key, label: f.label ?? f.key, ...(f.theme ? { theme: f.theme } : {}), weight: f.weight, value: isNum(value) ? value : null, f: fac,
+        ...(imp != null ? { imputed: true, imputedFrom: imp } : {}) };
     });
     const used = rows.filter(r => r.f != null);
     const w = used.reduce((s, r) => s + r.weight, 0);
@@ -168,7 +256,7 @@ export const PLUS_ONLY_THEMES = Object.freeze(['gemeenschap', 'situatie']);
  */
 export function explain(result, { top = 3 } = {}) {
   const rows = (result?.factors ?? []).filter(r => r.f != null && r.impact != null)
-    .map(({ key, label, impact, f, value, weight, theme }) => ({ key, label, impact, f, value, weight, theme }));
+    .map(({ key, label, impact, f, value, weight, theme, imputed, imputedFrom }) => ({ key, label, impact, f, value, weight, theme, ...(imputed ? { imputed, imputedFrom } : {}) }));
   const plus = rows.filter(r => r.impact > 0).sort((a, b) => b.impact - a.impact).slice(0, top);
   const minus = rows.filter(r => r.impact < 0 && !PLUS_ONLY_THEMES.includes(r.theme)).sort((a, b) => a.impact - b.impact).slice(0, top);
   return { plus, minus };

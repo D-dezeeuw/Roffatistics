@@ -1,6 +1,6 @@
 # Algoritmes
 
-What the code computes now (v0.55.0, 16 Nov 2026), as formulas. Each section
+What the code computes now (v0.58.0, 16 Nov 2026), as formulas. Each section
 cites `file:function`. Plans say what was meant; this file says what runs.
 
 **Wijzigen.** Any change to one of these algorithms (formula, parameter, peer
@@ -43,6 +43,34 @@ $$
 
 All values equal gives $b=0, e=n$, so $p = \tfrac12$. A monotone transform
 (log1p, the `log` flag) leaves $p$ unchanged.
+
+### Bounded robust z-score (used in §1 for crime metrics, v0.58.0)
+
+Known method: **robust standardisation (median/MAD z-score) on the log
+scale, mapped through the standard normal CDF**. Code:
+`score.js:robustZFactors`, `normalCdf` (Abramowitz–Stegun 7.1.26 erf,
+error $< 1.5\cdot10^{-7}$, mirrored so $\Phi(0) = \tfrac12$).
+
+$$
+y_a = \log(1 + \max(x_{a,m}, 0)),\qquad
+\tilde y = \mathrm{median}_{A_m}(y),\qquad
+\mathrm{MAD} = \mathrm{median}_{A_m}|y - \tilde y|
+$$
+
+$$
+z_a = \mathrm{clip}\Big(\frac{y_a - \tilde y}{1.4826\,\mathrm{MAD}},\ -3,\ 3\Big),\qquad
+r_{a,m} =
+\begin{cases}
+\Phi(z_a) & \text{higher}\\
+\Phi(-z_a) & \text{lower}
+\end{cases}
+\qquad r \in [\Phi(-3), \Phi(3)] = [0.0013, 0.9987]
+$$
+
+Fallback: $n_m < 5$ or $\mathrm{MAD} = 0$ gives $r = p$ (higher) or $1 - p$
+(lower). Equal values get equal $r$; the median area gets $\tfrac12$.
+Unlike $p$, $r$ keeps the distance: Rotterdam Centrum (232 misdrijven per
+1.000, wijk median 63) gets $z = 3$ (clipped), $r = 0.0013$.
 
 ---
 
@@ -102,6 +130,24 @@ $$
 Guards: an origin metric (`ORIGIN_KEYS`) is kept only with pref `higher` and
 no target (`originAllowed`); theme `situatie` likewise (`situatieAllowed`).
 
+**Step 2b – parent value for missing optional metrics** (v0.58.0,
+`score.js:imputeFromParent`, `presets.js:IMPUTE_KEYS`). For
+$m \in \{\text{eduScore}, \text{noiseNeighbourPct}\}$ and every preset except
+Gelijk (`impute: false`):
+
+$$
+x_{a,m} := x_{\pi(a),m} \quad \text{if } x_{a,m} = \bot \land x_{\pi(a),m} \ne \bot
+$$
+
+with $\pi$ = buurt → wijk (the parents given, raw wijk values) and wijk →
+gemeente (the loaded onderwijs/milieu files, `presets.js:gemeenteImputeValues`).
+One level only: a buurt whose wijk also lacks the value keeps $\bot$, and then
+the optional rule of step 6 applies. The filled value is a peer like any
+other (it enters $A_m$, the ranks and the robust z of everyone); the factor
+row carries `imputed: true, imputedFrom: π(a)` and the modal's Sterk/Zwak
+says "(waarde van de wijk)" / "(waarde van de gemeente)"
+(`area-detail.js:factorLabel`). NL gemeenten and provincies have no $\pi$.
+
 **Step 3 – shrinkage** (`score.js:shrinkRate`, `shrinkAreas`). Known method:
 **empirical-Bayes shrinkage / Bühlmann credibility weighting** toward the
 parent. Only if the preset has `shrink: true`, $\pi$ exists, and
@@ -121,7 +167,13 @@ $\mathrm{shrunk}_a = \mathbb{1}[\exists m: x' \ne x] \cdot \mathbb{1}[N_a < k]$.
 Shown values stay $x$; only the score uses $x'$.
 
 **Step 4 – factor** $f_{a,m} \in [0,1]$ (`score.js:preferenceFactor`,
-`targetFactor`). $p_{a,m}$ = percentile rank of $x'_{a,m}$ in $A_m$.
+`targetFactor`, `robustZFactors`). $p_{a,m}$ = percentile rank of $x'_{a,m}$ in $A_m$.
+A factor with `scale: 'robustZ'` uses $r_{a,m}$ (bounded robust z-score, see
+Notation) on $x'$ instead of $p$ / $1-p$: every crime metric
+(`presets.js:ROBUST_Z_KEYS`, keys `crime*` with lower = better: the rates per
+1.000 and crimeDensity/crimeNearby per km²) in every preset except Gelijk
+(`scale: 'rank'`), so Standaard, the levenstypes, Zelf samenstellen and Jouw
+score. welfarePer1000 and all other metrics keep the rank.
 Target: **truncated, rescaled Gaussian kernel**, $\sigma = \tau_m$:
 
 $$
@@ -180,37 +232,47 @@ $\mathrm{rank}_a = 1 + |\{c : S_c > S_a\}|$ over non-filtered peers.
 | kernel cut | $\lvert z\rvert = 2$ | `score.js:targetFactor` |
 | crimeNearby share | 1 | `presets.js:NEARBY_W` |
 | explain top | 3 | `area-detail.js:woonscoreDetail` |
+| robust z clip | $\lvert z\rvert = 3$ | `score.js:ROBUST_Z_CLIP` |
+| robust z minimum $n$ | 5 | `score.js:ROBUST_Z_MIN_N` |
+| MAD scale | 1.4826 | `score.js:robustZFactors` |
+| imputed keys | eduScore, noiseNeighbourPct | `presets.js:IMPUTE_KEYS` |
 
-**Standaard weights** (`presets.js:PROFILES.standaard`). $W$ = 15/10/15/15/10,
-Woningmarkt 0 (dropped), $\sum \tilde w = 65$:
+**Standaard weights** (`presets.js:PROFILES.standaard`). $W$ = 20/10/15/15/10
+(Veiligheid 20 = Heel belangrijk since v0.58.0, was 15), Woningmarkt 0
+(dropped), $\sum \tilde w = 70$:
 
 | Theme $W_t$ | Metric ($w_m$) | Pref | $\omega_m$ |
 |---|---|---|---|
-| Veiligheid 15 | crimeRate, crimeBurglary, crimeViolence, crimeStreetRobbery, crimeVandalism, crimeNearby (1 each) | lower | 2.5/65 = 3.85 % each (23.1 %) |
-| Welvaart 15 | avgIncome (2) | higher | 10/65 = 15.4 % |
-| | welfarePer1000 (1) | lower | 5/65 = 7.7 % |
-| Voorzieningen 10 | distGP, distSupermarket, distSchool, distStation, distKinderopvang (1 each) | lower | 2/65 = 3.08 % each (15.4 %) |
-| Opleiding 15 | eduScore (2, optional) | higher | 15.4 % |
-| | highEdu (1) | higher | 7.7 % |
-| Milieu 10 | noiseNeighbourPct (1, optional) | lower | 15.4 % |
+| Veiligheid 20 | crimeRate, crimeBurglary, crimeViolence, crimeStreetRobbery, crimeVandalism, crimeNearby (1 each, robustZ) | lower | 3.33/70 = 4.76 % each (28.6 %) |
+| Welvaart 15 | avgIncome (2) | higher | 10/70 = 14.3 % |
+| | welfarePer1000 (1) | lower | 5/70 = 7.1 % |
+| Voorzieningen 10 | distGP, distSupermarket, distSchool, distStation, distKinderopvang (1 each) | lower | 2/70 = 2.86 % each (14.3 %) |
+| Opleiding 15 | eduScore (2, optional, parent value) | higher | 14.3 % |
+| | highEdu (1) | higher | 7.1 % |
+| Milieu 10 | noiseNeighbourPct (1, optional, parent value) | lower | 14.3 % |
 | Woningmarkt 0 | ownerOccupiedPct | higher | 0 |
 
 Missing for all peers ($n_m = 0$): the theme's weight moves to its other
-metrics (step 2). Missing for one area: renormalised in step 5; without
-eduScore and noiseNeighbourPct the effective weights are $\omega/0.69$:
-Veiligheid 33 %, avgIncome 22 %, Voorzieningen 22 %, welfare 11 %, highEdu 11 %.
+metrics (step 2). Missing for one area and its parent: renormalised in step 5;
+without eduScore and noiseNeighbourPct the effective weights are $\omega/0.714$:
+Veiligheid 40 %, avgIncome 20 %, Voorzieningen 20 %, welfare 10 %, highEdu 10 %.
+NL gemeenten (crimeRate, avgIncome, highEdu only): 40/30/30 %.
 
 **Gelijk gewogen** (`presets.js:GELIJK`): $W_t = 1$ per directional dataset with
 `inOverall !== false`, no shrinkage, $\theta = 0$ (equals the Ranglijst
 Totaalscore, §4b).
 
 **Bekende zwaktes.**
-- Rank-based: magnitude is lost. Rotterdam Centrum 232 misdrijven/1.000 vs a
-  median of 63 counts the same as merely being the worst.
+- Rank-based outside the crime metrics: magnitude is lost there (welfare,
+  income, distances). Crime uses the robust z, which saturates at $|z| = 3$:
+  beyond that, worse is no longer worse.
 - Per-inwoner crime rates are inflated by visitors in centres; 5 of 6
   Veiligheid metrics are such rates.
-- Optional metrics renormalise onto the rest: up to 31 % of the weight moves
-  to other themes, so areas in one ranking use different effective weights.
+- Optional metrics renormalise onto the rest when the parent lacks them too:
+  up to 29 % of the weight moves to other themes. A parent value is a
+  stand-in: a buurt without a school gets its wijk's basisschoolscore.
+- More Veiligheid weight lowers the coverage of areas without crime figures:
+  one NL gemeente (GM0088) fell under $\theta$ with v0.58.0.
 - Coverage is per weight, not per theme: a whole theme can be missing.
 - Crime rates are $\bot$ below 1.000 (wijk) / 200 (buurt) inwoners (§6).
 - Shrinkage needs $\pi$: wijken, gemeenten and provincies are never shrunk.
@@ -218,7 +280,8 @@ Totaalscore, §4b).
 
 **Waar vastgelegd.** plan-woonscore §1–2; decisions W1 (engine, log1p,
 shrinkage), W7 (geen woonwijk), W8 (crimeNearby), v0.54.0 (Standaard,
-optional), plan-levenstype-gewichten addendum (Woningmarkt 0).
+optional), plan-levenstype-gewichten addendum (Woningmarkt 0), v0.58.0
+(Veiligheid 20, parent value, robust z for crime).
 
 ---
 
@@ -371,7 +434,7 @@ Default $d_j$: from `higherIsBetter`, wozValue = $l$, neutral layers need a
 choice (`defaultDirection`). Old ids via `resolveLayerKey` (§6).
 
 **Bekende zwaktes.**
-- Rank-based (as §1); no shrinkage.
+- Rank-based, also for crime (the §1 robust z is not used here); no shrinkage.
 - Non-residential areas are in the percentile set.
 - A stack with the Woonscore ranks a rank.
 

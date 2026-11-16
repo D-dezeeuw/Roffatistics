@@ -6,7 +6,7 @@
 import { getState, setState, onStateChange, serializeHash } from './state.js';
 import { loadCityAreas, areaPanelData, getAreaIndex } from './areas.js';
 import { loadNlAreas, gemeenteOf } from './nl-areas.js';
-import { buildAreaDetail } from './area-detail.js';
+import { buildAreaDetail, factorLabel } from './area-detail.js';
 import { formatValue } from './dashboard-data.js';
 import { originBarHtml } from './herkomst.js';
 import { loadPc4Herkomst, pc4OriginHtml, pc4RegionHtml } from './herkomst-pc4.js';
@@ -116,9 +116,11 @@ export function themeBarHtml(themes, { cls = 'score-themes' } = {}) {
     `<i style="width:${total ? (100 * t.points) / Math.max(total, 100) : 0}%;background:${themeColor(i)}"></i>`).join('')}</span>`;
 }
 
+const wsLabel = f => esc(factorLabel(f));
+
 function whyHtml(ws) {
   if (!ws.plus.length && !ws.minus.length) return '';
-  return `<div class="area-ws-why">${ws.plus.length ? `<p class="area-ws-plus"><span>Sterk:</span> ${ws.plus.map(f => esc(f.label)).join(' · ')}</p>` : ''}${ws.minus.length ? `<p class="area-ws-minus"><span>Zwak:</span> ${ws.minus.map(f => esc(f.label)).join(' · ')}</p>` : ''}</div>`;
+  return `<div class="area-ws-why">${ws.plus.length ? `<p class="area-ws-plus"><span>Sterk:</span> ${ws.plus.map(wsLabel).join(' · ')}</p>` : ''}${ws.minus.length ? `<p class="area-ws-minus"><span>Zwak:</span> ${ws.minus.map(wsLabel).join(' · ')}</p>` : ''}</div>`;
 }
 
 /**
