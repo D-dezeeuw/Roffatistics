@@ -4,6 +4,7 @@
 //   rotterdam_buurten.geojson   — all CBS buurten BU0599xxxx (from data/buurt_2024.geojson)
 // Run: node scripts/build-rotterdam-geo.mjs   (needs network for the PDOK WFS)
 import { readFile, writeFile } from 'node:fs/promises';
+import { archivedJson, sourceForUrl } from './lib/raw-archive.mjs';
 
 const WFS = 'https://service.pdok.nl/cbs/gebiedsindelingen/2024/wfs/v1_0';
 const DATA = new URL('../data/', import.meta.url);
@@ -14,9 +15,7 @@ async function wfs(typeName, filter) {
     typeName: `gebiedsindelingen:${typeName}`, outputFormat: 'json', srsName: 'EPSG:4326',
     FILTER: filter,
   });
-  const res = await fetch(`${WFS}?${params}`);
-  if (!res.ok) throw new Error(`PDOK ${typeName} ${res.status}`);
-  return res.json();
+  return archivedJson(sourceForUrl(`${WFS}/`), `${WFS}?${params}`);   // via the raw archive; --refresh fetches anew
 }
 
 const round = c => typeof c[0] === 'number' ? [+c[0].toFixed(5), +c[1].toFixed(5)] : c.map(round);

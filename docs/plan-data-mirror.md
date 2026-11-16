@@ -5,7 +5,7 @@ from CBS, PDOK or the police at page load. A raw archive of every source
 download is kept as a backup. Later the mirror is normalised and chunked per
 city, so that separate city versions (Rotterdam, Amsterdam, …) can be built
 from it.
-Status: **plan, 16 Nov 2026 (operator request).** The operator has lifted the
+Status: **phase 1 steps 1–4 built 16 Nov 2026** (branch `w33-data-mirror`; the browser check with live fetch disabled is the batch's); plan from 16 Nov 2026 (operator request). The operator has lifted the
 file-size limits for now.
 
 ## Today

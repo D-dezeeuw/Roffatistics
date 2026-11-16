@@ -14,6 +14,7 @@ import { addP2000Values } from './p2000.js';
 import { addEduValues } from './onderwijs.js';
 import { addOmgeving, decodeNeighbours, encodeNeighbours } from './omgeving.js';
 import { ovValues } from './ov.js';
+import { pdokGebiedsindelingen, wfsUrl, getSource } from './source.js';
 
 export const NL_DATA_FORMAT = 1;
 export const NL_DATA_YEAR = WIJK_YEAR;
@@ -25,7 +26,8 @@ export const NL_DATA_URLS = Object.freeze({
 // PDOK "CBS gebiedsindelingen" 2025 (same indeling as 86165NED). Checked on
 // 15 Nov 2026: wijk_gegeneraliseerd / buurt_gegeneraliseerd carry statcode,
 // statnaam and gmCode; Access-Control-Allow-Origin: *.
-export const NL_GEO_WFS = 'https://service.pdok.nl/cbs/gebiedsindelingen/2025/wfs/v1_0';
+export const NL_GEO_YEAR = 2025;
+export const NL_GEO_WFS = pdokGebiedsindelingen(NL_GEO_YEAR);
 export const NL_GEO_TYPES = Object.freeze({ wijk: 'wijk_gegeneraliseerd', buurt: 'buurt_gegeneraliseerd' });
 
 const CRIME_KEYS = Object.keys(CRIME_CATEGORIES);
@@ -136,13 +138,17 @@ export function areasInGemeente(areas, gm) {
 export function buildGemeenteGeoUrl(level, gm) {
   if (!NL_GEO_TYPES[level]) throw new Error(`nl-areas: unknown level ${level}`);
   if (!isGemeenteCode(gm)) throw new Error(`nl-areas: not a gemeente code ${gm}`);
-  const params = new URLSearchParams({
-    request: 'GetFeature', service: 'WFS', version: '2.0.0',
-    typeName: `gebiedsindelingen:${NL_GEO_TYPES[level]}`,
-    outputFormat: 'json', srsName: 'EPSG:4326', count: '5000',
+  return wfsUrl(NL_GEO_YEAR, NL_GEO_TYPES[level], {
+    count: '5000',
     FILTER: `<Filter><PropertyIsEqualTo><PropertyName>gmCode</PropertyName><Literal>${gm}</Literal></PropertyIsEqualTo></Filter>`,
   });
-  return `${NL_GEO_WFS}?${params}`;
+}
+
+/** Snapshot key of one gemeente's wijk or buurt polygons: 'geo/2025/GM0599-wijk' (data/snapshot/geo/2025/GM0599-wijk.json). */
+export function gemeenteGeoKey(level, gm) {
+  if (!NL_GEO_TYPES[level]) throw new Error(`nl-areas: unknown level ${level}`);
+  if (!isGemeenteCode(gm)) throw new Error(`nl-areas: not a gemeente code ${gm}`);
+  return `geo/${NL_GEO_YEAR}/${gm}-${level}`;
 }
 
 const round = c => (typeof c[0] === 'number' ? [+c[0].toFixed(5), +c[1].toFixed(5)] : c.map(round));
@@ -209,7 +215,7 @@ export async function loadNlAreas(opts) {
 export function loadGemeenteGeo(level, gm, { fetcher = defaultFetcher() } = {}) {
   const key = `${level}:${gm}`;
   if (geoPromises.has(key)) return geoPromises.get(key);
-  const p = (async () => slimGeo(await getJSON(buildGemeenteGeoUrl(level, gm), fetcher), gm))();
+  const p = (async () => slimGeo(await getSource(gemeenteGeoKey(level, gm), { live: buildGemeenteGeoUrl(level, gm), fetcher, storage: null }), gm))();
   geoPromises.set(key, p);
   p.catch(() => geoPromises.delete(key));
   return p;

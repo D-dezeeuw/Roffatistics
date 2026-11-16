@@ -9,6 +9,7 @@
 // presets.js drop factors without data); nothing substitutes a broad group.
 import { ORIGIN_GROUPS, HK, HERKOMST_TABLE, HERKOMST_YEAR, HERKOMST_TOTALS } from './herkomst.js';
 import { PC4_GROUP_KEYS, regionAtBuurt } from './herkomst-pc4.js';
+import { odataUrl, getRows } from './source.js';
 import { REGIONS, regionPlusMinus, regionComposition, loadGemeenteRegio, regionShareMap, REGION_METRICS } from './herkomst-regio.js';
 
 /** Two-letter hash code per detailed group (Nederland: see NEDERLAND below). */
@@ -56,7 +57,6 @@ export const DETAIL_KEYS = Object.freeze(Object.values(DETAIL_GROUPS).filter(d =
 /** Every origin metric of this module and the region layers: `hk_*` groups plus all `hr_*` regions (also those not offered as a group). */
 export const ALL_DETAIL_KEYS = Object.freeze([...new Set([...DETAIL_KEYS, ...REGION_METRICS])]);
 
-const ODATA = 'https://opendata.cbs.nl/ODataApi/odata';
 
 /** One query: every gemeente, the latest year, Totaal plus the group's keys. */
 export function buildGemeenteGroupUrl(groupKey, year = HERKOMST_YEAR) {
@@ -66,8 +66,13 @@ export function buildGemeenteGroupUrl(groupKey, year = HERKOMST_YEAR) {
   const filter = `startswith(RegioS,'GM') and Geslacht eq '${HERKOMST_TOTALS.Geslacht}' and Leeftijd eq '${HERKOMST_TOTALS.Leeftijd}'`
     + ` and Geboorteland eq '${HERKOMST_TOTALS.Geboorteland}' and Perioden eq '${year}JJ00'`
     + ` and (${keys.map(k => `Herkomstland eq '${k}'`).join(' or ')})`;
-  return `${ODATA}/${HERKOMST_TABLE}/TypedDataSet?${new URLSearchParams({ $filter: filter, $select: 'RegioS,Herkomstland,Bevolking_1' })}`;
+  return odataUrl(HERKOMST_TABLE, { filter, select: 'RegioS,Herkomstland,Bevolking_1' });
 }
+
+/** Snapshot key: every gemeente, HERKOMST_YEAR, Totaal plus the keys of every fetched group (one file). */
+export const GEMEENTE_GROUPS_SOURCE = 'cbs/85458NED-gemeenten';
+/** The groups fetched per gemeente from CBS (not direct, not a static world region). */
+export const FETCHED_GROUP_KEYS = Object.freeze(Object.keys(DETAIL_GROUPS).filter(k => DETAIL_GROUPS[k].group && !DETAIL_GROUPS[k].direct && !DETAIL_GROUPS[k].region));
 
 const num = v => (v == null || v === '' || !Number.isFinite(+v) ? null : +v);
 
@@ -113,9 +118,8 @@ export function loadGemeenteGroup(groupKey, { fetcher = globalThis.fetch?.bind(g
   }
   const url = buildGemeenteGroupUrl(groupKey);
   if (!url) return Promise.reject(new Error(`onbekende groep ${groupKey}`));
-  const p = Promise.resolve().then(() => fetcher(url))
-    .then(res => { if (!res.ok) throw new Error(`CBS ${res.status}`); return res.json(); })
-    .then(json => { const m = parseGemeenteGroupRows(json.value, groupKey); loaded.set(groupKey, m); return m; })
+  const p = Promise.resolve().then(() => getRows(GEMEENTE_GROUPS_SOURCE, { live: url, fetcher }))
+    .then(rows => { const m = parseGemeenteGroupRows(rows, groupKey); loaded.set(groupKey, m); return m; })
     .finally(() => pending.delete(groupKey));
   pending.set(groupKey, p);
   return p;

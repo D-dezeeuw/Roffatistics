@@ -15,7 +15,7 @@
 // is stored: crime rates and the Woonscore are computed in the browser.
 // Woningvoorraad, niet-woningvoorraad and bedrijfsvestigingen (86165NED) are
 // stored as counts for the woongebied classification (modules/woongebied.js).
-// Run: node scripts/build-nl-kwb.mjs   (needs network; ~2–4 minutes)
+// Run: node scripts/build-nl-kwb.mjs [--refresh]   (downloads via the raw archive; network only for what is not archived, ~2–4 minutes)
 import { mkdir, writeFile } from 'node:fs/promises';
 import {
   WIJK_TABLE, WIJK_FALLBACK_TABLE, WIJK_SELECT, NABIJ_TABLE, NABIJ_FALLBACK_TABLE, NABIJ_SELECT, GROEN_TABLE, GROEN_SELECT,
@@ -24,24 +24,16 @@ import {
 } from '../modules/areas.js';
 import { encodeLevel, minPopulationFor, NL_DATA_YEAR, addIncomeFallback, INCOME_FALLBACK_TABLE, INCOME_FALLBACK_COLUMN, NL_GEO_WFS, NL_GEO_TYPES } from '../modules/nl-areas.js';
 import { adjacencyFromFeatures } from '../modules/omgeving.js';
+import { archivedJson, sourceForUrl } from './lib/raw-archive.mjs';
 
 const FEED  = 'https://opendata.cbs.nl/ODataFeed/odata';
 const CRIME_FEED = 'https://dataderden.cbs.nl/ODataFeed/odata';
 const OUT = new URL('../data/nl/', import.meta.url);
 const PREFIX = { wijk: 'WK', buurt: 'BU' };
 
-async function getWithRetry(url, tries = 4) {
-  for (let i = 1; ; i++) {
-    try {
-      const res = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
-      return await res.json();
-    } catch (err) {
-      if (i >= tries) throw new Error(`${url}: ${err.message}`);
-      await new Promise(r => setTimeout(r, 2000 * i));
-    }
-  }
-}
+// Every download goes through the raw archive (scripts/lib/raw-archive.mjs): the newest
+// archived copy is reused, --refresh fetches anew.
+const getWithRetry = url => archivedJson(sourceForUrl(url), url);
 
 /** Every row of a feed query, following odata.nextLink. */
 async function feed(base, table, entity, params) {

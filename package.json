@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
+    "snapshot": "node scripts/snapshot-sources.mjs --refresh",
     "test": "node --test tests/*.test.js",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude='tests/**' tests/*.test.js"
   },

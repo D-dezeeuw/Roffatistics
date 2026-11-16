@@ -22,6 +22,7 @@ import { geoCentroid } from '../modules/areas.js';
 import { pointInRings } from '../modules/score-labels.js';
 import { encodeCentres } from '../modules/onderwijs.js';
 import { NL_GEO_WFS, NL_GEO_TYPES, NL_DATA_YEAR } from '../modules/nl-areas.js';
+import { archived, archivedJson, archivedFile, sourceForUrl, REFRESH } from './lib/raw-archive.mjs';
 
 const CKAN = 'https://onderwijsdata.duo.nl/api/3/action/package_show';
 const PDOK = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/free';
@@ -57,31 +58,21 @@ async function getJson(url, tries = 4) {
 
 /** Downloads a DUO file (URL from CKAN package_show) unless it is cached. */
 async function duoFile(dataset, name) {
-  const path = new URL(name, DUO);
-  if (!existsSync(path)) {
-    const pkg = await getJson(`${CKAN}?id=${encodeURIComponent(dataset)}`);
-    const res = pkg.result?.resources?.find(r => String(r.url).endsWith(`/${name}`));
-    if (!res) throw new Error(`${dataset}: no resource ${name}`);
-    console.log(`downloading ${res.url}`);
-    const r = await fetch(res.url);
-    if (!r.ok) throw new Error(`${res.url} ${r.status}`);
-    await writeFile(path, Buffer.from(await r.arrayBuffer()));
-  }
-  return parseCsv(await readFile(path, 'utf8'));
+  // CKAN package_show and the CSV both go through the raw archive (raw/duo/<date>/); --refresh fetches anew.
+  const pkg = await archivedJson('duo', `${CKAN}?id=${encodeURIComponent(dataset)}`, { name: `package-${dataset}.json` });
+  const res = pkg.result?.resources?.find(r => String(r.url).endsWith(`/${name}`));
+  if (!res) throw new Error(`${dataset}: no resource ${name}`);
+  const got = await archived('duo', res.url, { name, accept: '*/*' });
+  if (got.fresh) console.log(`downloaded ${res.url}`);
+  return parseCsv(got.buf.toString('utf8'));
 }
 
 async function pc6Path() {
   const csv = new URL(PC6_CSV, PC4);
-  if (existsSync(csv)) return csv.pathname;
+  if (existsSync(csv) && !REFRESH) return csv.pathname;
   await mkdir(PC4, { recursive: true });
-  const zip = new URL('pc6huisnr.zip', PC4);
-  if (!existsSync(zip)) {
-    console.log(`downloading ${PC6_ZIP}`);
-    const res = await fetch(PC6_ZIP);
-    if (!res.ok) throw new Error(`${PC6_ZIP} ${res.status}`);
-    await writeFile(zip, Buffer.from(await res.arrayBuffer()));
-  }
-  execFileSync('unzip', ['-o', zip.pathname, PC6_CSV, '-d', PC4.pathname], { stdio: 'inherit' });
+  const zip = await archivedFile(sourceForUrl(PC6_ZIP), PC6_ZIP);   // the zip lives in the raw archive
+  execFileSync('unzip', ['-o', zip, PC6_CSV, '-d', PC4.pathname], { stdio: 'inherit' });
   return csv.pathname;
 }
 
@@ -136,11 +127,11 @@ async function geocodeAll(keys) {
 /** Buurt centres [lat, lon] of the 2025 indeling (PDOK gegeneraliseerd, geoCentroid as the OV distances); cached. */
 async function buurtCentres() {
   const file = new URL(`pdok-buurt-centres-${NL_DATA_YEAR}.json`, DUO);
-  if (existsSync(file)) return JSON.parse(await readFile(file, 'utf8'));
+  if (existsSync(file) && !REFRESH) return JSON.parse(await readFile(file, 'utf8'));
   const centres = {};
   for (let start = 0; ; start += 1000) {
     const params = new URLSearchParams({ service: 'WFS', version: '2.0.0', request: 'GetFeature', typeNames: `gebiedsindelingen:${NL_GEO_TYPES.buurt}`, outputFormat: 'application/json', srsName: 'EPSG:4326', count: '1000', startIndex: String(start), sortBy: 'statcode' });
-    const page = await getJson(`${NL_GEO_WFS}?${params}`);
+    const page = await archivedJson(sourceForUrl(NL_GEO_WFS + '/'), `${NL_GEO_WFS}?${params}`);
     for (const f of page.features ?? []) {
       const c = geoCentroid(f), code = String(f.properties?.statcode ?? '').trim();
       if (c && code) centres[code] = [r5(c[0]), r5(c[1])];

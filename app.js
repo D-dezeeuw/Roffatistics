@@ -4,7 +4,7 @@ import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData,
 import { applyDrillDataset }            from './modules/nl-drill.js';
 import { rescoreNlAreas }               from './modules/nl-areas.js';
 import { loadOvAfstand, withOvValues }   from './modules/ov.js';
-import { fetchCBS, normalizeProvinces, normalizeCrime, CBS_SELECT, CBS_TABLE, CBS_PERIOD, DATASETS, groupDatasets, datasetInScope, datasetFor, crimeValues, isCrimeDataset } from './modules/datasets.js';
+import { loadRegionRows, normalizeProvinces, normalizeCrime, DATASETS, groupDatasets, datasetInScope, datasetFor, crimeValues, isCrimeDataset } from './modules/datasets.js';
 import { initComparePanel, toggleCompare, closeCompare, addToCompare } from './modules/compare-panel.js';
 import { initState, getState, setState, onStateChange } from './modules/state.js';
 import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea } from './modules/rotterdam.js';
@@ -94,12 +94,7 @@ initSpacePan(document.getElementById('map'));   // hold Space: drag the map, nev
 await initOverlays({ enabled: initialState.scope === 'nederland' });
 setLoaderProgress(0.5);
 
-const CBS_FILTER   = `startswith(RegioS,'PV') and Perioden eq '${CBS_PERIOD}'`;
-const CRIME_SELECT = 'RegioS,SoortMisdrijf,TotaalGeregistreerdeMisdrijven_1,GeregistreerdeMisdrijvenPer1000Inw_3';
-const CRIME_FILTER = `startswith(RegioS,'PV') and Perioden eq '${CBS_PERIOD}' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI1100' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000' or SoortMisdrijf eq 'CRI3100')`;
-
-const GM_FILTER       = `startswith(RegioS,'GM') and Perioden eq '${CBS_PERIOD}'`;
-const GM_CRIME_FILTER = `startswith(RegioS,'GM') and Perioden eq '${CBS_PERIOD}' and (SoortMisdrijf eq 'T001161' or SoortMisdrijf eq 'CRI1000' or SoortMisdrijf eq 'CRI1100' or SoortMisdrijf eq 'CRI2000' or SoortMisdrijf eq 'CRI3000' or SoortMisdrijf eq 'CRI3100')`;
+// Province and gemeente rows: own snapshots (datasets.js NL_REGION_QUERIES, modules/source.js).
 
 let provinceRows  = [];
 let gemeenteRows  = [];
@@ -112,7 +107,7 @@ const atDrillTier = (tier = getActiveTier()) => tier === 'wijk' || tier === 'buu
 // can never block map coloring or panel data.
 
 // Not awaited: the Rotterdam scope must not wait for national CBS data.
-const provincesReady = fetchCBS(CBS_TABLE, CBS_FILTER, CBS_SELECT)
+const provincesReady = loadRegionRows('cbs/70072ned-provincies')
   .then(raw => {
     provinceRows = rowsWithWoonscore(withEduRows(normalizeProvinces(raw)));   // onderwijsprestatie when already loaded
     setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); setNationalAreas('provincie', provinceRows);
@@ -121,7 +116,7 @@ const provincesReady = fetchCBS(CBS_TABLE, CBS_FILTER, CBS_SELECT)
   .catch(() => { /* CBS unavailable — map renders with flat fill, no legend */ });
 
 // Merge crime data into provinces in the background (best-effort).
-fetchCBS('83648NED', CRIME_FILTER, CRIME_SELECT)
+loadRegionRows('cbs/83648NED-provincies')
   .then(async crimeRaw => {
     await provincesReady;
     const crimeLookup = Object.fromEntries(normalizeCrime(crimeRaw).map(r => [r.regionCode, r]));
@@ -152,7 +147,7 @@ function refreshMunicipalityView() {
   activateDataset(getState().dataset);
 }
 
-fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
+loadRegionRows('cbs/70072ned-gemeenten')
   .then(async rawGM => {
     const ov = await loadOvAfstand();   // prebuilt metro/tram distances per gemeente ({} when it fails)
     gemeenteRows = rowsWithWoonscore(withRegionShares(normalizeProvinces(rawGM).filter(r => r.regionCode).map(r => withOvValues(r, r.regionCode, ov))));   // regions: once loaded
@@ -161,7 +156,7 @@ fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
     setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows);
     refreshMunicipalityView();
     // Merge municipality crime in the background.
-    return fetchCBS('83648NED', GM_CRIME_FILTER, CRIME_SELECT, undefined, undefined, 2000)
+    return loadRegionRows('cbs/83648NED-gemeenten')
       .then(crimeRawGM => {
         const crimeLookup = Object.fromEntries(normalizeCrime(crimeRawGM).map(r => [r.regionCode, r]));
         gemeenteRows = rowsWithWoonscore(gemeenteRows.map(r => ({ ...r, ...crimeLookup[r.regionCode] })));

@@ -55,6 +55,15 @@ Interactive map-based data visualization for the Netherlands. Explore CBS public
 
 Wijk/buurt datasets: population, income (standardised household income), higher education, WOZ value, 65+, herkomst (Nederland / Europa / buiten Europa, born abroad). Wijk crime (misdrijven per 1.000 inwoners) comes from police table 47018NED; buurten and wijken under 1.000 inhabitants show "geen data" for crime. Regenerate the Rotterdam geometry with `node scripts/build-rotterdam-geo.mjs`. Regenerate the national wijk/buurt data (data/nl/, all NL wijken and buurten) with `node scripts/build-nl-kwb.mjs`, then `node scripts/build-ov-lines.mjs` (OV-lijnen in data/ov/ plus the metro/tram distance columns it adds to data/nl/; build-nl-kwb drops them).
 
+## Data mirror (snapshot and raw archive)
+
+The browser no longer queries CBS, the police (CBS dataderden) or the PDOK WFS at page load. Every one of those queries is a snapshot on our own origin, read through `modules/source.js` (`getSource(key)`); see `docs/plan-data-mirror.md`.
+
+- **Snapshot** (`data/snapshot/`, in git): `<key>.json` per query, column-wise (`columns` + `rows`) with a header (`key`, `title`, `period`, `built`, `sources`, `sha256` of the raw pages). Geometry per gemeente in `geo/2025/<GMxxxx>-{wijk,buurt}.json` (statcode/statnaam only, 5 decimals), the gemeente overlay in `geo/2024/gemeenten.json`. `manifest.json` lists every file with rows, bytes and sha256.
+- **Raw archive** (host only, outside git): `/nebula/data/roffatistics/raw/<source>/<YYYY-MM-DD>/` with every download unchanged and a `manifest.json` (url, bytes, sha256, fetched). The build scripts (`build-nl-kwb`, `build-schools`, `build-pc4-*`, `build-gemeente-regio`, `build-rotterdam-geo`) download through it too (`scripts/lib/raw-archive.mjs`): they reuse the newest archived copy and only fetch anew with `--refresh`. Override the location with `ROFFA_RAW_DIR`.
+- **Refresh**: `npm run snapshot` fetches every registered source anew (one request at a time, a short pause, retries), rewrites only files whose content changed and prints rows/changed values per table. `node scripts/snapshot-sources.mjs` rebuilds from the archive; `--only=<key prefix>` limits it. A new runtime query must be registered in `scripts/snapshot-sources.mjs`: `tests/source-registry.test.js` fails on an OData/WFS URL built outside `modules/source.js`.
+- **Live fallback**: off by default, so a missing snapshot shows up as a failure. Turn it on with `?live=1` or `localStorage['roffa.liveFallback'] = '1'`. Base map tiles, the aerial photo and P2000 stay live.
+
 ## Run locally
 
 ```bash
