@@ -43,10 +43,27 @@ Steps: build script + data file + tests on the code mapping and the
 aggregation → `DATASETS` entries in group Milieu with Uitleg texts → area
 modal block "Milieu" → happy-flow test.
 
-## Phase 2 — rasters (medium)
+## Phase 2 — air quality and PFAS (operator, 16 Nov 2026)
 
 6. **Luchtkwaliteit NO₂ and PM2.5** — RIVM WCS (GCN, 1 km), mean per buurt
-   (area-weighted). First verify that GetCoverage works for these coverages.
+   (area-weighted). First verify that GetCoverage works for these coverages;
+   if a coverage does not download, report it and build the rest.
+7. **PFAS-punten (overlay, not a choropleth)** — from the Pfoisened project
+   (`/nebula/apps/pfoisened/data/points.json`, PFAS Data Hub, CNRS), the
+   points inside NL: soil measurements (Netherlands PFASBodemTotaal), PDH
+   groundwater measurements and presumptive sources (airports, military
+   fire-training areas, WWTP, paper plants, EPRTR, PDH presumptive). A toggle
+   in Instellingen like the basisscholen pins; a click shows name, type,
+   value with unit (pfas_sum; ng/g soil, ng/L water) or "verdachte bron",
+   source and the PDH attribution. Static file `data/nl/pfas-points.json`,
+   built by `scripts/build-pfas-points.mjs` from the Pfoisened file.
+   **No buurt colouring by measured PFAS:** measurements are taken where
+   contamination is suspected (Amsterdam 455 soil points, Rotterdam 4), so a
+   per-buurt mean would show where someone looked. The Uitleg says this.
+8. **Afstand tot verdachte PFAS-bron** — per buurt, km from the buurt
+   centroid to the nearest presumptive source (the list above), "lager is
+   slechter" (higher = better). Wijk/gemeente: population-weighted mean.
+   Works in Mijn stapel.
 
 ## Phase 3 — later, each its own decision
 
