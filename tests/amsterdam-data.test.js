@@ -8,6 +8,9 @@ import { CITIES } from '../modules/city.js';
 import { loadCityAreas, _resetAreaCache, citySourceKeys } from '../modules/areas.js';
 import { _resetOvCache } from '../modules/ov.js';
 import { herkomstSourceKeys } from '../modules/herkomst.js';
+import { loadMilieu, addMilieuValues } from '../modules/milieu.js';
+import { loadEduAreas, addEduValues } from '../modules/onderwijs.js';
+import { assignScore } from '../modules/presets.js';
 
 const root = new URL('../', import.meta.url);
 const AMS = CITIES.amsterdam;
@@ -22,6 +25,11 @@ before(async () => {
   _resetAreaCache(); _resetOvCache();
   res = await loadCityAreas({ city: AMS, fetcher, storage: null });
   _resetAreaCache(); _resetOvCache();
+  // As app.js does for the Standaard Woonscore (v0.54.0): join milieu and onderwijsprestatie, then rescore.
+  await loadMilieu({ fetcher }); await loadEduAreas({ fetcher });
+  for (const l of [res.wijken, res.buurten]) { addMilieuValues(l); addEduValues(l); }
+  assignScore(res.wijken, 'woonscore');
+  assignScore(res.buurten, 'woonscore', { parents: res.wijken });
 });
 
 describe('Amsterdam data (GM0363)', () => {

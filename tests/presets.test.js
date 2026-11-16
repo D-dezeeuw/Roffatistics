@@ -17,8 +17,8 @@ describe('Standaard preset', () => {
       [['veiligheid', 15], ['welvaart', 15], ['voorzieningen', 10], ['opleiding', 15], ['milieu', 10], ['woningmarkt', 0]]);
     const metric = (theme, key) => STANDAARD.themes.find(t => t.key === theme).metrics.find(m => m.key === key);
     assert.deepEqual(metric('welvaart', 'avgIncome'), { key: 'avgIncome', pref: 'higher', w: 2 });
-    assert.deepEqual(metric('opleiding', 'eduScore'), { key: 'eduScore', pref: 'higher', w: 2 }, 'the general basisschool layer');
-    assert.deepEqual(metric('milieu', 'noiseNeighbourPct'), { key: 'noiseNeighbourPct', pref: 'lower' });
+    assert.deepEqual(metric('opleiding', 'eduScore'), { key: 'eduScore', pref: 'higher', w: 2, optional: true }, 'the general basisschool layer');
+    assert.deepEqual(metric('milieu', 'noiseNeighbourPct'), { key: 'noiseNeighbourPct', pref: 'lower', optional: true });
     assert.ok(!STANDAARD.themes.some(t => t.metrics.some(m => m.key === 'eduNearScore')), 'not the gezin layer');
     const keys = STANDAARD.themes.flatMap(t => t.metrics.map(m => m.key));
     for (const k of keys) assert.ok(DATASETS[k], `${k} is a dataset`);

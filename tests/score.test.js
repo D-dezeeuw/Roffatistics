@@ -191,3 +191,16 @@ describe('percentile ranks by binary search (15 Nov 2026 freeze fix)', () => {
     assert.ok(performance.now() - t < 1000);
   });
 });
+
+describe('optional factors (v0.54.0)', () => {
+  it('a missing optional factor does not lower the coverage; a present one counts normally', async () => {
+    const { scoreAreas } = await import('../modules/score.js');
+    const areas = [{ code: 'A', values: { x: 1, y: 1 } }, { code: 'B', values: { x: 2 } }, { code: 'C', values: { x: 3, y: 3 } }];
+    const plain = scoreAreas(areas, [{ key: 'x', pref: 'higher', weight: 1 }, { key: 'y', pref: 'higher', weight: 1 }]);
+    assert.equal(plain[1].score, null, 'without the flag: 50% coverage');
+    const opt = scoreAreas(areas, [{ key: 'x', pref: 'higher', weight: 1 }, { key: 'y', pref: 'higher', weight: 1, optional: true }]);
+    assert.equal(opt[1].coverage, 1);
+    assert.ok(Number.isFinite(opt[1].score));
+    assert.equal(opt[0].coverage, 1);
+  });
+});

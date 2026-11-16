@@ -28,6 +28,8 @@ export const NEARBY_W = 1;
  * Addendum (16 Nov 2026): Woningmarkt is 0 everywhere (a luxury issue);
  * Standaard's freed 5 went to Voorzieningen, the others' to Levenstype.
  */
+/** Metric tuple flag: a missing value does not count against the coverage (score.js). */
+const OPTIONAL = Object.freeze({ optional: true });
 const VEILIG_STD = [['crimeRate', 'lower'], ['crimeBurglary', 'lower'], ['crimeViolence', 'lower'], ['crimeStreetRobbery', 'lower'], ['crimeVandalism', 'lower'], ['crimeNearby', 'lower', NEARBY_W]];
 /** Sfeer metrics per profile direction; an explicit Sfeer answer replaces them with its targets. */
 export const SFEER_METRICS = Object.freeze({
@@ -57,8 +59,10 @@ export const PROFILES = Object.freeze({
     veiligheid: VEILIG_STD,
     voorzieningen: [['distGP', 'lower'], ['distSupermarket', 'lower'], ['distSchool', 'lower'], ['distStation', 'lower'], ['distKinderopvang', 'lower']],
     welvaart: [['avgIncome', 'higher', 2], ['welfarePer1000', 'lower']],
-    opleiding: [['eduScore', 'higher', 2], ['highEdu', 'higher']],
-    milieu: [['noiseNeighbourPct', 'lower']],
+    // Optional (4th element): where an area has no value (no basisschool inside, no milieu
+    // estimate) the factor drops out of the coverage too, so it never costs a buurt its score.
+    opleiding: [['eduScore', 'higher', 2, OPTIONAL], ['highEdu', 'higher']],
+    milieu: [['noiseNeighbourPct', 'lower', 1, OPTIONAL]],
   },
   student: {
     weights: { veiligheid: 10, voorzieningen: 30, welvaart: 0, opleiding: 0, woningmarkt: 0, leeftijd: 20, sfeer: 40 }, sfeer: 'druk',
@@ -122,7 +126,7 @@ export const PROFILES = Object.freeze({
   },
 });
 const LABELS = { veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding', milieu: 'Milieu', woningmarkt: 'Woningmarkt', leeftijd: 'Levenstype', sfeer: 'Sfeer' };
-const toMetric = ([key, pref, w]) => Object.freeze(w == null ? { key, pref } : { key, pref, w });
+const toMetric = ([key, pref, w, opt]) => Object.freeze({ key, pref, ...(w == null || (w === 1 && opt) ? {} : { w }), ...(opt?.optional ? { optional: true } : {}) });
 
 /**
  * Themes of a levenstype profile (unknown key = Standaard): frozen
@@ -229,6 +233,7 @@ export function resolvePreset(preset, available) {
       out.push({
         key: m.key, label: m.label ?? DATASETS[m.key]?.label ?? m.key, theme: theme.key,
         weight: (theme.weight * (isNum(m.w) ? m.w : 1)) / wSum, pref: target ? 'target' : m.pref,
+        ...(m.optional ? { optional: true } : {}),
         ...(target ? { ideal: target.ideal, tolerance: target.tolerance, log: !!target.log } : {}),
       });
     }

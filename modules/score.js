@@ -119,7 +119,7 @@ export function shrinkAreas(areas, parents, keys, { k = SHRINK_K } = {}) {
 
 /**
  * Scores every area. areas: [{ code, values, parent? }], factors: specs with
- * weight > 0. Options: parents + shrinkKeys (small-area shrinkage), filters
+ * weight > 0 (`optional: true` = a missing value does not lower the coverage). Options: parents + shrinkKeys (small-area shrinkage), filters
  * [{ key, min?, max? }], minCoverage (default MIN_COVERAGE), k.
  * Returns [{ code, score: 0–100|null, coverage: 0..1, shrunk, filtered, factors }]
  * where factors = [{ key, label, weight, value, f, contribution, impact }]:
@@ -138,7 +138,9 @@ export function scoreAreas(areas, factors, { parents = null, shrinkKeys = [], fi
     });
     const used = rows.filter(r => r.f != null);
     const w = used.reduce((s, r) => s + r.weight, 0);
-    const coverage = totalWeight ? w / totalWeight : 0;
+    // An `optional` factor without a value here leaves the coverage base (v0.54.0).
+    const base = totalWeight - specs.reduce((s, f, j) => s + (f.optional && rows[j].f == null ? f.weight : 0), 0);
+    const coverage = base > 0 ? w / base : 0;
     for (const r of rows) {
       r.contribution = r.f != null && w ? (100 * r.weight * r.f) / w : null;
       r.impact = r.f != null && w ? (100 * r.weight * (r.f - 0.5)) / w : null;
