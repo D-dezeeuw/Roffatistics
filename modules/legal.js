@@ -66,8 +66,8 @@ const PRIVACY = `
     <li>GitHub Pages: de app zelf;</li>
     <li>unpkg.com: de kaartbibliotheken Leaflet en MapLibre;</li>
     <li>OpenFreeMap (tiles.openfreemap.org): kaarttegels en kaartlettertypen;</li>
-    <li>PDOK (service.pdok.nl): gebiedsgrenzen en de luchtfoto (kaart Satelliet);</li>
-    <li>CBS (opendata.cbs.nl, dataderden.cbs.nl): de statistieken en de politiecijfers;</li>
+    <li>PDOK (service.pdok.nl): de luchtfoto (kaart Satelliet);</li>
+    <li>De statistieken, politiecijfers en gebiedsgrenzen (van CBS, politie, DUO en PDOK) staan als kopie bij de app zelf. Alleen als zo'n kopie ontbreekt, haalt je browser ze rechtstreeks bij CBS (opendata.cbs.nl, dataderden.cbs.nl) of PDOK;</li>
     <li>Randstad (randstad.hermes.blockworlds.nl): de actuele meldingen hulpdiensten (P2000), alleen als je de laag Actueel opent. Er gaat niets over jou mee, alleen een gewoon verzoek om de tabel.</li>
   </ul>
   <p>Die verzoeken vragen alleen om kaartdelen en tabellen. Je zoekterm, postcode en antwoorden gaan niet mee: postcodes en zoeken werken met bestanden die bij de app horen. Zoals bij elke website zien deze servers wel technisch je IP-adres en browser; wat zij daarmee doen staat in hun eigen privacybeleid.</p>
