@@ -2,7 +2,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  STEPS, DICHTBIJ, DICHTBIJ_KEYS, DICHTBIJ_MAX_WEIGHT, normalizeAnswers, normalizeDichtbij, isEmptyAnswers,
+  STEP_PARTS, BUURT_DICHTBIJ, VERVOER_DICHTBIJ, DICHTBIJ, DICHTBIJ_KEYS, DICHTBIJ_MAX_WEIGHT, normalizeAnswers, normalizeDichtbij, isEmptyAnswers,
   answersToPreset, encodeAnswers, decodeAnswers, describeAnswers, SCORE_RE,
 } from '../modules/wizard-model.js';
 import { STANDAARD, resolvePreset, scoreWithPreset } from '../modules/presets.js';
@@ -17,8 +17,9 @@ const ALL = new Set(DATASET_KEYS);
 const themeOf = (p, key) => p.themes.find(t => t.key === key);
 
 describe('dichtbij: model', () => {
-  it('is a step between Sfeer and Veiligheid; default is off', () => {
-    assert.equal(STEPS[STEPS.indexOf('sfeer') + 1], 'dichtbij');
+  it('is shown with Sfeer on the Buurt step (station on Vervoer, metro/tram on the OV chip); default is off', () => {
+    assert.deepEqual([...STEP_PARTS.buurt], ['sfeer', 'dichtbij']);
+    assert.deepEqual([...BUURT_DICHTBIJ, ...VERVOER_DICHTBIJ, 'ov'].sort(), Object.keys(DICHTBIJ).sort());
     assert.equal(normalizeAnswers({}).dichtbij, null);
     assert.equal(isEmptyAnswers({ dichtbij: { natuur: 0, uitgaan: 0 } }), true);
     assert.equal(isEmptyAnswers({ dichtbij: { natuur: 2 } }), false);

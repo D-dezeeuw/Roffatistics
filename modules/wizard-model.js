@@ -22,7 +22,25 @@ import { DETAIL_GROUPS } from './herkomst-gemeente.js';
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
-export const STEPS = Object.freeze(['levensfase', 'budget', 'vervoer', 'sfeer', 'dichtbij', 'veiligheid', 'situatie', 'gemeenschap']);
+/**
+ * Wizard v2 (docs/plan-wizard-v2.md, v0.46.0): five UI steps, only the first
+ * required. STEP_PARTS names the answer parts each step shows; Veiligheid
+ * (crime chips) and Bouwstijl moved to the result screen ("Bijstellen").
+ * The step appliers keep their own order (APPLY_ORDER): the answers and the
+ * hash did not change, only where the UI asks them.
+ */
+export const STEPS = Object.freeze(['levensfase', 'budget', 'vervoer', 'buurt', 'buren']);
+export const STEP_PARTS = Object.freeze({
+  levensfase: Object.freeze(['levensfase']),
+  budget: Object.freeze(['budget']),
+  vervoer: Object.freeze(['vervoer', 'dichtbij']),     // the OV chip (with old Dichtbij `ov`) and Treinstation
+  buurt: Object.freeze(['sfeer', 'dichtbij']),         // Sfeer plus BUURT_DICHTBIJ, prefilled from the profile
+  buren: Object.freeze(['situatie', 'gemeenschap']),   // "Waar voel je je thuis?"
+});
+/** Answer parts on the result screen ("Bijstellen"): crime chips under Veiligheid, Bouwstijl under Extra wensen. */
+export const RESULT_PARTS = Object.freeze(['veiligheid', 'bouw']);
+/** The step appliers (APPLY) in the order they run; Gemeenschap runs last, after the slider overrides. */
+export const APPLY_ORDER = Object.freeze(['levensfase', 'budget', 'vervoer', 'sfeer', 'dichtbij', 'veiligheid', 'situatie', 'gemeenschap']);
 
 /**
  * "Wat wil je dichtbij?" (v0.35): per item an importance level 0–4
@@ -68,7 +86,7 @@ const OLD_BROAD = Object.freeze({ d: 'nederland', e: null, b: null });
 export const GEMEENSCHAP_DEFAULT_PCT = 20;   // 10 → 20 (addendum 16 Nov 2026)
 export const GEMEENSCHAP_MIN_PCT = 5;
 export const GEMEENSCHAP_MAX_PCT = 30;
-export const GEMEENSCHAP_LABEL = 'Nabijheid gemeenschap';
+export const GEMEENSCHAP_LABEL = 'Eigen gemeenschap dichtbij';   // v0.46.0 (was Nabijheid gemeenschap)
 /** The groups of the step (herkomst-gemeente.js; Nederland first); re-exported for the UI. */
 export { DETAIL_GROUPS };
 
@@ -137,7 +155,7 @@ export function incomeTarget(band) {
   const ideal = Math.round(clamp(monthlyToStandardisedK(b.monthly), INCOME_IDEAL_MIN, INCOME_IDEAL_MAX) * 10) / 10;
   return { ideal, tolerance: INCOME_TOLERANCE_LOG, log: true };
 }
-export const SITUATIE_LABEL = 'Mensen in een vergelijkbare situatie';
+export const SITUATIE_LABEL = 'Vergelijkbare buren';   // v0.46.0 (was Mensen in een vergelijkbare situatie)
 /** The metrics the Situatie theme may hold as `higher`; avgIncome only as the income target. */
 export const SITUATIE_KEYS = Object.freeze(['lowEdu', 'medEdu', 'highEdu', 'welfarePer1000']);
 export const SITUATIE_TARGET_KEY = 'avgIncome';
@@ -168,10 +186,13 @@ export function gemeenschapLevel(pct) { return Math.max(1, nearest(GEMEENSCHAP_L
  * The answer field, step key and hash letter stay `levensfase` / `l` so stored
  * answers and old links keep working. Solo options are worded as equal choices.
  */
+// v0.46.0: Student and Starter are separate; Nieuwkomer is new. Order = the cards, by life course.
 export const LEVENSTYPEN = Object.freeze({
-  student: 'Student of starter',
+  student: 'Student',
+  starter: 'Starter (werkt, eerste huis)',
   stel:    'Stel',
   gezin:   'Gezin met kinderen',
+  nieuwkomer: 'Nieuwkomer in Nederland',
   '50plus': '50-plusser',
   senior:  'Senior',
   soloMensen: 'Solo, graag onder de mensen',
@@ -179,19 +200,40 @@ export const LEVENSTYPEN = Object.freeze({
 });
 /** Helper line under the Levenstype options. */
 export const LEVENSTYPE_HINT = 'Het gaat om hoe je graag woont, niet om relaties of plannen. Solo onder de mensen: levendig, dichter bij het centrum, horeca om de hoek. Solo op jezelf: rustig, ruimte en water in de buurt. Elke keuze geeft alleen pluspunten.';
+/** One line per profile card (wizard v2), under the label. */
+export const LEVENSTYPE_LINES = Object.freeze({
+  student:    'Studeert, graag midden in de drukte.',
+  starter:    'Werkt, zoekt een eerste huis met OV dichtbij.',
+  stel:       'Samen, graag wat te doen in de buurt.',
+  gezin:      'Kinderen, met school en groen dichtbij.',
+  nieuwkomer: 'Net in Nederland: winkels, OV en huisarts dichtbij.',
+  '50plus':   'Huisarts en winkels dichtbij, wat rustiger.',
+  senior:     'Voorzieningen om de hoek, veilig op straat.',
+  soloMensen: 'Alleen, graag levendig en dicht bij het centrum.',
+  soloRust:   'Alleen, graag rustig met groen en water.',
+});
+/** Plan-wizard-v2 hint for Nieuwkomer (also part of its LEVENSTYPE_HINTS line and the Buren step). */
+export const NIEUWKOMER_HINT = 'Net in Nederland? Een gemeenschap van mensen met dezelfde achtergrond dichtbij kan veel steun geven; kies bij ‘Waar voel je je thuis?’ eventueel je herkomst.';
 /** One line per levenstype naming its starting weights (presets.js PROFILES), shown once one is chosen. */
 export const LEVENSTYPE_HINTS = Object.freeze({
-  student:    'Student of starter: sfeer en uitgaan zwaar, veiligheid licht; welvaart, opleiding en woningmarkt tellen niet mee. Je kunt alles bijstellen.',
+  student:    'Student: sfeer en uitgaan zwaar, veiligheid licht; welvaart, opleiding en woningmarkt tellen niet mee. Je kunt alles bijstellen.',
+  starter:    'Starter (werkt, eerste huis): voorzieningen het zwaarst (station, OV en supermarkt dichtbij), dan een levendige buurt en veiligheid. Je kunt alles bijstellen.',
   stel:       'Stel (jong stel, graag wat te doen): veiligheid, voorzieningen en een levendige buurt wegen het zwaarst. Je kunt alles bijstellen.',
   gezin:      'Gezin: veiligheid en voorzieningen zwaar, met goede basisscholen en kinderopvang dichtbij; een rustige buurt telt licht. Je kunt alles bijstellen.',
+  nieuwkomer: `Nieuwkomer in Nederland: voorzieningen het zwaarst (supermarkt, OV en huisarts dichtbij), dan veiligheid. ${NIEUWKOMER_HINT} Je kunt alles bijstellen.`,
   '50plus':   '50-plusser: veiligheid en voorzieningen zwaar, huisarts en supermarkt dichtbij, een rustige buurt telt mee. Je kunt alles bijstellen.',
   senior:     'Senior: voorzieningen het zwaarst (huisarts, supermarkt, OV), dan veiligheid op straat; woningmarkt telt niet mee. Je kunt alles bijstellen.',
   soloMensen: 'Solo onder de mensen: sfeer zwaar (druk, horeca, centrum dichtbij), veiligheid wat lichter. Je kunt alles bijstellen.',
   soloRust:   'Solo op mezelf: veiligheid zwaar, een rustige buurt met groen en water in de buurt. Je kunt alles bijstellen.',
 });
 /** Hint lines of the opt-in steps (addendum 16 Nov 2026). */
-export const SITUATIE_HINT = 'Mensen kiezen vaak een buurt met mensen in een vergelijkbare situatie; daar voel je je thuis.';
-export const GEMEENSCHAP_HINT = 'Net in Nederland of graag dicht bij mensen met dezelfde achtergrond? Een eigen gemeenschap in de buurt kan veel steun geven.';
+// v0.46.0 wording (operator): step 5 "Waar voel je je thuis?", no pressure, easy to skip.
+export const BUREN_TITLE = 'Waar voel je je thuis? (optioneel)';
+export const BUREN_INTRO = 'Sommige mensen wonen graag tussen buren met een vergelijkbaar leven, of dicht bij hun eigen gemeenschap. Sla dit over als het voor jou niet uitmaakt.';
+export const SITUATIE_HEADING = 'Buren met een vergelijkbaar inkomen of opleiding';
+export const SITUATIE_HINT = 'Kies je eigen inkomen of opleiding; buurten waar veel mensen in dezelfde situatie wonen, scoren hoger.';
+export const GEMEENSCHAP_HEADING = 'Dicht bij je eigen gemeenschap';
+export const GEMEENSCHAP_HINT = 'Woon je graag dicht bij mensen met dezelfde achtergrond, bijvoorbeeld voor je taal, winkels, een gebedshuis of familie? Buurten met een grote gemeenschap van jouw achtergrond krijgen extra punten; andere buurten verliezen niets.';
 /** @deprecated name before v0.30; same object. */
 export const LEVENSFASEN = LEVENSTYPEN;
 /** Bouwstijl (v0.29.0): older buildings with character or modern dwellings. Replaces the v0.21 "oud" question. */
@@ -389,7 +431,8 @@ export const APPLY = Object.freeze({
   sfeer(d, a) {
     if (a.sfeer == null) return;
     const s = clamp(a.sfeer + (a.vervoer.includes('auto') ? 15 : 0), 0, 100) / 100;   // 0 = midden in de drukte, 1 = rustig
-    const S = EXTRA_THEME_WEIGHTS.sfeer;
+    // A profile with a Sfeer weight but no direction (Nieuwkomer, v0.46.0) gives that weight; else 20.
+    const S = PROFILES[a.levensfase]?.weights.sfeer > 0 ? PROFILES[a.levensfase].weights.sfeer : EXTRA_THEME_WEIGHTS.sfeer;
     theme(d, 'sfeer', S).metrics.clear();
     metric(d, 'sfeer', 'density', 'target', 2, S);
     metric(d, 'sfeer', 'distCentrum', 'target', 1, S);
@@ -494,7 +537,7 @@ export function themeImportance(answers) {
 export function answersToPreset(answers) {
   const a = normalizeAnswers(answers);
   const d = draft();
-  for (const step of STEPS) if (step !== 'gemeenschap') APPLY[step]?.(d, a);
+  for (const step of APPLY_ORDER) if (step !== 'gemeenschap') APPLY[step]?.(d, a);
   const base = new Map([...d.themes].map(([k, t]) => [k, t.weight]));
   for (const [k, w] of Object.entries(a.weights)) if (d.themes.has(k)) d.themes.get(k).weight = w;
   // The 5-step scale (v0.23.0) wins over an old absolute weight for the same theme.
@@ -539,7 +582,8 @@ export function guardOrigin(preset) {
 // '.'-separated segments, each led by one letter; only [a-z0-9.] so the
 // value survives URLSearchParams unescaped. Unknown segments are ignored.
 // 'gelijk' / 'standaard' name a fixed preset.
-//   l<s|p|g|v|r|o|m>    levenstype (field levensfase; o/m = solo onder de mensen / op mezelf, v0.30)
+//   l<s|t|p|g|n|v|r|o|m> levenstype (field levensfase; o/m = solo onder de mensen / op mezelf, v0.30;
+//                       t = starter, n = nieuwkomer, v0.46.0)
 //                           a<k|m>          bouwstijl = karakter/modern
 //                       (old o<b|g> still read: og = modern, ob = nothing)
 //   b<h|k>[i<n>][p<n>][x] budget        v<f|o|a|l>…     vervoer
@@ -559,8 +603,11 @@ export function guardOrigin(preset) {
 // Gemeenschap, opleiding or inkomen.
 //   i<theme letter><0-4>…  importance level per theme (5-step scale); wins over w.
 //   d<item letter><1-4>…   Wat wil je dichtbij? (v0.35): DICHTBIJ code + level; 0 is left out.
+//                       `o` (metro/tram) has no slider since v0.46.0 but is still read and kept:
+//                       the UI shows it on the Vervoer OV chip.
+// The wizard's prefill flags (v0.46.0) never go into this form: a value in it is always explicit.
 
-const LF = { student: 's', stel: 'p', gezin: 'g', '50plus': 'v', senior: 'r', soloMensen: 'o', soloRust: 'm' };
+const LF = { student: 's', starter: 't', nieuwkomer: 'n', stel: 'p', gezin: 'g', '50plus': 'v', senior: 'r', soloMensen: 'o', soloRust: 'm' };
 const BOUW = { karakter: 'k', modern: 'm' };
 const VV = { fiets: 'f', ov: 'o', auto: 'a', lopen: 'l' };
 const CR = { inbraak: 'in', geweld: 'gw', straatroof: 'sr', fiets: 'fd', auto: 'ad', vandalisme: 'vd', drugs: 'dr', omgeving: 'om' };
@@ -758,10 +805,139 @@ export function describeAnswers(answers) {
   if (a.sfeer != null) parts.push(a.sfeer < 35 ? 'levendig' : a.sfeer > 65 ? 'rustig' : 'tussen druk en rustig');
   if (a.dichtbij) parts.push(`dichtbij: ${Object.keys(DICHTBIJ).filter(k => a.dichtbij[k]).sort((x, y) => a.dichtbij[y] - a.dichtbij[x]).map(k => DICHTBIJ[k].label.toLowerCase()).join(', ')}`);
   if (a.veiligheid.length) parts.push(`let op ${a.veiligheid.map(c => CRIMES[c].label.toLowerCase()).join(', ')}`);
-  if (a.situatie) parts.push(`vergelijkbare situatie: ${[a.situatie.edu ? `opleiding ${SITUATIE_EDU[a.situatie.edu].short}` : '', a.situatie.income ? `inkomen ${SITUATIE_INCOME[a.situatie.income].short}` : ''].filter(Boolean).join(', ')}`);
+  if (a.situatie) parts.push(`${SITUATIE_LABEL.toLowerCase()}: ${[a.situatie.edu ? `opleiding ${SITUATIE_EDU[a.situatie.edu].short}` : '', a.situatie.income ? `inkomen ${SITUATIE_INCOME[a.situatie.income].short}` : ''].filter(Boolean).join(', ')}`);
   if (a.gemeenschap) {
     const d = DETAIL_GROUPS[a.gemeenschap.detail];
     parts.push(`${GEMEENSCHAP_LABEL.toLowerCase()}: ${d.label} (${d.direct ? 'gemeente, wijk en buurt' : d.wijk ? 'gemeenten; wijk/buurt geschat via postcode' : 'gemeenten'})`);
   }
   return parts.join(' · ');
+}
+
+// ── wizard v2: profile prefill (docs/plan-wizard-v2.md, v0.46.0) ─────────────
+// Choosing a profile fills in the Buurt step (Sfeer + BUURT_DICHTBIJ) with its
+// suggestion. A per-field `prefilled` flag (local only: memory and its own
+// localStorage key, never the hash) says the value is the profile's: it
+// follows a profile change. Any value the user set is explicit and wins.
+// Nothing here ever touches Gemeenschap or Situatie (§5 guard).
+
+/** Dichtbij items on the Buurt step; `station` is shown on the Vervoer step, `ov` on the OV chip. */
+export const BUURT_DICHTBIJ = Object.freeze(['uitgaan', 'winkels', 'cultuur', 'park', 'natuur']);
+export const VERVOER_DICHTBIJ = Object.freeze(['station']);
+/** Old Dichtbij item the OV chip absorbed: still read from a hash, shown on the chip, cleared with it. */
+export const OV_DICHTBIJ = 'ov';
+const PROFILE_DEFAULTS = Object.freeze({
+  student: Object.freeze({ sfeer: 10, dichtbij: Object.freeze({ uitgaan: 3 }) }),   // busy end, uitgaan Belangrijk
+  gezin:   Object.freeze({ sfeer: 85, dichtbij: Object.freeze({ park: 3 }) }),      // rustig, park Belangrijk
+  senior:  Object.freeze({ sfeer: 85, dichtbij: Object.freeze({ winkels: 3 }) }),   // rustig, winkels Belangrijk
+});
+/**
+ * "Waarom" line of a Gemeenschap plus (v0.46.0 wording): "Grote gemeenschap uit
+ * <groep> in de buurt (18%, 2,5× gemiddeld)". `value` = the area's share (%),
+ * `mean` = the average among the compared areas (ratio left out without one).
+ * The group data has country/region names, no adjectives, hence "uit <groep>".
+ */
+export function gemeenschapReason(groupLabel, value, mean) {
+  if (!isNum(value) || !groupLabel) return null;
+  const pct = `${value.toLocaleString('nl-NL', { maximumFractionDigits: value < 10 ? 1 : 0 })}%`;
+  const ratio = isNum(mean) && mean > 0 ? `, ${(value / mean).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}× gemiddeld` : '';
+  return `Grote gemeenschap uit ${groupLabel} in de buurt (${pct}${ratio})`;
+}
+
+/** Profiles whose Buren step ("Waar voel je je thuis?") opens by default; it is never filled in for them. */
+export const BUREN_OPEN_PROFILES = Object.freeze(['nieuwkomer']);
+
+/** The suggested Sfeer (0–100 or null) and Dichtbij levels ({ item: 1–4 }) of a profile; pure, fresh objects. */
+export function profileDefaults(levensfase) {
+  const d = Object.hasOwn(PROFILE_DEFAULTS, levensfase ?? '') ? PROFILE_DEFAULTS[levensfase] : null;
+  return { sfeer: d?.sfeer ?? null, dichtbij: { ...(d?.dichtbij ?? {}) } };
+}
+
+export const EMPTY_PREFILL = Object.freeze({ sfeer: false, dichtbij: Object.freeze({}) });
+/** Canonical flags: { sfeer: bool, dichtbij: { item: true } } (Buurt items only). */
+export function normalizePrefill(p) {
+  return { sfeer: p?.sfeer === true, dichtbij: Object.fromEntries(BUURT_DICHTBIJ.filter(k => p?.dichtbij?.[k] === true).map(k => [k, true])) };
+}
+
+/**
+ * Sets the levenstype (null = none) and lets the prefilled fields follow it:
+ * a field that is empty or flagged takes the new profile's suggestion (or is
+ * cleared when it has none); an explicit value stays. → { answers, prefilled }.
+ */
+export function chooseProfile(answers, prefilled, levensfase) {
+  const a = normalizeAnswers({ ...answers, levensfase });
+  const p = normalizePrefill(prefilled);
+  const def = profileDefaults(a.levensfase);
+  const out = { sfeer: false, dichtbij: {} };
+  let sfeer = a.sfeer;
+  if (sfeer == null || p.sfeer) { sfeer = def.sfeer; out.sfeer = def.sfeer != null; }
+  const dichtbij = { ...(a.dichtbij ?? {}) };
+  for (const k of BUURT_DICHTBIJ) {
+    if (dichtbij[k] && !p.dichtbij[k]) continue;   // explicit wins
+    if (def.dichtbij[k]) { dichtbij[k] = def.dichtbij[k]; out.dichtbij[k] = true; } else delete dichtbij[k];
+  }
+  return { answers: normalizeAnswers({ ...a, sfeer, dichtbij }), prefilled: out };
+}
+
+/** The flags without `field` (and `item` for dichtbij): the user changed it, so it is explicit now. */
+export function markExplicit(prefilled, field, item = null) {
+  const p = normalizePrefill(prefilled);
+  if (field === 'sfeer') p.sfeer = false;
+  else if (field === 'dichtbij') { if (item) delete p.dichtbij[item]; else p.dichtbij = {}; }
+  return p;
+}
+
+/** True when the value shown for `field` (`item`) is the profile's suggestion. */
+export function isPrefilled(prefilled, field, item = null) {
+  return field === 'sfeer' ? prefilled?.sfeer === true : prefilled?.dichtbij?.[item] === true;
+}
+
+/** Keeps only the flags whose value still equals the profile's suggestion (stored flags vs. answers from a link). */
+export function reconcilePrefill(answers, prefilled) {
+  const a = normalizeAnswers(answers), p = normalizePrefill(prefilled), def = profileDefaults(a.levensfase);
+  return {
+    sfeer: p.sfeer && def.sfeer != null && a.sfeer === def.sfeer,
+    dichtbij: Object.fromEntries(Object.keys(p.dichtbij).filter(k => def.dichtbij[k] && a.dichtbij?.[k] === def.dichtbij[k]).map(k => [k, true])),
+  };
+}
+
+/** True when the Buren step opens by default: a Nieuwkomer profile, or Situatie/Gemeenschap already answered. */
+export function burenOpen(answers) {
+  const a = normalizeAnswers(answers);
+  return BUREN_OPEN_PROFILES.includes(a.levensfase) || !!a.situatie || !!a.gemeenschap;
+}
+
+/** Toggles a Vervoer chip; switching OV off also drops the old Dichtbij `ov` level it carries. */
+export function toggleVervoer(answers, v) {
+  const a = normalizeAnswers(answers);
+  // An old hash's Dichtbij `ov` shows the OV chip as on, so a click switches both off.
+  const on = !(a.vervoer.includes(v) || (v === 'ov' && !!a.dichtbij?.[OV_DICHTBIJ]));
+  const vervoer = on ? [...a.vervoer, v] : a.vervoer.filter(x => x !== v);
+  const dichtbij = { ...(a.dichtbij ?? {}) };
+  if (v === 'ov' && !on) delete dichtbij[OV_DICHTBIJ];
+  return normalizeAnswers({ ...a, vervoer, dichtbij });
+}
+
+/** "Overslaan" on a wizard v2 step: clears what that step asks → { answers, prefilled }. */
+export function clearStep(answers, prefilled, key) {
+  const a = normalizeAnswers(answers);
+  const p = normalizePrefill(prefilled);
+  const without = items => Object.fromEntries(Object.entries(a.dichtbij ?? {}).filter(([k]) => !items.includes(k)));
+  if (key === 'levensfase') return chooseProfile(a, p, null);
+  if (key === 'budget') return { answers: { ...a, budget: null }, prefilled: p };
+  if (key === 'vervoer') return { answers: normalizeAnswers({ ...a, vervoer: [], dichtbij: without([...VERVOER_DICHTBIJ, OV_DICHTBIJ]) }), prefilled: p };
+  if (key === 'buurt') return { answers: normalizeAnswers({ ...a, sfeer: null, dichtbij: without(BUURT_DICHTBIJ) }), prefilled: { ...EMPTY_PREFILL, dichtbij: {} } };
+  if (key === 'buren') return { answers: { ...a, situatie: null, gemeenschap: null }, prefilled: p };
+  return { answers: a, prefilled: p };
+}
+
+export const PREFILL_STORAGE_KEY = 'roffatistics.scorePrefill';
+/** Stored flags, reconciled with `answers` (a flag whose value no longer matches is dropped). */
+export function loadPrefill(storage, answers) {
+  try { const s = storage?.getItem(PREFILL_STORAGE_KEY); return reconcilePrefill(answers, s ? JSON.parse(s) : null); } catch { return normalizePrefill(null); }
+}
+export function savePrefill(storage, prefilled) {
+  try {
+    const p = normalizePrefill(prefilled);
+    if (p.sfeer || Object.keys(p.dichtbij).length) storage?.setItem(PREFILL_STORAGE_KEY, JSON.stringify(p)); else storage?.removeItem(PREFILL_STORAGE_KEY);
+  } catch { /* storage blocked: the flags live for this session only */ }
 }

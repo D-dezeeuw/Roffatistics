@@ -6,7 +6,7 @@ import { REGIONS } from '../modules/herkomst-regio.js';
 import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  STEPS, normalizeAnswers, isEmptyAnswers, answersToPreset, encodeAnswers, decodeAnswers, presetFromScore,
+  STEP_PARTS, normalizeAnswers, isEmptyAnswers, answersToPreset, encodeAnswers, decodeAnswers, presetFromScore,
   shareableScore, restoreLocalScore, describeAnswers, themeWeights, themeImportance, importanceFromRatio,
   gemeenschapLevel, guardOrigin, IMPORTANCE, GEMEENSCHAP_LEVEL_PCT, SITUATIE_KEYS, DETAIL_GROUPS,
   EXTRA_THEME_WEIGHTS, SITUATIE_EDU, SITUATIE_INCOME, incomeTarget, monthlyToStandardisedK,
@@ -79,7 +79,7 @@ describe('Importance scale (5 steps per theme)', () => {
 
 describe('Jouw situatie (opleidingsniveau, bijstand)', () => {
   it('is an optional step before Gemeenschap, off by default and never in Standaard or Gelijk', () => {
-    assert.equal(STEPS.at(-2), 'situatie');
+    assert.deepEqual([...STEP_PARTS.buren], ['situatie', 'gemeenschap']);
     assert.equal(normalizeAnswers({}).situatie, null);
     for (const p of [STANDAARD, GELIJK, answersToPreset({}), presetFromScore(null)]) assert.ok(!p.themes.some(t => t.key === 'situatie'));
     assert.equal(normalizeAnswers({ situatie: { edu: 'onbekend', bijstand: 'ja', income: 'm999' } }).situatie, null);
@@ -89,7 +89,7 @@ describe('Jouw situatie (opleidingsniveau, bijstand)', () => {
       const p = answersToPreset({ situatie: { edu } });
       assert.ok(!themeOf(p, 'opleiding'), edu);
       assert.deepEqual(themeOf(p, 'situatie').metrics.map(m => [m.key, m.pref]), [[key, 'higher']]);
-      assert.match(themeOf(p, 'situatie').metrics[0].label, /vergelijkbare situatie/);
+      assert.match(themeOf(p, 'situatie').metrics[0].label, /^Vergelijkbare buren/);
     }
   });
   it('the Bijstand income stop turns welfarePer1000 from a minus into a plus for that user only', () => {
@@ -144,7 +144,7 @@ describe('Jouw situatie (opleidingsniveau, bijstand)', () => {
     }
   });
   it('is described and explained', () => {
-    assert.match(describeAnswers({ situatie: { edu: 'middelbaar', bijstand: true } }), /vergelijkbare situatie: opleiding havo–vwo–mbo-4, inkomen bijstand/);
+    assert.match(describeAnswers({ situatie: { edu: 'middelbaar', bijstand: true } }), /vergelijkbare buren: opleiding havo–vwo–mbo-4, inkomen bijstand/);
     assert.match(describeAnswers({ situatie: { income: 'm2500' } }), /inkomen ± €2\.500\/mnd/);
     assert.ok(GENERAL_SECTIONS.some(s => s.id === 'situatie'));
     assert.ok(GENERAL_SECTIONS.some(s => s.id === 'belang'));
@@ -291,7 +291,7 @@ describe('Gemeenschap: detailed origin group for gemeenten (85458NED)', () => {
     assert.ok(!resolvePreset(forged, ALL).some(f => f.key === 'hk_turkije'));
   });
   it('describes both groups with their level', () => {
-    assert.match(describeAnswers({ gemeenschap: { group: 'buitenEuropa', detail: 'suriname' } }), /nabijheid gemeenschap: Suriname \(gemeenten; wijk\/buurt geschat via postcode\)$/);
+    assert.match(describeAnswers({ gemeenschap: { group: 'buitenEuropa', detail: 'suriname' } }), /eigen gemeenschap dichtbij: Suriname \(gemeenten; wijk\/buurt geschat via postcode\)$/);
   });
 });
 

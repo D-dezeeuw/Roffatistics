@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  STEPS, APPLY, EMPTY_ANSWERS, normalizeAnswers, isEmptyAnswers, budgetCeiling, answersToPreset, themeWeights,
+  STEPS, APPLY, APPLY_ORDER, STEP_PARTS, EMPTY_ANSWERS, normalizeAnswers, isEmptyAnswers, budgetCeiling, answersToPreset, themeWeights,
   encodeAnswers, decodeAnswers, presetFromScore, scoreKind, loadAnswers, saveAnswers, ANSWERS_STORAGE_KEY,
   topAreas, describeAnswers, parseEuroK, SCORE_RE, INCOME_FACTOR, STRESS_W,
 } from '../modules/wizard-model.js';
@@ -41,8 +41,11 @@ describe('wizard: skip = Standaard', () => {
     assert.deepEqual([scoreKind(null), scoreKind('gelijk'), scoreKind('s20')], ['standaard', 'gelijk', 'custom']);
   });
   it('every step has an applier; W4 has room (no origin key anywhere in a preset)', () => {
-    for (const s of STEPS) assert.equal(typeof APPLY[s], 'function');
-    assert.equal(STEPS.at(-1), 'gemeenschap');
+    for (const s of APPLY_ORDER) assert.equal(typeof APPLY[s], 'function');
+    assert.equal(APPLY_ORDER.at(-1), 'gemeenschap');
+    // v0.46.0: five UI steps grouping the appliers; Veiligheid and Bouwstijl are on the result screen.
+    assert.deepEqual([...STEPS], ['levensfase', 'budget', 'vervoer', 'buurt', 'buren']);
+    for (const s of STEPS) assert.ok(STEP_PARTS[s].length, s);
     const keys = answersToPreset(FULL).themes.flatMap(t => t.metrics.map(m => m.key));
     assert.ok(!keys.some(k => /origin|nonWestern|bornAbroad/.test(k)));
   });
@@ -360,8 +363,14 @@ describe('Levenstype profiles (v0.45.0)', () => {
   it('one profile per levenstype plus Standaard; each sums to 100 over known themes', () => {
     assert.deepEqual(Object.keys(PROF).sort(), ['standaard', ...Object.keys(LEVENSTYPEN)].sort());
     for (const [k, p] of Object.entries(PROF)) {
-      assert.equal(Object.values(p.weights).reduce((s, w) => s + w, 0), 100, k);
       for (const t of Object.keys(p.weights)) assert.ok(PROFILE_THEMES.includes(t), `${k}.${t}`);
+      // Nieuwkomer (plan-wizard-v2): the plan's 25/35/5/5 + Sfeer 10 without direction = 80, of which 70 has metrics.
+      if (k === 'nieuwkomer') {
+        assert.equal(Object.values(p.weights).reduce((s, w) => s + w, 0), 80, k);
+        assert.equal(profileThemes(k).reduce((s, t) => s + t.weight, 0), 70, k);
+        continue;
+      }
+      assert.equal(Object.values(p.weights).reduce((s, w) => s + w, 0), 100, k);
       assert.equal(profileThemes(k).reduce((s, t) => s + t.weight, 0), 100, `${k}: no weight lost to a theme without metrics`);
     }
   });
@@ -471,7 +480,7 @@ describe('Levenstype profiles (v0.45.0)', () => {
     assert.equal(GEMEENSCHAP_DEFAULT_PCT, 20);
     assert.equal(normalizeAnswers({ gemeenschap: { detail: 'nederland' } }).gemeenschap.pct, 20);
     assert.equal(normalizeAnswers({ gemeenschap: { detail: 'nederland', pct: 10 } }).gemeenschap.pct, 10, 'an explicit (old) pct is kept');
-    assert.match(SITUATIE_HINT, /vergelijkbare situatie; daar voel je je thuis/);
-    assert.match(GEMEENSCHAP_HINT, /dezelfde achtergrond/);
+    assert.match(SITUATIE_HINT, /dezelfde situatie wonen, scoren hoger/);
+    assert.match(GEMEENSCHAP_HINT, /dezelfde achtergrond.*grote gemeenschap.*andere buurten verliezen niets/);
   });
 });

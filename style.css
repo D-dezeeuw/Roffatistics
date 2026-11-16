@@ -1783,6 +1783,26 @@ footer {
 .wiz-opt:focus-visible, .wiz-chip:focus-visible, .wiz-body input:focus-visible, .wiz-tune summary:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .wiz-hint { margin: 0.5rem 0; font-size: 0.78rem; color: var(--text-muted); line-height: 1.45; }
 .wiz-hint strong { color: var(--text-primary); }
+/* Wizard v2 (v0.46.0): profile cards, "voorgesteld" marks, Bijstellen expanders. */
+.wiz-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 0.45rem; margin-bottom: 0.6rem; }
+.wiz-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; text-align: left; min-width: 0;
+  font: inherit; cursor: pointer; color: var(--text-primary); padding: 0.55rem 0.65rem;
+  background: rgba(var(--accent-rgb), 0.1); border: 1px solid rgba(var(--accent-rgb), 0.4); border-radius: var(--radius);
+}
+.wiz-card.active { background: rgba(var(--glow-rgb), 0.22); border-color: var(--accent-2); }
+.wiz-card:focus-visible, .wiz-sub summary:focus-visible, .wiz-buren summary:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.wiz-card-label { font-size: 0.88rem; }
+.wiz-card-line { font-size: 0.74rem; color: var(--text-muted); line-height: 1.35; }
+.wiz-card-themes { font-size: 0.68rem; font-family: var(--font-data); color: var(--text-muted); overflow-wrap: anywhere; }
+.wiz-prefillable { display: flex; flex-direction: column; gap: 0.15rem; }
+.wiz-prefill { align-self: flex-start; font-size: 0.68rem; padding: 0.05rem 0.4rem; border-radius: 999px; color: var(--text-primary); background: rgba(var(--glow-rgb), 0.18); border: 1px dashed var(--accent-2); }
+.wiz-sub, .wiz-buren { margin: 0.1rem 0 0.2rem; }
+.wiz-sub summary, .wiz-buren summary { cursor: pointer; font-size: 0.8rem; font-weight: 600; min-height: 1.8rem; display: list-item; }
+.wiz-sub .wiz-chips { margin-top: 0.4rem; }
+.wiz-sub-h { margin: 0.8rem 0 0.2rem; font-size: 0.85rem; }
+.wiz-extra { margin-top: 0.8rem; padding-top: 0.6rem; border-top: 1px solid rgba(127,127,127,0.25); }
+.wiz-foot button:disabled { opacity: 0.5; cursor: not-allowed; }
 .wiz-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin: 0.3rem 0; }
 .wiz-field { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.78rem; color: var(--text-muted); }
 .wiz-field input, .wiz-field select {
@@ -1859,6 +1879,7 @@ footer {
   .wizard-modal { padding: 0; }
   .wizard-dialog { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; border: 0; }
   .wiz-fields { grid-template-columns: 1fr; }
+  .wiz-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wiz-foot { padding-bottom: max(0.7rem, env(safe-area-inset-bottom)); }
 }
 

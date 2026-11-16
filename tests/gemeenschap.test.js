@@ -4,7 +4,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  STEPS, normalizeAnswers, isEmptyAnswers, answersToPreset, encodeAnswers, decodeAnswers, presetFromScore,
+  STEP_PARTS, APPLY_ORDER, normalizeAnswers, isEmptyAnswers, answersToPreset, encodeAnswers, decodeAnswers, presetFromScore,
   shareableScore, restoreLocalScore, guardOrigin, describeAnswers, saveAnswers, loadAnswers,
   shareableAnswers, isShareOf, SHARE_NONE, GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_MAX_PCT, GEMEENSCHAP_MIN_PCT,
 } from '../modules/wizard-model.js';
@@ -32,7 +32,8 @@ const area = (code, o) => ({ code, values: { originDutchPct: o, crimeRate: 50, a
 
 describe('Gemeenschap: off by default, never in Standaard or Gelijk', () => {
   it('is the optional sixth step and absent from the empty answers', () => {
-    assert.equal(STEPS.at(-1), 'gemeenschap');
+    assert.equal(APPLY_ORDER.at(-1), 'gemeenschap');
+    assert.ok(STEP_PARTS.buren.includes('gemeenschap'));
     assert.equal(normalizeAnswers({}).gemeenschap, null);
     assert.equal(originMetrics(answersToPreset({})).length, 0);
     assert.ok(isEmptyAnswers({}));
@@ -59,7 +60,7 @@ describe('Gemeenschap: one group, higher, user weight', () => {
       const p = answersToPreset({ gemeenschap: { detail: group } });
       const t = p.themes.find(x => x.key === 'gemeenschap');
       assert.deepEqual(t.metrics.map(m => [m.key, m.pref]), [[g.key, 'higher']]);
-      assert.match(t.metrics[0].label, /^Nabijheid gemeenschap/);
+      assert.match(t.metrics[0].label, /^Eigen gemeenschap dichtbij/);
       const total = p.themes.reduce((s, x) => s + x.weight, 0);
       assert.ok(Math.abs(t.weight / total - GEMEENSCHAP_DEFAULT_PCT / 100) < 0.002, group);
     }
@@ -84,18 +85,18 @@ describe('Gemeenschap: one group, higher, user weight', () => {
     const off = answersToPreset({ weights: { veiligheid: 0, welvaart: 0, voorzieningen: 0, opleiding: 0, woningmarkt: 0 }, gemeenschap: { detail: 'nederland' } });
     assert.equal(originMetrics(off).length, 0, 'no other weight: no community-only score');
   });
-  it('Nederland: breakdown shows "Nabijheid gemeenschap" and never as a minus; missing field drops the factor', () => {
+  it('Nederland: breakdown shows "Eigen gemeenschap dichtbij" and never as a minus; missing field drops the factor', () => {
     const areas = [area('A', 80), area('B', 50), area('C', 20)];
     const { results, factors } = scoreWithPreset(areas, answersToPreset({ gemeenschap: { detail: 'nederland', pct: 30 } }));
     assert.ok(factors.some(f => f.key === 'originDutchPct' && f.pref === 'higher' && f.theme === 'gemeenschap'));
     const low = results.find(r => r.code === 'C');
     assert.ok(!explain(low).minus.some(r => r.theme === 'gemeenschap'));
-    assert.ok(explain(results.find(r => r.code === 'A')).plus.some(r => r.label.startsWith('Nabijheid gemeenschap')));
-    assert.ok(themeBreakdown(low).some(r => r.label === 'Nabijheid gemeenschap'));
+    assert.ok(explain(results.find(r => r.code === 'A')).plus.some(r => r.label.startsWith('Eigen gemeenschap dichtbij')));
+    assert.ok(themeBreakdown(low).some(r => r.label === 'Eigen gemeenschap dichtbij'));
     const none = scoreWithPreset(areas.map(a => ({ code: a.code, values: { ...a.values, originDutchPct: undefined } })), answersToPreset({ gemeenschap: { detail: 'nederland' } }));
     assert.ok(!none.factors.some(f => f.theme === 'gemeenschap'));
     assert.ok(Math.abs(none.factors.reduce((s, f) => s + f.weight, 0) - 1) < 1e-9, 'renormalised');
-    assert.match(describeAnswers({ gemeenschap: { detail: 'nederland' } }), /nabijheid gemeenschap: Nederland \(gemeente, wijk en buurt\)/);
+    assert.match(describeAnswers({ gemeenschap: { detail: 'nederland' } }), /eigen gemeenschap dichtbij: Nederland \(gemeente, wijk en buurt\)/);
     assertPositiveOnly(answersToPreset({ gemeenschap: { detail: 'nederland', pct: 30, pref: 'lower', avoid: true } }), 'nederland junk');
   });
 });
@@ -222,7 +223,7 @@ describe('Gemeenschap: Uitleg', () => {
   it('has a paragraph on what it does and does not do', () => {
     const s = GENERAL_SECTIONS.find(x => x.id === 'gemeenschap');
     assert.ok(s);
-    assert.match(s.text, /nabijheid gemeenschap/);
+    assert.match(s.text, /eigen gemeenschap dichtbij/);
     assert.match(s.text, /geen optie om een groep te vermijden/);
     assert.match(s.text, /Deellink maken/);
     assert.ok(!/Deel ook/.test(GENERAL_SECTIONS.map(x => x.text).join(' ')));

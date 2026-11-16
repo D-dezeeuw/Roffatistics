@@ -52,6 +52,13 @@ export const PROFILES = Object.freeze({
     voorzieningen: [['distSupermarket', 'lower', 2], ['distStation', 'lower', 2], ['distOv', 'lower', 2], ['distGP', 'lower']],
     leeftijd: [['pop15to24', 'higher', 2], ['pop25to44', 'higher']],
   },
+  // Wizard v2 (docs/plan-wizard-v2.md, v0.46.0): Starter split off Student.
+  starter: {
+    weights: { veiligheid: 20, voorzieningen: 30, welvaart: 10, opleiding: 5, woningmarkt: 0, leeftijd: 15, sfeer: 20 }, sfeer: 'druk',
+    veiligheid: VEILIG_STD,
+    voorzieningen: [['distStation', 'lower', 2], ['distOv', 'lower', 2], ['distSupermarket', 'lower', 2], ['distGP', 'lower']],
+    leeftijd: [['pop25to44', 'higher']],
+  },
   stel: {
     weights: { veiligheid: 25, voorzieningen: 25, welvaart: 10, opleiding: 5, woningmarkt: 0, leeftijd: 15, sfeer: 20 }, sfeer: 'druk',
     veiligheid: VEILIG_STD,
@@ -64,6 +71,16 @@ export const PROFILES = Object.freeze({
     // School close by and good (eduNearScore, W31) replaces Opleiding for a family.
     voorzieningen: [['distSchool', 'lower', 3], ['eduNearScore', 'higher', 3], ['distKinderopvang', 'lower', 3], ['distGroen', 'lower', 2], ['distGP', 'lower'], ['distSupermarket', 'lower']],
     leeftijd: [['hhWithKidsPct', 'higher']],
+  },
+  // Nieuwkomer (v0.46.0): the plan's numbers sum to 80, and Sfeer 10 has no
+  // direction, so it has no metrics until the Sfeer slider is answered (then
+  // it is that theme's base); without it the other 70 renormalise. Never any
+  // origin metric: the group is the user's own choice (§5 guard).
+  nieuwkomer: {
+    weights: { veiligheid: 25, voorzieningen: 35, welvaart: 5, opleiding: 0, woningmarkt: 0, leeftijd: 5, sfeer: 10 },
+    veiligheid: VEILIG_STD,
+    voorzieningen: [['distSupermarket', 'lower', 2], ['distOv', 'lower', 2], ['distGP', 'lower', 2], ['distSchool', 'lower']],
+    leeftijd: [['pop25to44', 'higher']],
   },
   '50plus': {
     weights: { veiligheid: 30, voorzieningen: 30, welvaart: 15, opleiding: 5, woningmarkt: 0, leeftijd: 10, sfeer: 10 }, sfeer: 'rustig',
@@ -105,6 +122,18 @@ export function profileThemes(key) {
   return Object.freeze(PROFILE_THEMES
     .filter(k => metricsOf(k).length)
     .map(k => Object.freeze({ key: k, label: LABELS[k], weight: p.weights[k] ?? 0, metrics: Object.freeze(metricsOf(k).map(toMetric)) })));
+}
+
+/**
+ * The `n` heaviest themes of a profile by its weight table (ties in
+ * PROFILE_THEMES order), for the wizard's profile cards: [{ key, label, weight }].
+ */
+export function profileTopThemes(key, n = 3) {
+  const p = PROFILES[key] ?? PROFILES.standaard;
+  return PROFILE_THEMES.filter(k => (p.weights[k] ?? 0) > 0)
+    .map(k => ({ key: k, label: LABELS[k], weight: p.weights[k] }))
+    .sort((a, b) => b.weight - a.weight || PROFILE_THEMES.indexOf(a.key) - PROFILE_THEMES.indexOf(b.key))
+    .slice(0, n);
 }
 
 /**
@@ -264,7 +293,7 @@ export function scoreWithPreset(areas, preset = DEFAULT_PRESET, { parents = null
 export const THEME_LABELS = Object.freeze({
   veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding',
   woningmarkt: 'Woningmarkt', leeftijd: 'Levenstype', nieuwbouw: 'Bouwstijl', budget: 'Budget', sfeer: 'Sfeer',
-  situatie: 'Vergelijkbare situatie', gemeenschap: 'Nabijheid gemeenschap', dichtbij: 'Dichtbij',
+  situatie: 'Vergelijkbare buren', gemeenschap: 'Eigen gemeenschap dichtbij', dichtbij: 'Dichtbij',
 });
 
 /** The active preset of the Woonscore (setPersonalPreset(null) = Standaard). */

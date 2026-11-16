@@ -12,16 +12,18 @@ import { getState, setState, onStateChange, resetScore } from './state.js';
 import { openShareDialog } from './share-dialog.js';
 import { loadRotterdamAreas, peekRotterdamAreas, getAreaIndex } from './areas.js';
 import { getRotterdamLevel } from './rotterdam.js';
-import { scoreResult, getPersonalPreset, THEME_LABELS } from './presets.js';
+import { scoreResult, getPersonalPreset, THEME_LABELS, profileTopThemes } from './presets.js';
 import { explain } from './score.js';
 import { openAreaModal } from './area-modal.js';
 import { infoButton } from './explain.js';
 import {
-  STEPS, LEVENSTYPEN, LEVENSTYPE_HINT, LEVENSTYPE_HINTS, SITUATIE_HINT, GEMEENSCHAP_HINT, BOUW_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
+  STEPS, LEVENSTYPEN, LEVENSTYPE_HINT, LEVENSTYPE_HINTS, SITUATIE_HINT, GEMEENSCHAP_HINT, BUREN_TITLE, BUREN_INTRO, SITUATIE_HEADING, GEMEENSCHAP_HEADING, BOUW_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
   GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS, gemeenschapOptgroups,
   SITUATIE_EDU, SITUATIE_INCOME, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance, themeWeights, DICHTBIJ, DICHTBIJ_LEVELS,
+  LEVENSTYPE_LINES, NIEUWKOMER_HINT, BUURT_DICHTBIJ, VERVOER_DICHTBIJ, OV_DICHTBIJ, normalizePrefill, chooseProfile, markExplicit,
+  gemeenschapReason, isPrefilled, reconcilePrefill, burenOpen, toggleVervoer, clearStep, loadPrefill, savePrefill,
 } from './wizard-model.js';
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
 import { loadPc4Herkomst, presetUsesPc4 } from './herkomst-pc4.js';
@@ -32,11 +34,15 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const storage = () => { try { return globalThis.localStorage ?? null; } catch { return null; } };
 
-const STEP_TITLES = { levensfase: 'Levenstype', budget: 'Budget', vervoer: 'Vervoer', sfeer: 'Sfeer', dichtbij: 'Wat wil je dichtbij?', veiligheid: 'Veiligheid', situatie: 'Jouw situatie (optioneel)', gemeenschap: 'Gemeenschap (optioneel)' };
+// Wizard v2 (docs/plan-wizard-v2.md, v0.46.0): five steps, only the first required.
+const STEP_TITLES = { levensfase: 'Wie ben je?', budget: 'Budget', vervoer: 'Hoe kom je ergens?', buurt: 'Je buurt', buren: BUREN_TITLE };
 
 let els = null;
 let step = 0;                 // 0..STEPS.length-1, or 'result'
 let answers = normalizeAnswers(EMPTY_ANSWERS);
+/** Which Buurt values are the profile's suggestion (wizard-model.js chooseProfile); local only, never in the hash. */
+let prefilled = normalizePrefill(null);
+let burenUserOpen = false;    // the user opened the Buren details by hand
 let returnFocus = null;
 let nationalRows = () => ({ level: 'provincie', rows: [] });
 
@@ -85,16 +91,49 @@ const dichtSlider = (item, d, level) => sliderHtml({
   input: `<input type="range" min="0" max="${DICHTBIJ_LEVELS.length - 1}" step="1" value="${level}" data-dichtbij="${item}" aria-labelledby="wiz-d-${item}" aria-valuetext="${esc(DICHTBIJ_LEVELS[level])}" title="${esc(d.hint)}">`,
 });
 
+/** "voorgesteld bij <profiel>" mark of a prefilled value; it disappears once the user changes the value. */
+const prefillMark = on => (on && answers.levensfase ? `<span class="wiz-prefill">voorgesteld bij ${esc(LEVENSTYPEN[answers.levensfase])}</span>` : '');
+const prefillWrap = (field, item, inner) => `<div class="wiz-prefillable" data-prefill="${field}${item ? `:${item}` : ''}">${inner}${prefillMark(isPrefilled(prefilled, field, item))}</div>`;
+
+/** A profile card: label, one line and its three heaviest themes (presets.js PROFILES). */
+const profileCard = (k, label, on) => `<button type="button" class="wiz-card${on ? ' active' : ''}" data-set="levensfase" data-value="${esc(k)}" aria-pressed="${on}">
+      <strong class="wiz-card-label">${esc(label)}</strong>
+      <span class="wiz-card-line">${esc(LEVENSTYPE_LINES[k] ?? '')}</span>
+      <span class="wiz-card-themes">${profileTopThemes(k, 3).map(t => `${esc(t.label)} ${t.weight}`).join(' · ')}</span></button>`;
+
+function situatieBody(st) {
+  const eduPos = situatiePos(SITUATIE_EDU, st?.edu), incPos = situatiePos(SITUATIE_INCOME, st?.income);
+  return `
+    <h3 class="wiz-sub-h">${esc(SITUATIE_HEADING)}</h3>
+    <p class="wiz-hint">${esc(SITUATIE_HINT)}</p>
+    ${sitSlider('sitIncome', 'wiz-q-inc', 'Huishoudinkomen per maand (netto, ongeveer)', SITUATIE_INCOME, incPos)}
+    <p class="wiz-hint">Gebieden waar het gemiddelde inkomen in de buurt van het jouwe ligt tellen als plus, in plaats van het Standaard-cijfer “meer inkomen = beter”. Bij de laagste standen telt ook een groter aandeel mensen met bijstand als plus, waar dat cijfer er is.</p>
+    ${sitSlider('sitEdu', 'wiz-q-edu', 'Hoogst behaalde opleiding', SITUATIE_EDU, eduPos)}
+    <p class="wiz-hint">Een groter aandeel inwoners met hetzelfde opleidingsniveau telt als plus, in plaats van het Standaard-thema Opleiding (meer hbo/wo = beter).</p>`;
+}
+
+function gemeenschapBody(g) {
+  const level = gemeenschapLevel(g?.pct ?? GEMEENSCHAP_DEFAULT_PCT);
+  return `
+    <h3 class="wiz-sub-h">${esc(GEMEENSCHAP_HEADING)}</h3>
+    <p class="wiz-hint">${esc(GEMEENSCHAP_HINT)} Herkomst volgt de CBS-definitie: je eigen geboorteland, of als je in Nederland bent geboren dat van je moeder (of anders je vader). Het zijn totalen per gebied, geen gegevens over personen.</p>
+    <label class="wiz-field">Herkomstgroep (standaard uit)
+      <select data-field="gemDetail">
+        <option value="">Geen specifieke groep</option>
+        ${gemeenschapOptgroups(DETAIL_GROUPS).map(([title, list]) => `<optgroup label="${esc(title)}">${list.map(([k, d]) => `<option value="${esc(k)}"${g?.detail === k ? ' selected' : ''}>${esc(d.long ?? d.label)}${d.direct ? ' · gemeente, wijk en buurt' : d.wijk ? ' · ook per wijk/buurt (geschat)' : ' · alleen per gemeente'}</option>`).join('')}</optgroup>`).join('')}
+      </select></label>
+    <p class="wiz-hint wiz-note"><strong>Waar telt het?</strong> Nederland: CBS-kerncijfers per gemeente, wijk en buurt. Groepen met “ook per wijk/buurt (geschat)”: per gemeente CBS-cijfers, per wijk en buurt geschat via de postcode. De andere groepen tellen alleen per gemeente (Nederland-kaart); op wijk- en buurtniveau valt de factor dan weg en tellen de andere thema’s naar verhouding zwaarder.</p>
+    ${g ? impSlider('data-field="gemLevel"', level, 'Hoe belangrijk', 1) : ''}`;
+}
+
 function stepBody(key) {
   const a = answers;
   if (key === 'levensfase') return `
     <p class="wiz-q" id="wiz-q">Welk levenstype past het best bij jou?</p>
-    <div class="wiz-opts" role="group" aria-labelledby="wiz-q">${Object.entries(LEVENSTYPEN).map(([k, l]) => optBtn('levensfase', k, l, a.levensfase === k)).join('')}</div>
+    <div class="wiz-cards" role="group" aria-labelledby="wiz-q">${Object.entries(LEVENSTYPEN).map(([k, l]) => profileCard(k, l, a.levensfase === k)).join('')}</div>
     <p class="wiz-hint">${esc(LEVENSTYPE_HINT)}</p>${a.levensfase ? `
-    <p class="wiz-hint wiz-lt-hint">${esc(LEVENSTYPE_HINTS[a.levensfase])}</p>` : ''}
-    <p class="wiz-q" id="wiz-q2">Wat voor huizen zoek je: een oudere buurt met karakter of juist moderne woningen?</p>
-    <div class="wiz-opts" role="group" aria-labelledby="wiz-q2">${Object.entries(BOUW_OPTIONS).map(([k, l]) => optBtn('bouw', k, l, a.bouw === k)).join('')}${optBtn('bouw', '', 'Maakt niet uit', !a.bouw)}</div>
-    <p class="wiz-hint">Oudere bouw: meer woningen van vóór 1945. Moderne woningen: meer woningen van 2005 of later. Per wijk en buurt, geschat via de postcode.</p>`;
+    <p class="wiz-hint wiz-lt-hint">${esc(LEVENSTYPE_HINTS[a.levensfase])}</p>` : `
+    <p class="wiz-hint">Kies een kaart. Daarna kun je meteen naar het resultaat, of nog vier korte vragen beantwoorden.</p>`}`;
   if (key === 'budget') {
     const b = a.budget ?? { mode: null };
     const ceiling = budgetCeiling(b);
@@ -112,55 +151,41 @@ function stepBody(key) {
     <p class="wiz-hint" aria-live="polite">${ceiling != null ? `Budget ≈ <strong>€ ${nl(Math.round(ceiling) * 1000)}</strong>. ` : ''}Ruwe vuistregel: je leent ongeveer ${nl(INCOME_FACTOR, 1)} × je bruto jaarinkomen. We vergelijken met de gemiddelde WOZ-waarde; echte vraagprijzen liggen vaak hoger.</p>
     <label class="wiz-check"><input type="checkbox" data-field="hide"${b.hide ? ' checked' : ''}${ceiling == null ? ' disabled' : ''}> Verberg duidelijk te duur (WOZ boven ${nl(TOO_EXPENSIVE_SHARE, 1)} × je budget wordt grijs)</label>` : ''}`;
   }
-  if (key === 'vervoer') return `
+  if (key === 'vervoer') {
+    const ovLvl = a.dichtbij?.[OV_DICHTBIJ] ?? 0;
+    const ovOn = a.vervoer.includes('ov') || ovLvl > 0;
+    const chips = Object.entries(VERVOER).map(([k, l]) => (k === 'ov'
+      ? chip('vervoer', k, ovLvl ? `${l} · metro/tram ${DICHTBIJ_LEVELS[ovLvl].toLowerCase()}` : l, ovOn)
+      : chip('vervoer', k, l, a.vervoer.includes(k)))).join('');
+    return `
     <p class="wiz-q" id="wiz-q">Hoe kom je meestal ergens? Kies er meer als je wilt.</p>
-    <div class="wiz-chips" role="group" aria-labelledby="wiz-q">${Object.entries(VERVOER).map(([k, l]) => chip('vervoer', k, l, a.vervoer.includes(k))).join('')}</div>
-    <p class="wiz-hint">Fiets: fietsendiefstal telt drie keer zwaarder. OV: afstand tot het dichtstbijzijnde treinstation, metro- of tramstation. Auto: diefstal uit auto’s en liever minder dichtbebouwd. Lopen: huisarts en supermarkt dichtbij.</p>`;
-  if (key === 'sfeer') {
+    <div class="wiz-chips" role="group" aria-labelledby="wiz-q">${chips}</div>
+    <p class="wiz-hint">Fiets: fietsendiefstal telt drie keer zwaarder. OV: afstand tot het dichtstbijzijnde treinstation, metro- of tramstation (dus ook de metro- of tramhalte). Auto: diefstal uit auto’s en liever minder dichtbebouwd. Lopen: huisarts en supermarkt dichtbij.</p>
+    <div class="wiz-sliders">${VERVOER_DICHTBIJ.map(k => dichtSlider(k, DICHTBIJ[k], a.dichtbij?.[k] ?? 0)).join('')}</div>
+    <p class="wiz-hint">${esc(DICHTBIJ.station.label)}: ${esc(DICHTBIJ.station.hint)}. Staat standaard op “Maakt niet uit”.</p>`;
+  }
+  if (key === 'buurt') {
     const v = a.sfeer ?? 50;
+    const sfeer = sliderHtml({
+      cls: 'wiz-sfeer', id: 'wiz-q-sfeer', label: 'Druk of rustig?', value: a.sfeer == null ? 'Nog niet gekozen' : sfeerText(v), ends: ['Midden in de drukte', 'Rustig wonen'],
+      input: `<input type="range" min="0" max="100" step="5" value="${v}" data-field="sfeer" aria-labelledby="wiz-q-sfeer" aria-valuetext="${esc(a.sfeer == null ? 'Nog niet gekozen' : sfeerText(v))}">`,
+    });
     return `
-    <p class="wiz-q" id="wiz-q">Hoe wil je wonen?</p>
-    <div class="wiz-range">
-      <input type="range" min="0" max="100" step="5" value="${v}" data-field="sfeer" aria-labelledby="wiz-q" aria-valuetext="${esc(sfeerText(v))}">
-      <div class="wiz-range-ends"><span>Midden in de drukte</span><span>Rustig wonen</span></div>
-    </div>
-    <p class="wiz-hint"><span class="wiz-sfeer-now" aria-live="polite">${a.sfeer == null ? 'Schuif om te kiezen; nog niet gekozen' : esc(sfeerText(v))}</span>. Drukte = bevolkingsdichtheid en afstand tot Rotterdam Centraal, aan de drukke kant ook horeca dichtbij. Relatief: “rustig” is rustig voor deze lijst.</p>`;
+    <p class="wiz-q" id="wiz-q">Hoe wil je wonen, en wat wil je om de hoek hebben?</p>
+    ${prefillWrap('sfeer', null, sfeer)}
+    <p class="wiz-hint">Drukte = bevolkingsdichtheid en afstand tot Rotterdam Centraal, aan de drukke kant ook horeca dichtbij. Relatief: “rustig” is rustig voor deze lijst.</p>
+    <div class="wiz-sliders" role="group" aria-labelledby="wiz-q">${BUURT_DICHTBIJ.map(k => prefillWrap('dichtbij', k, dichtSlider(k, DICHTBIJ[k], a.dichtbij?.[k] ?? 0))).join('')}</div>
+    <p class="wiz-hint">${a.levensfase && (prefilled.sfeer || Object.keys(prefilled.dichtbij).length) ? `Wat “voorgesteld” is, vulde je profiel in; verander het gerust. ` : ''}“Maakt niet uit” telt niet mee. Hoe belangrijker, hoe zwaarder een korte afstand telt (gemiddelde afstand over de weg, CBS). ${BUURT_DICHTBIJ.map(k => `${esc(DICHTBIJ[k].label)}: ${esc(DICHTBIJ[k].hint)}`).join('. ')}. Groen en natuur zijn CBS-cijfers uit 2017, de nieuwste die er zijn.</p>`;
   }
-  if (key === 'dichtbij') return `
-    <p class="wiz-q" id="wiz-q">Wat wil je dichtbij? Zet per onderdeel hoe belangrijk het is.</p>
-    <div class="wiz-sliders" role="group" aria-labelledby="wiz-q">${Object.entries(DICHTBIJ).map(([k, d]) => dichtSlider(k, d, a.dichtbij?.[k] ?? 0)).join('')}</div>
-    <p class="wiz-hint">Alles staat standaard op “Maakt niet uit” en telt dan niet mee. Hoe belangrijker, hoe zwaarder een korte afstand telt (gemiddelde afstand over de weg, CBS). ${Object.values(DICHTBIJ).map(d => `${esc(d.label)}: ${esc(d.hint)}`).join('. ')}. Dit komt bovenop Sfeer: daar kies je drukte of rust, hier wat je om de hoek wilt hebben. Groen en natuur zijn CBS-cijfers uit 2017, de nieuwste die er zijn.</p>`;
-  if (key === 'gemeenschap') {
-    const g = a.gemeenschap;
-    const level = gemeenschapLevel(g?.pct ?? GEMEENSCHAP_DEFAULT_PCT);
-    return `
-    <p class="wiz-hint">${esc(GEMEENSCHAP_HINT)}</p>
-    <p class="wiz-hint">Optioneel en standaard uit. Wil je graag dichter bij mensen met dezelfde herkomst wonen, dan kun je hier een groep kiezen. Herkomst volgt de CBS-definitie: je eigen geboorteland, of als je in Nederland bent geboren dat van je moeder (of anders je vader). Het zijn totalen per gebied, geen gegevens over personen.</p>
-    <label class="wiz-field" id="wiz-q">Herkomstgroep
-      <select data-field="gemDetail">
-        <option value="">Geen specifieke groep</option>
-        ${gemeenschapOptgroups(DETAIL_GROUPS).map(([title, list]) => `<optgroup label="${esc(title)}">${list.map(([k, d]) => `<option value="${esc(k)}"${g?.detail === k ? ' selected' : ''}>${esc(d.long ?? d.label)}${d.direct ? ' · gemeente, wijk en buurt' : d.wijk ? ' · ook per wijk/buurt (geschat)' : ' · alleen per gemeente'}</option>`).join('')}</optgroup>`).join('')}
-      </select></label>
-    <p class="wiz-hint wiz-note"><strong>Waar telt het?</strong> Nederland: CBS-kerncijfers per gemeente, wijk en buurt. Groepen met “ook per wijk/buurt (geschat)”: per gemeente CBS-cijfers, per wijk en buurt geschat via de postcode. De andere groepen tellen alleen per gemeente (Nederland-kaart); op wijk- en buurtniveau valt de factor dan weg en tellen de andere thema’s naar verhouding zwaarder.</p>
-    ${g ? impSlider('data-field="gemLevel"', level, 'Hoe belangrijk', 1) : ''}
-    <p class="wiz-hint">Alleen een plus: een groter aandeel van de gekozen groep telt mee als “nabijheid gemeenschap”. Een gebied krijgt nooit minpunten voor wie er (niet) woont. Je score wordt in je browser berekend; er wordt niets verstuurd. Je keuze blijft op dit apparaat; in een link staat ze alleen als je dat bij “Deellink maken” aanvinkt.</p>`;
-  }
-  if (key === 'situatie') {
-    const st = a.situatie;
-    const eduPos = situatiePos(SITUATIE_EDU, st?.edu), incPos = situatiePos(SITUATIE_INCOME, st?.income);
-    return `
-    <p class="wiz-hint">${esc(SITUATIE_HINT)}</p>
-    <p class="wiz-hint">Optioneel. Dit zoekt alleen naar gebieden waar meer mensen in een vergelijkbare situatie wonen: vaak vind je daar sneller aansluiting. Beide schuiven staan standaard op “Niet invullen” en tellen dan niet mee. Je antwoorden blijven in je browser; er wordt niets verstuurd.</p>
-    ${sitSlider('sitIncome', 'wiz-q', 'Huishoudinkomen per maand (netto, ongeveer)', SITUATIE_INCOME, incPos)}
-    <p class="wiz-hint">Gebieden waar het gemiddelde inkomen in de buurt van het jouwe ligt tellen als plus, in plaats van het Standaard-cijfer “meer inkomen = beter”. Bij de laagste standen telt ook een groter aandeel mensen met bijstand als plus, waar dat cijfer er is.</p>
-    ${sitSlider('sitEdu', 'wiz-q2', 'Hoogst behaalde opleiding', SITUATIE_EDU, eduPos)}
-    <p class="wiz-hint">Een groter aandeel inwoners met hetzelfde opleidingsniveau telt als plus, in plaats van het Standaard-thema Opleiding (meer hbo/wo = beter).</p>
-    <p class="wiz-hint">Alleen een plus: een gebied krijgt nooit minpunten voor wie er woont. Hoe zwaar dit telt stel je in bij het resultaat (“Hoe belangrijk”). Je keuze blijft op dit apparaat; in een link staat ze alleen als je dat bij “Deellink maken” aanvinkt.</p>`;
-  }
-  return `
-    <p class="wiz-q" id="wiz-q">Welke misdrijven wegen voor jou het zwaarst?</p>
-    <div class="wiz-chips" role="group" aria-labelledby="wiz-q">${Object.entries(CRIMES).map(([k, c]) => chip('veiligheid', k, c.label, a.veiligheid.includes(k))).join('')}</div>
-    <p class="wiz-hint">Gekozen misdrijven tellen drie keer zwaarder binnen Veiligheid. “Criminaliteit in de omgeving” telt ook de misdrijven in de aangrenzende buurten mee, ook als dat een haven-, bedrijven- of stationsgebied is waar niemand woont. Per soort misdrijf is er alleen data voor Rotterdamse wijken en buurten.</p>`;
+  if (key === 'buren') return `
+    <p class="wiz-hint" id="wiz-q">${esc(BUREN_INTRO)}</p>${a.levensfase === 'nieuwkomer' ? `
+    <p class="wiz-hint wiz-lt-hint">${esc(NIEUWKOMER_HINT)}</p>` : ''}
+    <details class="wiz-buren"${burenOpen(a) || burenUserOpen ? ' open' : ''}><summary>Inkomen, opleiding en herkomst</summary>
+    ${situatieBody(a.situatie)}
+    ${gemeenschapBody(a.gemeenschap)}
+    </details>
+    <p class="wiz-hint">Optioneel; alles staat standaard op “Niet invullen” of uit en telt dan niet mee. Alleen een plus: een gebied krijgt nooit minpunten voor wie er (niet) woont. Je score wordt in je browser berekend; er wordt niets verstuurd. Je keuzes blijven op dit apparaat; in een link staan ze alleen als je dat bij “Deellink maken” aanvinkt. Hoe zwaar dit telt stel je in bij het resultaat.</p>`;
+  return '';
 }
 
 function sfeerText(v) {
@@ -170,6 +195,7 @@ function sfeerText(v) {
 function stepHtml(i) {
   const key = STEPS[i];
   const last = i === STEPS.length - 1;
+  const need = i === 0 && !answers.levensfase;   // only step 1 is required
   return `<header class="wiz-head">
       <div><p class="wiz-kicker">Vind jouw ideale woonplek · stap ${i + 1} van ${STEPS.length}</p><h2 id="wizard-title">${STEP_TITLES[key]}</h2></div>
       <button type="button" class="area-close" data-wiz="close" aria-label="Sluiten">&#x2715;</button>
@@ -178,9 +204,10 @@ function stepHtml(i) {
     <div class="wiz-body" data-step="${key}">${stepBody(key)}</div>
     <footer class="wiz-foot">
       ${i > 0 ? '<button type="button" class="area-btn" data-wiz="back">Terug</button>' : '<span></span>'}
-      <div class="wiz-foot-right">
-        <button type="button" class="area-btn" data-wiz="skip" title="Deze vraag telt niet mee: de Standaard-gewichten blijven">Overslaan</button>
-        <button type="button" class="area-btn is-primary" data-wiz="next">${last ? 'Bekijk resultaat' : 'Volgende'}</button>
+      <div class="wiz-foot-right">${i === 0 ? `
+        <button type="button" class="area-btn" data-wiz="result"${need ? ' disabled' : ''} title="Meteen je top 10 met de gewichten van je profiel">Direct naar resultaat</button>` : `
+        <button type="button" class="area-btn" data-wiz="skip" title="Deze vraag telt niet mee">Overslaan</button>`}
+        <button type="button" class="area-btn is-primary" data-wiz="next"${need ? ' disabled' : ''}>${last ? 'Bekijk resultaat' : 'Volgende'}</button>
       </div>
     </footer>`;
 }
@@ -228,7 +255,22 @@ function themeSliders() {
   const g = answers.gemeenschap;
   const gem = g ? impSlider('data-field="gemLevel"', gemeenschapLevel(g.pct), THEME_LABELS.gemeenschap) : '';
   return (preset.themes ?? []).filter(t => t.key !== 'gemeenschap')
-    .map(t => impSlider(`data-theme="${esc(t.key)}"`, imp[t.key] ?? IMPORTANCE_DEFAULT, THEME_LABELS[t.key] ?? t.label)).join('') + gem;
+    .map(t => impSlider(`data-theme="${esc(t.key)}"`, imp[t.key] ?? IMPORTANCE_DEFAULT, THEME_LABELS[t.key] ?? t.label) + (t.key === 'veiligheid' ? zorgenHtml() : '')).join('') + gem;
+}
+
+/** Under Veiligheid: "Specifieke zorgen", the crime chips (×3 within Veiligheid). */
+function zorgenHtml() {
+  const n = answers.veiligheid.length;
+  return `<details class="wiz-sub"${n ? ' open' : ''}><summary>Specifieke zorgen${n ? ` (${n})` : ''}</summary>
+      <div class="wiz-chips" role="group" aria-label="Specifieke zorgen">${Object.entries(CRIMES).map(([k, c]) => chip('veiligheid', k, c.label, answers.veiligheid.includes(k))).join('')}</div>
+      <p class="wiz-hint">Gekozen misdrijven tellen drie keer zwaarder binnen Veiligheid. “Criminaliteit in de omgeving” telt ook de aangrenzende buurten mee. Per soort misdrijf is er alleen data voor Rotterdamse wijken en buurten.</p></details>`;
+}
+
+/** "Extra wensen": Bouwstijl (luxury theme, at 5 when chosen). */
+function extraHtml() {
+  return `<div class="wiz-extra"><p class="wiz-q" id="wiz-q-bouw">Extra wensen: bouwstijl</p>
+      <div class="wiz-opts" role="group" aria-labelledby="wiz-q-bouw">${Object.entries(BOUW_OPTIONS).map(([k, l]) => optBtn('bouw', k, l, answers.bouw === k)).join('')}${optBtn('bouw', '', 'Niet belangrijk', !answers.bouw)}</div>
+      <p class="wiz-hint">Oudere bouw: meer woningen van vóór 1945. Moderne woningen: meer woningen van 2005 of later. Per wijk en buurt, geschat via de postcode.</p></div>`;
 }
 
 /**
@@ -262,6 +304,11 @@ async function resultHtml() {
     return { ...i, score: r?.score ?? null, filtered: !!r?.filtered, std: scoreResult('standaard', i.code)?.score ?? null };
   });
   const top = topAreas(withScores, 10);
+  // Gemeenschap "waarom": the area's share against the average of the compared areas.
+  const gemGroup = answers.gemeenschap ? DETAIL_GROUPS[answers.gemeenschap.detail]?.label : null;
+  const gemVals = gemGroup ? withScores.map(i => scoreResult('woonscore', i.code)?.factors?.find(f => f.theme === 'gemeenschap')?.value).filter(v => typeof v === 'number' && Number.isFinite(v)) : [];
+  const gemMean = gemVals.length ? gemVals.reduce((s, v) => s + v, 0) / gemVals.length : null;
+  const plusLabel = f => (f.theme === 'gemeenschap' && gemGroup ? gemeenschapReason(gemGroup, f.value, gemMean) ?? f.label : f.label);
   const stdRank = new Map(topAreas(withScores.map(i => ({ ...i, score: i.std, filtered: false })), Infinity).map(i => [i.code, i.rank]));
   const hidden = withScores.filter(i => i.filtered).length;
   const levelLabel = { wijken: 'wijken', buurten: 'buurten', gemeenten: 'gemeenten', provincies: 'provincies' }[level];
@@ -275,7 +322,7 @@ async function resultHtml() {
       <span class="wiz-top-rank">${i.rank}</span>
       <div class="wiz-top-main">
         <button type="button" class="area-link wiz-top-name" data-wiz-area="${esc(i.code)}">${esc(i.name)}</button>
-        ${why.plus.length ? `<p class="area-ws-plus"><span>+</span> ${why.plus.map(f => esc(f.label)).join(' · ')}</p>` : ''}
+        ${why.plus.length ? `<p class="area-ws-plus"><span>+</span> ${why.plus.map(f => esc(plusLabel(f))).join(' · ')}</p>` : ''}
         ${why.minus.length ? `<p class="area-ws-minus"><span>−</span> ${why.minus.map(f => esc(f.label)).join(' · ')}</p>` : ''}
       </div>
       <div class="wiz-top-score"><strong>${Math.round(i.score)}%</strong><small title="Woonscore (Standaard) en rang daarop">Std ${i.std != null ? `${Math.round(i.std)}${sr ? ` · #${sr}` : ''}` : '—'}</small></div>
@@ -291,7 +338,7 @@ async function resultHtml() {
       ${hidden ? `<p class="wiz-hint">${hidden} ${esc(levelLabel)} boven je budget zijn verborgen (grijs op de kaart).</p>` : ''}
       ${list}
       <p class="wiz-hint">Match = ${esc(scoreLabel(state.score))}, 0–100 t.o.v. de andere ${esc(levelLabel)} op de kaart. Std = de Woonscore (Standaard) ter vergelijking.</p>
-      ${kind === 'custom' || kind === 'standaard' ? `<details class="wiz-tune"${kind === 'custom' ? ' open' : ''}><summary>Hoe belangrijk is elk thema?</summary>${baseHint()}<div class="wiz-sliders">${themeSliders()}</div></details>` : ''}
+      ${kind === 'custom' || kind === 'standaard' ? `<details class="wiz-tune"${kind === 'custom' ? ' open' : ''}><summary>Bijstellen</summary><p class="wiz-hint">Hoe belangrijk is elk thema? “Niet belangrijk” telt niet mee en kun je hier aanzetten.</p>${baseHint()}<div class="wiz-sliders">${themeSliders()}</div>${extraHtml()}</details>` : ''}
       ${shareHtml()}
     </div>
     <footer class="wiz-foot">
@@ -319,19 +366,9 @@ async function render({ focus = null } = {}) {
 function applyAnswers() {
   const s = encodeAnswers(answers);
   saveAnswers(storage(), answers);
+  savePrefill(storage(), prefilled);
   // A finished wizard opens the dashboard on "Jouw dashboard" (W19).
   setState({ score: s || null, dataset: 'woonscore', ...(s ? { dtab: 'jouw' } : {}) }, { source: 'wizard' });
-}
-
-function clearStep(key) {
-  if (key === 'levensfase') answers = { ...answers, levensfase: null, oud: null };
-  else if (key === 'budget') answers = { ...answers, budget: null };
-  else if (key === 'vervoer') answers = { ...answers, vervoer: [] };
-  else if (key === 'sfeer') answers = { ...answers, sfeer: null };
-  else if (key === 'veiligheid') answers = { ...answers, veiligheid: [] };
-  else if (key === 'dichtbij') answers = { ...answers, dichtbij: null };
-  else if (key === 'gemeenschap') answers = { ...answers, gemeenschap: null };
-  else if (key === 'situatie') answers = { ...answers, situatie: null };
 }
 
 function go(next) {
@@ -360,17 +397,19 @@ function onClick(e) {
   const set = t.closest('[data-set]');
   if (set) {
     const { set: k, value } = set.dataset;
-    if (k === 'mode') answers = { ...answers, budget: { ...(answers.budget ?? {}), mode: value } };
-    else answers = { ...answers, [k]: answers[k] === value || value === '' ? null : value };
-    answers = normalizeAnswers(answers);
+    if (k === 'mode') answers = normalizeAnswers({ ...answers, budget: { ...(answers.budget ?? {}), mode: value } });
+    else if (k === 'levensfase') ({ answers, prefilled } = chooseProfile(answers, prefilled, answers.levensfase === value ? null : value));
+    else answers = normalizeAnswers({ ...answers, [k]: answers[k] === value || value === '' ? null : value });
+    if (step === 'result') applyAnswers();   // Extra wensen (Bouwstijl) on "Bijstellen"
     render({ focus: `[data-set="${k}"][data-value="${CSS.escape(value)}"]` });
     return;
   }
   const tog = t.closest('[data-toggle]');
   if (tog) {
     const { toggle: k, value } = tog.dataset;
-    const list = answers[k].includes(value) ? answers[k].filter(v => v !== value) : [...answers[k], value];
-    answers = normalizeAnswers({ ...answers, [k]: list });
+    if (k === 'vervoer') answers = toggleVervoer(answers, value);
+    else answers = normalizeAnswers({ ...answers, [k]: answers[k].includes(value) ? answers[k].filter(v => v !== value) : [...answers[k], value] });
+    if (step === 'result') applyAnswers();   // "Specifieke zorgen" on "Bijstellen"
     render({ focus: `[data-toggle="${k}"][data-value="${CSS.escape(value)}"]` });
     return;
   }
@@ -378,12 +417,20 @@ function onClick(e) {
   if (!act) return;
   if (act === 'close') closeWizard();
   else if (act === 'back') go(step - 1);
-  else if (act === 'skip') { clearStep(STEPS[step]); go(step + 1); }
-  else if (act === 'next') go(step + 1);
+  else if (act === 'skip') { ({ answers, prefilled } = clearStep(answers, prefilled, STEPS[step])); go(step + 1); }
+  else if (act === 'next') { if (step === 0 && !answers.levensfase) return; go(step + 1); }
+  else if (act === 'result') { if (!answers.levensfase) return; go('result'); }
   else if (act === 'restart') { step = 0; render(); }
   else if (act === 'map') { returnFocus = null; closeWizard(); setState({ view: 'map' }, { source: 'wizard' }); }
   else if (act === 'share') openShareDialog({ trigger: t.closest('[data-wiz]'), focus: 'answers' });
   else if (act === 'compare') { choosePreset(scoreKind(getState().score) === 'standaard' ? 'custom' : 'standaard'); }
+}
+
+/** The user changed a prefilled value: it is explicit now, and its "voorgesteld" mark goes. */
+function dropPrefill(t, field, item = null) {
+  if (!isPrefilled(prefilled, field, item)) return;
+  prefilled = markExplicit(prefilled, field, item);
+  t.closest('.wiz-prefillable')?.querySelector('.wiz-prefill')?.remove();
 }
 
 function onInput(e) {
@@ -391,8 +438,9 @@ function onInput(e) {
   if (t.dataset.field === 'sfeer') {
     answers = { ...answers, sfeer: +t.value };
     t.setAttribute('aria-valuetext', sfeerText(+t.value));
-    const now = els.dialog.querySelector('.wiz-sfeer-now');
-    if (now) now.textContent = sfeerText(+t.value);
+    const out = outputOf(t);
+    if (out) out.textContent = sfeerText(+t.value);
+    dropPrefill(t, 'sfeer');
   } else if (t.dataset.field === 'sitEdu' || t.dataset.field === 'sitIncome') {
     const label = situatieText(t.dataset.field === 'sitEdu' ? SITUATIE_EDU : SITUATIE_INCOME, +t.value);
     const out = outputOf(t);
@@ -400,8 +448,10 @@ function onInput(e) {
     t.setAttribute('aria-valuetext', label);
   } else if (t.dataset.dichtbij) {
     const label = DICHTBIJ_LEVELS[+t.value] ?? '';
-    t.nextElementSibling.textContent = label;
+    const out = outputOf(t);
+    if (out) out.textContent = label;
     t.setAttribute('aria-valuetext', label);
+    dropPrefill(t, 'dichtbij', t.dataset.dichtbij);
   } else if (t.dataset.field === 'gemLevel' || t.dataset.theme) {
     const label = IMPORTANCE[+t.value]?.label ?? '';
     const out = outputOf(t);
@@ -468,6 +518,8 @@ export function openWizard({ trigger = null, at = null } = {}) {
   const cur = getState().score;
   if (scoreKind(cur) === 'custom') answers = decodeAnswers(cur);
   else answers = loadAnswers(storage()) ?? normalizeAnswers(EMPTY_ANSWERS);
+  prefilled = loadPrefill(storage(), answers);   // stored flags that still match the answers' profile suggestion
+  burenUserOpen = false;
   step = at ?? (scoreKind(cur) === 'custom' ? 'result' : 0);
   els.modal.hidden = false;
   document.body.classList.add('area-modal-open');
@@ -507,6 +559,7 @@ export function initWizard({ rows } = {}) {
   modal.addEventListener('click', onClick);
   modal.addEventListener('input', onInput);
   modal.addEventListener('change', onChange);
+  modal.addEventListener('toggle', e => { if (e.target.classList?.contains('wiz-buren')) burenUserOpen = e.target.open; }, true);
   modal.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       if (document.getElementById('area-modal')?.hidden === false) return;   // the area modal on top closes first
@@ -525,7 +578,7 @@ export function initWizard({ rows } = {}) {
     if (changed.includes('dataset') || changed.includes('score')) {
       renderLegendSwitch();
       if (isOpen() && step === 'result') {
-        if (changed.includes('score') && scoreKind(getState().score) === 'custom') answers = decodeAnswers(getState().score);
+        if (changed.includes('score') && scoreKind(getState().score) === 'custom') { answers = decodeAnswers(getState().score); prefilled = reconcilePrefill(answers, prefilled); }
         const focusSel = document.activeElement?.dataset?.theme ? `[data-theme="${document.activeElement.dataset.theme}"]` : document.activeElement?.dataset?.scorePreset ? `[data-score-preset="${document.activeElement.dataset.scorePreset}"]` : null;
         render({ focus: focusSel });
       }

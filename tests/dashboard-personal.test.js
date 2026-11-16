@@ -72,7 +72,7 @@ describe('personalDashboardSpec', () => {
   it('no origin anywhere unless opted in', () => {
     for (const a of [{}, { levensfase: 'gezin', veiligheid: ['geweld'], situatie: { edu: 'laag' } }, { budget: { mode: 'huur' }, sfeer: 80 }]) noOrigin(spec(a));
   });
-  it('opted in: one positive Nabijheid gemeenschap row, never a lowest list', () => {
+  it('opted in: one positive Eigen gemeenschap dichtbij row, never a lowest list', () => {
     const s = spec({ gemeenschap: { detail: 'nederland', pct: 30 } });
     const g = s.rows.filter(r => r.key === 'gemeenschap');
     assert.equal(g.length, 1);

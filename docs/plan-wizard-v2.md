@@ -4,7 +4,7 @@ Goal: the wizard has grown to 8 steps plus the importance sliders, and since
 0.45.0 the levenstype profile already decides most of the weighting. Make the
 profile the heart of the wizard: pick who you are, see what it fills in, adjust
 only what differs, and get a result in 1 to 5 steps.
-Status: **plan, 16 Nov 2026 (operator request).**
+Status: **built in v0.46.0 (16 Nov 2026); see docs/decisions.md.**
 
 ## Problems in the current flow (0.45.0)
 
@@ -39,9 +39,25 @@ Dichtbij → Veiligheid → Situatie → Gemeenschap → result with importance 
    - Gezin: rustig and park Belangrijk.
    - Senior: rustig and winkels Belangrijk.
    Changing a value removes the mark.
-5. **Je buren (optioneel)**: Situatie (inkomen, opleiding) and Gemeenschap
-   (herkomst) together under one heading, "Mensen zoals jij". Hint as in the
-   0.45 addendum. For the Nieuwkomer profile this step is suggested more
+5. **Waar voel je je thuis? (optioneel)**: Situatie (inkomen, opleiding) and
+   Gemeenschap (herkomst) on one step. Wording (operator, 16 Nov 2026; never
+   "Mensen zoals jij", it sounds like pressure):
+   - Intro: "Sommige mensen wonen graag tussen buren met een vergelijkbaar
+     leven, of dicht bij hun eigen gemeenschap. Sla dit over als het voor jou
+     niet uitmaakt."
+   - Situatie heading "Buren met een vergelijkbaar inkomen of opleiding", hint
+     "Kies je eigen inkomen of opleiding; buurten waar veel mensen in dezelfde
+     situatie wonen, scoren hoger."
+   - Gemeenschap heading "Dicht bij je eigen gemeenschap", hint "Woon je graag
+     dicht bij mensen met dezelfde achtergrond, bijvoorbeeld voor je taal,
+     winkels, een gebedshuis of familie? Buurten met een grote gemeenschap van
+     jouw achtergrond krijgen extra punten; andere buurten verliezen niets."
+   - "Waarom" line where it applies: "Grote gemeenschap uit <groep> in de
+     buurt (18%, 2,5× gemiddeld)"
+   - Result and breakdown labels: "Vergelijkbare buren" and "Eigen
+     gemeenschap dichtbij".
+
+   For the Nieuwkomer profile this step is suggested more
    strongly (opened by default), but **never filled in by the profile**: the
    origin group is always the user's own choice (the §5 guard).
 
@@ -64,9 +80,9 @@ Dichtbij → Veiligheid → Situatie → Gemeenschap → result with importance 
 - **New: Nieuwkomer in Nederland**:
   - Themes: Veiligheid 25, Voorzieningen 35 (supermarkt 2, OV 2, GP 2,
     school 1), Welvaart 5, Levenstype 5, Sfeer 10 (neutral, no direction).
-  - Opens the "Je buren" step (see step 5).
-  - Hint: "Veel nieuwkomers vinden steun bij mensen met dezelfde achtergrond;
-    kies bij 'Je buren' eventueel je herkomst."
+  - Opens the "Waar voel je je thuis?" step (see step 5).
+  - Hint: "Net in Nederland? Een gemeenschap van mensen met dezelfde
+    achtergrond dichtbij kan veel steun geven; kies bij 'Waar voel je je thuis?' eventueel je herkomst."
 - **The other profiles stay as in 0.45.0.** Keep the order of the cards by
   life course: Student, Starter, Stel, Gezin, Nieuwkomer, 50-plus, Senior, Solo
   onder de mensen, Solo op mezelf.
