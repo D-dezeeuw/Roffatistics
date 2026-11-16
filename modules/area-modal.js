@@ -17,6 +17,7 @@ import { infoButton } from './explain.js';
 import { outlierLabel } from './scale.js';
 import { scoreKind, scoreLabel } from './wizard-model.js';
 import { scoreResult } from './presets.js';
+import { loadEduAreas, loadEduSchools, loadBuurtCentres, getEduEntry, getEduSchools, getBuurtCentre, eduAreaDetail, eduPanelHtml } from './onderwijs.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -200,6 +201,8 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
   if (reg) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Herkomst per regio${d.level === 'gemeente' ? '' : ' · hele gemeente'}</span>${reg}</div>`);
   if (d.p2000) extras.push(`<div class="area-extra area-extra-wide area-p2000"><span class="area-extra-label">Meldingen hulpdiensten (P2000)${d.p2000.days ? ` · ${d.p2000.days} dagen` : ''}</span>${p2000Html(d.p2000)}</div>`);
   if (d.education) extras.push(`<div class="area-extra"><span class="area-extra-label">Opleiding</span>${eduDonutHtml(d.education)}</div>`);
+  const po = eduPanelHtml(d.onderwijs, { info: infoButton('eduScore', 'Onderwijsprestatie basisscholen') });   // loaded by render()
+  if (po) extras.push(po);
   if (d.outliers.length) extras.push(`<div class="area-extra area-extra-wide"><span class="area-extra-label">Uitschieter</span><p>${d.outliers.map(e => `${esc(e.label)}: ${outlierLabel(e.outlier)}`).join(' · ')}</p></div>`);
   if (dataYears) extras.push(`<div class="area-extra"><span class="area-extra-label">Peiljaar</span><p>${esc(dataYears)} · misdrijven 2025</p></div>`);
 
@@ -259,13 +262,27 @@ const peersFor = code => (getState().scope === 'nederland' || !isRotterdamCode(c
 
 const NATIONAL_WAIT_MS = 8000;   // the splash can open a gemeente before the CBS rows arrive
 
+/**
+ * Loads (once) what the "Basisscholen" block needs for a BU/WK/GM code: the
+ * area file, the school list and, for a buurt, the centres. Never rejects.
+ */
+function loadOnderwijs(code) {
+  if (!/^(BU|WK|GM)/.test(String(code ?? ''))) return Promise.resolve();
+  const quiet = p => p.catch(err => console.warn('onderwijsprestatie:', err));
+  return Promise.all([quiet(loadEduAreas()), quiet(loadEduSchools()), String(code).startsWith('BU') ? quiet(loadBuurtCentres()) : null]);
+}
+const onderwijsDetail = code => eduAreaDetail(code, { entry: getEduEntry(code), schools: getEduSchools(), centre: getBuurtCentre(code) });
+
 async function renderNational(code) {
   const level = nationalLevel(code);
+  const edu = loadOnderwijs(code);
   if (!national[level].length) await Promise.race([ready[level], new Promise(r => setTimeout(r, NATIONAL_WAIT_MS))]);
+  await edu;
   const index = await getAreaIndex().catch(() => []);
   if (current !== code) return false;
   const { area, areas } = nationalAreaSet(code, national[level], { names: new Map(index.map(e => [e.code, e.name])) });
   const detail = buildAreaDetail(area, areas, { mode: getState().crime });
+  if (detail) detail.onderwijs = onderwijsDetail(code);
   els.dialog.innerHTML = areaModalHtml(detail, { peers: 'nederland', personal: scoreKind(getState().score) === 'standaard' ? false : scoreLabel(getState().score) });
   els.dialog.scrollTop = 0;
   els.dialog.querySelector('.area-body')?.scrollTo?.(0, 0);
@@ -277,13 +294,14 @@ async function render(code) {
   const peers = peersFor(code);
   let areas;
   try {
-    [areas] = await Promise.all([peers === 'nederland' ? loadNlAreas() : loadRotterdamAreas(), loadPc4Herkomst().catch(() => null), loadGemeenteRegio().catch(() => null)]);
+    [areas] = await Promise.all([peers === 'nederland' ? loadNlAreas() : loadRotterdamAreas(), loadPc4Herkomst().catch(() => null), loadGemeenteRegio().catch(() => null), loadOnderwijs(code)]);
   } catch {
     areas = { wijken: [], buurten: [] };
   }
   if (current !== code) return false;
   const area = areas.wijken.find(a => a.code === code) ?? areas.buurten.find(a => a.code === code);
   const detail = buildAreaDetail(area, areas, { mode: getState().crime });
+  if (detail) detail.onderwijs = onderwijsDetail(code);
   els.dialog.innerHTML = areaModalHtml(detail, { peers, dataYears: area ? areaPanelData(area).dataYears : '', personal: scoreKind(getState().score) === 'standaard' ? false : scoreLabel(getState().score) });
   els.dialog.scrollTop = 0;
   els.dialog.querySelector('.area-body')?.scrollTo?.(0, 0);

@@ -2,6 +2,7 @@ import { BOUW_SOURCE_URL, BOUW_MIN_DWELLINGS, OLD_BUILD_BEFORE, MODERN_BUILD_FRO
 import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, pc4RegionComposition, regionAtBuurt } from './herkomst-pc4.js';
 import { REGIONS, REGIO_TABLE, REGIO_YEAR, regionComposition } from './herkomst-regio.js';
 import { P2000_SOURCE_URL, P2000_COVERAGE, P2000_MIN_POPULATION } from './p2000.js';
+import { SMALL_N as EDU_SMALL_N, NEAR_RADIUS_KM, NEAR_BEST_KM, YEARS as EDU_YEARS } from './schools.js';
 
 const CBS_BASE = 'https://opendata.cbs.nl/ODataApi/odata';
 
@@ -153,6 +154,9 @@ const SRC = Object.freeze({
   osm:     Object.freeze({ id: 'OSM', name: 'OpenStreetMap: metro- en tramlijnen en haltes (ODbL), via Overpass API', publisher: '© OpenStreetMap-bijdragers', url: 'https://www.openstreetmap.org/copyright', scope: 'Nederland' }),
   p2000:   Object.freeze({ id: 'P2000', name: 'Randstad P2000: meldingen hulpdiensten per buurt, wijk en gemeente (live)', publisher: 'Randstad, uit het openbare P2000-net', url: P2000_SOURCE_URL, scope: P2000_COVERAGE }),
   crimeNl: Object.freeze({ id: '83648NED', name: 'Geregistreerde criminaliteit; soort misdrijf, regio', publisher: 'CBS', url: statline('83648NED'), scope: 'Nederland' }),
+  duoRef:  Object.freeze({ id: 'wporeferentieniveau-v1', name: 'Referentieniveaus per toets en vestiging (basisonderwijs, groep 8)', publisher: 'DUO', url: 'https://onderwijsdata.duo.nl/dataset/wporeferentieniveau-v1', scope: 'Nederland (schoolvestigingen)' }),
+  duoEind: Object.freeze({ id: 'wpo-eindscores', name: 'Gemiddelde eindscores per vestiging (aantal getoetste leerlingen)', publisher: 'DUO', url: 'https://onderwijsdata.duo.nl/dataset/wpo-eindscores', scope: 'Nederland (schoolvestigingen)' }),
+  duoAdres: Object.freeze({ id: 'adressen_bo', name: 'Adressen vestigingen basisonderwijs', publisher: 'DUO', url: 'https://onderwijsdata.duo.nl/dataset/adressen_bo', scope: 'Nederland (schoolvestigingen)' }),
 });
 
 const OV_YEAR = 'november 2026 (OpenStreetMap)';
@@ -187,6 +191,22 @@ const TASTE_NOTE = 'Beschrijvend en een kwestie van smaak: telt niet mee in de t
 const NABIJ_NOTE = 'Ontbreekt het 2025-cijfer voor een gebied, dan wordt het 2024-cijfer (86134NED) getoond; het paneel noemt dat onder Peiljaar.';
 const DICHTBIJ_NOTE = 'Telt niet mee in de totaalscore van de Ranglijst of de Woonscore Standaard; alleen in je eigen Woonscore als je het in de wizard bij “Wat wil je dichtbij?” belangrijk vindt (dichterbij = beter).';
 const GROEN_NOTE = 'Oudere peiling: CBS vult de afstanden tot groen en natuur sinds 2018 niet meer in. Dit is het cijfer van 2017 (indeling 2017, bodemgebruik 2015). Een buurt die sindsdien een nieuwe code kreeg, krijgt het cijfer van haar wijk; zonder oude code is er geen data.';
+// Onderwijsprestatie basisscholen (plan-onderwijsprestatie, 16 Nov 2026): texts shared by the eduScore family.
+const kmText = km => String(km).replace('.', ',');
+const EDU_PERIOD = `${EDU_YEARS[0]}–${EDU_YEARS.at(-1)}`;
+const EDU_SCORE_DEF = `per leerlingresultaat (lezen, taalverzorging, rekenen): onder 1F = 0 punten, 1F = 50, 2F/1S = 100; schoolscore = het gemiddelde over alle resultaten van de school in ${EDU_PERIOD} (0–100, getoond als cijfer /10); alleen gewone basisscholen (BO), geen speciaal basisonderwijs`;
+const EDU_SOURCES = () => [SRC.duoRef, SRC.duoEind, SRC.duoAdres];
+const EDU_IN_AREA_NOTE = 'Het cijfer gaat over de scholen die in het gebied staan, niet over de kinderen die er wonen: kinderen gaan ook naar school in een andere buurt, en schoolkeuze is vrij. Per wijk zegt het meer dan per buurt; veel buurten hebben geen eigen school (geen data).';
+const EDU_NOTES = Object.freeze([
+  'De achtergrond van de leerlingen (opleiding van de ouders, de taal thuis) bepaalt een groot deel van de score. Een lage score betekent niet dat het een slechte school is.',
+  'Scholen gebruiken verschillende toetsen met elk een eigen schaal; de referentieniveaus (1F, 2F/1S) zijn de enige maat die over alle toetsen vergelijkbaar is.',
+  `Drie peiljaren samen (${EDU_PERIOD}): tot en met 2023 de eindtoets (april), vanaf 2024 de doorstroomtoets (februari). De grenzen van de niveaus verschoven daarbij iets.`,
+  `Een school met minder dan ${EDU_SMALL_N} getoetste leerlingen telt mee en heet in het paneel "klein aantal leerlingen"; een school zonder toetsgegevens krijgt geen score. DUO laat cellen van 1–4 leerlingen weg; die zijn uit het totaal afgeleid of geschat.`,
+  'Telt niet mee in de totaalscore van de Ranglijst of de Woonscore Standaard.',
+]);
+const EDU_NEAR_NOTE = `Hemelsbreed gemeten vanaf het midden van de buurt (binnen ${kmText(NEAR_RADIUS_KM)} km), niet over de weg. Schoolkeuze, wachtlijsten en toelatingsregels ziet het cijfer niet.`;
+const EDU_ROLLUP = 'wijk en gemeente: het gemiddelde van hun buurten, gewogen naar inwoners';
+
 const ROAD_NOTE = 'Gemeten over de weg, niet hemelsbreed; de dichtstbijzijnde voorziening kan buiten het gebied liggen.';
 const ageInfo = (from, to) => ({
   description: `Het aandeel inwoners van ${from} tot en met ${to} jaar. Beschrijvend: er zit geen oordeel in. Samen met de andere leeftijdsgroepen laat het zien of een gebied jong, gemengd of vergrijsd is.`,
@@ -311,6 +331,41 @@ const INFO = {
       'Wijk/buurt: CBS heeft opleiding voor 2025 nog niet gepubliceerd, daarom het cijfer uit de tabel 2024.',
       'CBS telt opleiding voor 15- tot 75-jarigen; het dashboard weegt de wijken naar alle inwoners.',
     ],
+  },
+  eduScore: {
+    description: `Hoe goed de basisscholen in het gebied hun leerlingen in groep 8 laten presteren: het gemiddelde van de schoolscores van de scholen die in het gebied staan (elke school telt één keer), als cijfer /10. Hoger telt als beter. In het gebiedspaneel staan de scholen met hun eigen cijfer.`,
+    formula: `${EDU_SCORE_DEF}; gebied = ongewogen gemiddelde van de schoolscores`,
+    source: EDU_SOURCES(),
+    year: `${EDU_PERIOD} (peiljaren samen)`,
+    caveats: [EDU_IN_AREA_NOTE, ...EDU_NOTES],
+  },
+  eduNearScore: {
+    description: `De kwaliteit van de basisscholen dichtbij huis: het gemiddelde van de schoolscores van de scholen binnen ${kmText(NEAR_RADIUS_KM)} km hemelsbreed van het midden van de buurt, waarbij een school dichterbij zwaarder telt. Een basisschool moet dichtbij zijn; daarom tellen ook scholen net over de buurtgrens mee. Hoger telt als beter.`,
+    formula: `Σ gewicht × schoolscore / Σ gewicht, gewicht = max(0, 1 − afstand / ${kmText(NEAR_RADIUS_KM)} km); geen waarde zonder school met een score binnen ${kmText(NEAR_RADIUS_KM)} km; ${EDU_ROLLUP}. Schoolscore: ${EDU_SCORE_DEF}`,
+    source: EDU_SOURCES(),
+    year: `${EDU_PERIOD} (peiljaren samen)`,
+    caveats: [EDU_NEAR_NOTE, ...EDU_NOTES],
+  },
+  eduNearBest: {
+    description: `De best presterende basisschool binnen ${kmText(NEAR_BEST_KM)} km hemelsbreed van het midden van de buurt, als cijfer /10. Zegt of er een sterke school in de buurt is, ook als het gemiddelde lager ligt. Hoger telt als beter.`,
+    formula: `hoogste schoolscore binnen ${kmText(NEAR_BEST_KM)} km; ${EDU_ROLLUP}. Schoolscore: ${EDU_SCORE_DEF}`,
+    source: EDU_SOURCES(),
+    year: `${EDU_PERIOD} (peiljaren samen)`,
+    caveats: [EDU_NEAR_NOTE, ...EDU_NOTES],
+  },
+  eduStreefPct: {
+    description: 'Het aandeel leerlingresultaten (lezen, taalverzorging, rekenen) op het streefniveau 2F (taal) of 1S (rekenen), van de basisscholen in het gebied samen. Hoger telt als beter.',
+    formula: `resultaten op 2F/1S / alle resultaten × 100, over de scholen in het gebied en ${EDU_PERIOD} (gewogen naar leerlingen)`,
+    source: EDU_SOURCES(),
+    year: `${EDU_PERIOD} (peiljaren samen)`,
+    caveats: [EDU_IN_AREA_NOTE, ...EDU_NOTES],
+  },
+  eduFundPct: {
+    description: 'Het aandeel leerlingresultaten (lezen, taalverzorging, rekenen) dat ten minste het fundamentele niveau 1F haalt, van de basisscholen in het gebied samen. Hoger telt als beter.',
+    formula: `resultaten op 1F of hoger / alle resultaten × 100, over de scholen in het gebied en ${EDU_PERIOD} (gewogen naar leerlingen)`,
+    source: EDU_SOURCES(),
+    year: `${EDU_PERIOD} (peiljaren samen)`,
+    caveats: [EDU_IN_AREA_NOTE, ...EDU_NOTES],
   },
   avgIncome: {
     description: 'Het gemiddelde gestandaardiseerde inkomen van huishoudens: het besteedbaar inkomen gecorrigeerd voor de grootte en samenstelling van het huishouden, zodat alleenstaanden en gezinnen vergelijkbaar zijn. Hoger = welvarender.',
@@ -713,6 +768,11 @@ export const DATASETS = Object.freeze({
   ...Object.fromEntries(REGIONS.map(r => [r.metric, ds(r.metric, `${r.label} (%)`, `Herkomst ${r.label} (%${regionAtBuurt(r.key) ? '' : ', alleen per gemeente'})`, '%', null, 'herkomst', regionAtBuurt(r.key) ? { inOverall: false } : { scope: 'nederland', inOverall: false })])),
   ...Object.fromEntries(PC4_GROUPS.map(g => [g.metric, ds(g.metric, `${g.label} (%)`, `Herkomst ${g.label} (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'herkomstDetail', { ...RTM, inOverall: false, estimated: true })])),
   highEdu:          ds('highEdu',          'Opleiding',            'Hoog opgeleid (%)',               '%',         true,  'opleiding'),
+  eduScore:         ds('eduScore',         'Onderwijsprestatie basisscholen', 'Onderwijsprestatie basisscholen (cijfer, scholen in het gebied)', 'cijfer', true, 'opleiding', { inOverall: false }),
+  eduNearScore:     ds('eduNearScore',     'Basisscholen dichtbij (kwaliteit)', `Kwaliteit basisscholen binnen ${kmText(NEAR_RADIUS_KM)} km (cijfer)`, 'cijfer', true, 'opleiding', { inOverall: false }),
+  eduNearBest:      ds('eduNearBest',      'Beste basisschool dichtbij', `Beste basisschool binnen ${kmText(NEAR_BEST_KM)} km (cijfer)`, 'cijfer', true, 'opleiding', { inOverall: false }),
+  eduStreefPct:     ds('eduStreefPct',     'Basisschool streefniveau (%)', 'Basisschoolresultaten op streefniveau 2F/1S (%)', '%', true, 'opleiding', { inOverall: false }),
+  eduFundPct:       ds('eduFundPct',       'Basisschool 1F (%)',   'Basisschoolresultaten ten minste 1F (%)', '%', true, 'opleiding', { inOverall: false }),
   avgIncome:        ds('avgIncome',        'Inkomen',              'Gem. inkomen (×€1k)',             '×€1.000',   true,  'welvaart'),
   wozValue:         ds('wozValue',         'WOZ waarde',           'Gem. WOZ waarde (×€1k)',          '×€1.000',   true,  'welvaart'),
   ownerOccupiedPct: ds('ownerOccupiedPct', 'Koopwoningen (%)',     'Koopwoningen (%)',                '%',         null,  'welvaart', RTM),
