@@ -125,8 +125,8 @@ export function activePalette(storage, doc = globalThis.document) {
   return resolvePalette(pickInitialPaletteChoice(st), doc?.documentElement?.dataset?.theme);
 }
 
-/** Herkomst datasets (groups herkomst / herkomstDetail, §5). */
-export const ORIGIN_GROUPS = Object.freeze(['herkomst', 'herkomstDetail']);
+/** Herkomst datasets (groups herkomst / herkomstLand / herkomstDetail, §5): own single-hue ramp, weinig → veel. */
+export const ORIGIN_GROUPS = Object.freeze(['herkomst', 'herkomstLand', 'herkomstDetail']);
 
 /** Kind of a dataset definition: 'origin' | 'up' | 'down' | 'neutral'. */
 export function metricKind(ds) {

@@ -82,6 +82,16 @@ export function loadRegionRows(key, opts = {}) {
   return getRows(key, { live: nlRegionUrl(key), ...opts });
 }
 
+/**
+ * Diversiteit (16 Nov 2026): 100 minus the share with herkomst Nederland, one
+ * decimal; null when that share is missing. Derived wherever originDutchPct is
+ * computed (gemeente/provincie rows, city wijk/buurt, NL wijk/buurt, fallback year).
+ */
+export function diversityFrom(originDutchPct) {
+  const o = typeof originDutchPct === 'number' && Number.isFinite(originDutchPct) ? originDutchPct : null;
+  return o == null ? null : +(100 - o).toFixed(1);
+}
+
 const pct = (part, total) =>
   part != null && total ? +(part / total * 100).toFixed(1) : null;
 
@@ -111,6 +121,7 @@ export function normalizeProvinces(rows) {
       // Herkomst buiten Europa (%) — key kept as nonWesternPct for the UI wiring
       nonWesternPct:    pct(r[C.originOutsideEurope], population),
       originDutchPct:   pct(r[C.originDutch], population),
+      diversityPct:     diversityFrom(pct(r[C.originDutch], population)),
       originEuropePct:  pct(r[C.originEurope], population),
     };
   });
@@ -397,6 +408,13 @@ const INFO = {
     source: [SRC.kwb2025, SRC.regio],
     year: '2025 (wijk/buurt) · 2023 (Nederland)',
     caveats: [FALLBACK_NOTE],
+  },
+  diversityPct: {
+    description: 'Het aandeel inwoners met een niet-Nederlandse herkomst: simpelweg 100 min het aandeel inwoners met herkomst Nederland (CBS). Een grove maat, geen diversiteitsindex: het zegt niet uit hoeveel verschillende gemeenschappen een gebied bestaat. ' + HERKOMST_DEF,
+    formula: '100 − (inwoners met herkomst Nederland / inwoners × 100)',
+    source: [SRC.kwb2025, SRC.regio],
+    year: '2025 (wijk/buurt) · 2023 (Nederland)',
+    caveats: ['Geen diversiteitsindex: een buurt met één grote gemeenschap en een buurt met twintig kleine kunnen hetzelfde percentage hebben. Per land of regio: zie de lagen onder Gemeenschappen en Gemeenschappen per land.', ...HERKOMST_NOTES, FALLBACK_NOTE],
   },
   originDutchPct: {
     description: 'Het aandeel inwoners met herkomst Nederland: in Nederland geboren, net als beide ouders. ' + HERKOMST_DEF,
@@ -880,12 +898,13 @@ export const DATASETS = Object.freeze({
   pop65plus:        ds('pop65plus',        '65+ (%)',              '65+ (%)',                         '%',         null,  'leeftijd'),
   hhWithKidsPct:    ds('hhWithKidsPct',    'Gezinnen (%)',         'Huishoudens met kinderen (%)',    '%',         null,  'bevolking', { ...RTM, inOverall: false }),
   singleHhPct:      ds('singleHhPct',      'Alleenwonenden (%)',   'Eenpersoonshuishoudens (%)',      '%',         null,  'bevolking', { ...RTM, inOverall: false }),
-  originDutchPct:   ds('originDutchPct',   'Nederland (%)',         'Herkomst Nederland (%)',          '%',         null,  'herkomst', { inOverall: false }),
+  diversityPct:     ds('diversityPct',     'Diversiteit (%)',      'Diversiteit: inwoners met een niet-Nederlandse herkomst (%)', '%', null, 'herkomst', { inOverall: false }),
+  originDutchPct:   ds('originDutchPct',   'Nederland (%)',         'Herkomst Nederland (%)',          '%',         null,  'herkomstDetail', { inOverall: false }),
   originEuropePct:  ds('originEuropePct',  'Europa excl. NL (%)',  'Herkomst Europa excl. NL (%)',    '%',         null,  'herkomstDetail', { inOverall: false }),
   nonWesternPct:    ds('nonWesternPct',    'Buiten Europa (%)',    'Herkomst buiten Europa (%)',      '%',         null,  'herkomstDetail', { inOverall: false }),
   bornAbroadPct:    ds('bornAbroadPct',    'Buitenland geboren (%)', 'In het buitenland geboren (%)', '%',         null,  'herkomstDetail', { ...RTM, inOverall: false }),
   ...Object.fromEntries(REGIONS.map(r => [r.metric, ds(r.metric, `${r.label} (%)`, `Herkomst ${r.label} (%${regionAtBuurt(r.key) ? '' : ', alleen per gemeente'})`, '%', null, 'herkomst', regionAtBuurt(r.key) ? { inOverall: false } : { scope: 'nederland', inOverall: false })])),
-  ...Object.fromEntries(PC4_GROUPS.map(g => [g.metric, ds(g.metric, `${g.label} (%)`, `Herkomst ${g.label} (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'herkomstDetail', { ...RTM, inOverall: false, estimated: true })])),
+  ...Object.fromEntries(PC4_GROUPS.map(g => [g.metric, ds(g.metric, `${g.label} (%)`, `Herkomst ${g.label} (%, geschat via postcode ${PC4_YEAR})`, '%', null, 'herkomstLand', { ...RTM, inOverall: false, estimated: true })])),
   highEdu:          ds('highEdu',          'Opleiding',            'Hoog opgeleid (%)',               '%',         true,  'opleiding'),
   eduScore:         ds('eduScore',         'Onderwijsprestatie basisscholen', 'Onderwijsprestatie basisscholen (cijfer, scholen in het gebied)', 'cijfer', true, 'opleiding', { inOverall: false }),
   eduNearScore:     ds('eduNearScore',     'Basisscholen dichtbij (kwaliteit)', `Kwaliteit basisscholen binnen ${kmText(NEAR_RADIUS_KM)} km (cijfer)`, 'cijfer', true, 'opleiding', { inOverall: false }),
@@ -960,13 +979,16 @@ export const DATASET_KEYS = Object.freeze(Object.keys(DATASETS));
 // category ranks on when no Onderdeel is chosen (and the first layer in it).
 // `layer: false` = data kept for wizard, modal and Uitleg, but no layer and no
 // Ranglijst column: the separate herkomst indelingen (Nederland / Europa /
-// buiten Europa and the postcode country groups) gave way to the per-regio
-// layers on 15 Nov 2026; links with those ids land on RETIRED_LAYERS.
+// buiten Europa / buitenland geboren) gave way to the per-regio layers on
+// 15 Nov 2026; links with those ids land on RETIRED_LAYERS. 16 Nov 2026:
+// Diversiteit (100 − Nederland) heads Gemeenschappen and the ten postcode
+// country groups are layers again under Gemeenschappen per land.
 const ALL_DATASET_GROUPS = Object.freeze([
   Object.freeze({ key: 'score',          label: 'Woonscore',                     headline: 'woonscore' }),
   Object.freeze({ key: 'bevolking',      label: 'Bevolking & huishoudens',       headline: 'population' }),
   Object.freeze({ key: 'leeftijd',       label: 'Leeftijd',                      headline: 'pop65plus' }),
-  Object.freeze({ key: 'herkomst',       label: 'Gemeenschappen',                headline: 'originDutchPct' }),
+  Object.freeze({ key: 'herkomst',       label: 'Gemeenschappen',                headline: 'diversityPct' }),
+  Object.freeze({ key: 'herkomstLand',   label: 'Gemeenschappen per land',       headline: 'hk_marokko' }),
   Object.freeze({ key: 'criminaliteit',  label: 'Criminaliteit',                 headline: 'crimeRate' }),
   Object.freeze({ key: 'opleiding',      label: 'Opleiding',                     headline: 'highEdu' }),
   Object.freeze({ key: 'welvaart',       label: 'Welvaart & wonen',              headline: 'avgIncome' }),
@@ -983,24 +1005,16 @@ const HIDDEN_GROUPS = new Set(ALL_DATASET_GROUPS.filter(g => !DATASET_GROUPS.inc
 
 /**
  * Old layer ids → the nearest layer that still exists (deep links, share
- * links, Ranglijst rank/sort). Postcode groups go to their world region,
- * Europa excl. NL to West-Europa (Duitsland, België), buiten Europa to
- * Zuid-Amerika (Suriname, Rotterdam's largest group), buitenland geboren to Nederland.
+ * links, Ranglijst rank/sort). Europa excl. NL to West-Europa (Duitsland,
+ * België), buiten Europa to Zuid-Amerika (Suriname, Rotterdam's largest
+ * group), Nederland and buitenland geboren to Diversiteit (16 Nov 2026). The
+ * postcode country groups (hk_*) are layers again and no longer redirect.
  */
 export const RETIRED_LAYERS = Object.freeze({
   originEuropePct: 'hr_westEuropa',
   nonWesternPct:   'hr_zuidAmerika',
-  bornAbroadPct:   'originDutchPct',
-  hk_suriname:     'hr_zuidAmerika',
-  hk_turkije:      'hr_westAzie',
-  hk_marokko:      'hr_noordAfrika',
-  hk_cariben:      'hr_caribischGebied',
-  hk_indonesie:    'hr_zuidoostAzie',
-  hk_polen:        'hr_oostEuropa',
-  hk_duitsland:    'hr_westEuropa',
-  hk_belgie:       'hr_westEuropa',
-  hk_euNietEu:     'hr_overigEuropa',
-  hk_oceanie:      'hr_oceanie',
+  originDutchPct:  'diversityPct',
+  bornAbroadPct:   'diversityPct',
 });
 
 /** A layer key for `key`: a retired id maps to its successor; anything else is returned as is. */

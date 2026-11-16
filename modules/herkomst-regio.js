@@ -101,8 +101,13 @@ export const REGION_KEYS = Object.freeze(REGIONS.map(r => r.key));
  * migration background, and the file and regionGap keep Nederland apart.
  */
 export const NEDERLAND_REGION = Object.freeze({ key: 'nederland', label: 'Nederland', continent: 'europa', color: '#e5e7eb', metric: 'originDutchPct', native: true });
-/** The regions as offered in the Herkomst layer category: Nederland first, then REGIONS. */
-export const LAYER_REGIONS = Object.freeze([NEDERLAND_REGION, ...REGIONS]);
+/**
+ * The regions offered as layers in the Gemeenschappen category. Since 16 Nov
+ * 2026 Nederland is no layer (it read as racist): the category's headline is
+ * Diversiteit (diversityPct = 100 − originDutchPct, datasets.js); NEDERLAND_REGION
+ * stays for the dashboard, wizard and nederlandShareOf.
+ */
+export const LAYER_REGIONS = Object.freeze([...REGIONS]);
 /** Metric keys (`hr_<region>`) of the gemeente layers. */
 export const REGION_METRICS = Object.freeze(REGIONS.map(r => r.metric));
 export const isRegionMetric = k => REGION_METRICS.includes(k);

@@ -56,7 +56,7 @@ export const RANK_WORDS = Object.freeze({
   population:       W('meeste inwoners', 'minste inwoners'),
   density:          W('dichtstbevolkte {lvl}', 'minst dichtbevolkte {lvl}'),
   pop65plus:        W('hoogste aandeel 65-plussers', 'laagste aandeel 65-plussers'),
-  originDutchPct:   W('meeste inwoners met herkomst Nederland', 'minste inwoners met herkomst Nederland'),
+  diversityPct:     W('meeste diversiteit', 'minste diversiteit'),
   originEuropePct:  W('meeste inwoners met herkomst elders in Europa', 'minste inwoners met herkomst elders in Europa'),
   nonWesternPct:    W('meeste inwoners met herkomst buiten Europa', 'minste inwoners met herkomst buiten Europa'),
   bornAbroadPct:    W('meeste in het buitenland geboren inwoners', 'minste in het buitenland geboren inwoners'),
@@ -177,6 +177,7 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
   for (const key of DATASET_KEYS) {
     if (DATASETS[key].unit === 'score' || DATASETS[key].unit === 'stapel') continue;   // the Woonscore and Mijn stapel have their own block
     if (DATASETS[key].live) continue;   // P2000 meldingen (W30): own block, no rank among peers
+    if (key === 'originDutchPct') continue;   // mirrored by Diversiteit (16 Nov 2026): no rank, no "Opvallend" chip
     const ds = datasetFor(key, mode);
     const value = datasetValue(area.values, key, mode);
     if (!isNum(value)) continue;

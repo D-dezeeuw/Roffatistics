@@ -24,7 +24,7 @@ export const LIST_MIN_POPULATION = CRIME_MIN_POPULATION;   // wijken below this 
 const CRIME_KEYS = Object.keys(CRIME_CATEGORIES);
 const SUM_KEYS = ['population', 'totalCrimes', ...CRIME_KEYS.map(k => `${k}Count`), 'housingStock', 'nonResidentialStock'];
 const POP_KEYS = ['pop15to24', 'pop25to44', 'pop45to64', 'pop65plus', 'hhWithKidsPct', 'highEdu', 'medEdu', 'lowEdu',
-  'nonWesternPct', 'originDutchPct', 'originEuropePct', 'bornAbroadPct', 'avgIncome', 'welfarePer1000', 'woonscore'];
+  'nonWesternPct', 'originDutchPct', 'diversityPct', 'originEuropePct', 'bornAbroadPct', 'avgIncome', 'welfarePer1000', 'woonscore'];
 // Facilities and setting the Jouw dashboard reads (W19); population-weighted like POP_KEYS.
 const PERSONAL_KEYS = ['singleHhPct', 'density', 'waterPct', 'horeca1km', 'distStation', 'distOv', 'distOvHalte', 'distMetro', 'distTram', 'distSchool', 'eduNearScore', 'distKinderopvang', 'distGP', 'distSupermarket',
   'distCafe', 'distWarenhuis', 'distPodium', 'distBioscoop', 'distAttractie', 'distGroen', 'distRecreatie', 'distBos', 'distOpenNatuur'];

@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-11-16 — Diversiteit replaces "Nederland (%)"; Gemeenschappen per land back (v0.53.0)
+
+Partly reverses "2026-11-15 — One category list…" (Herkomst = Nederland + world regions).
+
+- **Why.** Users read a layer "Nederland (%)" as racist. Operator: replace it by Diversiteit and bring the individual countries back, so someone of, say, Moroccan origin can find buurten with a Moroccan gemeenschap.
+- **Diversiteit (`diversityPct`) = 100 − `originDutchPct`**, one decimal, null when that share is null. Derived by `diversityFrom()` (datasets.js) at every place the share is computed: `normalizeProvinces` (gemeente/provincie), `extractAreaValues` (city wijk/buurt, and the herkomst fallback bundle so it shares the fallback year), `decodeLevel` (NL wijk/buurt, which copies the fallback year). Dashboard aggregation weights it by population like the other shares; linear, so it equals 100 − the weighted Nederland share. Label "Diversiteit (%)", neutral, out of the totaalscore, headline of Gemeenschappen. The Uitleg says it is just 100 minus the CBS Nederland share, a rough measure and no diversity index.
+- **`originDutchPct` is data only** (group `herkomstDetail`, layer:false): it still feeds the wizard (Gemeenschap "Nederland"), the area modal herkomst bar and the dashboard. `NEDERLAND_REGION` stays exported for those, but `LAYER_REGIONS` is now just `REGIONS`. The area modal skips the originDutchPct rank row (mirror of Diversiteit); the "Opvallend" chips say "meeste/minste diversiteit". `diversityPct` is in `ORIGIN_KEYS`, so it can never be a target, filter or "lower" preference.
+- **Gemeenschappen per land** (`herkomstLand`, right after `herkomst`, headline hk_marokko): the ten postcode country groups are layers and Ranglijst columns again, still estimated (title "geschat via postcode 2023", PC4 caveats in the Uitleg) and Rotterdam scope (city wijk/buurt), so the category is not offered in the Nederland view. Origin ramp via `ORIGIN_GROUPS` in palette.js (single hue, weinig → veel).
+- **Old links.** `RETIRED_LAYERS`: originDutchPct and bornAbroadPct → diversityPct; the hk_* redirects are gone (they open their own layer again).
+- **Not done: country shares per gemeente as the same keys in the Nederland scope.** herkomst-gemeente.js can compute all ten from 85458NED (snapshot `cbs/85458NED-gemeenten`, `withDetailShares`), but they load per group on demand for the wizard, use a newer year than the 2023 postcode estimate and the cariben/euNietEu definitions need checking against the postcode groups. Needs app.js wiring (load on layer activation, join gemeente rows) and a scope change; left for a separate change.
+
 ## 2026-11-16 — Own data mirror, phase 1: snapshot, raw archive, one fetch layer
 
 - **Every runtime CBS/police/PDOK query is a snapshot** in `data/snapshot/` (in git, 702 files, ~11 MB uncompressed; gzip from `server.js`): 16 OData tables (Rotterdam kerncijfers 2025/2024, nabijheid 2025/2024, groen 2017, WOZ 2026, gemeentenamen, police 47018NED wijk/buurt, herkomst Rotterdam ×2, herkomst groups per gemeente, 70072ned/83648NED provinces and gemeenten), wijk and buurt polygons for all 342 gemeenten (2025) and the 2024 gemeente overlay. File-size limits are lifted by the operator; nothing is trimmed.

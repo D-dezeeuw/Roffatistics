@@ -15,7 +15,7 @@ describe('stapel: directions and parsing', () => {
     assert.equal(defaultDirection('wozValue'), 'l');
     assert.equal(defaultDirection('crimeRate'), 'l');
     assert.equal(defaultDirection('avgIncome'), 'h');
-    assert.equal(defaultDirection('originDutchPct'), null);
+    assert.equal(defaultDirection('diversityPct'), null);
     assert.equal(defaultDirection('woonscore'), 'h');
   });
 
@@ -37,13 +37,13 @@ describe('stapel: directions and parsing', () => {
   });
 
   it('drops unknown, live, duplicate, malformed and undirected neutral items; < 2 valid → null', () => {
-    assert.equal(normalizeStack('wozValue.l,bogus.h,p2000Totaal.h,wozValue.h,crime Rate.l,originDutchPct,avgIncome.x9,crimeRate.l'), 'wozValue.l,crimeRate.l');
+    assert.equal(normalizeStack('wozValue.l,bogus.h,p2000Totaal.h,wozValue.h,crime Rate.l,diversityPct,avgIncome.x9,crimeRate.l'), 'wozValue.l,crimeRate.l');
     assert.equal(parseStack('wozValue.l'), null);
-    assert.equal(parseStack('wozValue.l,originDutchPct'), null);
+    assert.equal(parseStack('wozValue.l,diversityPct'), null);
     assert.equal(parseStack(''), null);
     assert.equal(parseStack(null), null);
-    assert.equal(serializeStack([{ key: 'wozValue', dir: 'l', weight: 1 }, { key: 'originDutchPct', dir: null, weight: 1 }]), null);
-    assert.equal(serializeStack([{ key: 'wozValue', dir: 'l', weight: 7 }, { key: 'originDutchPct', dir: 'h', weight: 2 }]), 'wozValue.l,originDutchPct.h2');
+    assert.equal(serializeStack([{ key: 'wozValue', dir: 'l', weight: 1 }, { key: 'diversityPct', dir: null, weight: 1 }]), null);
+    assert.equal(serializeStack([{ key: 'wozValue', dir: 'l', weight: 7 }, { key: 'diversityPct', dir: 'h', weight: 2 }]), 'wozValue.l,diversityPct.h2');
   });
 
   it('keeps at most 6 layers', () => {
@@ -125,10 +125,10 @@ describe('stapel: texts', () => {
     assert.equal(stackItemText({ key: 'wozValue', dir: 'l', weight: 2 }), '↓ WOZ waarde ×2');
     assert.equal(stackNote({ parts: [{ key: 'wozValue', score: 71.6 }, { key: 'crimeRate', score: null }] }), 'WOZ waarde 72 · Misdrijven totaal –');
     assert.equal(stackDraftStatus([{ key: 'wozValue', dir: 'l' }]).valid, false);
-    const s = stackDraftStatus([{ key: 'wozValue', dir: 'l' }, { key: 'originDutchPct', dir: null }, { key: 'crimeRate', dir: 'l' }]);
+    const s = stackDraftStatus([{ key: 'wozValue', dir: 'l' }, { key: 'diversityPct', dir: null }, { key: 'crimeRate', dir: 'l' }]);
     assert.equal(s.valid, false);
-    assert.match(s.text, /^3 lagen · kies een richting voor Nederland \(%\)/);
-    assert.ok(stackDraftStatus([{ key: 'wozValue', dir: 'l' }, { key: 'originDutchPct', dir: 'h' }]).valid);
+    assert.match(s.text, /^3 lagen · kies een richting voor Diversiteit \(%\)/);
+    assert.ok(stackDraftStatus([{ key: 'wozValue', dir: 'l' }, { key: 'diversityPct', dir: 'h' }]).valid);
   });
 
   it('legend: list + Bewerken on the stack, + Stapel elsewhere, nothing on live layers', () => {
@@ -192,12 +192,12 @@ describe('stapel: builder and happy flow', async () => {
   });
 
   it('initial draft: current stack plus the added layer with its default direction', () => {
-    assert.deepEqual(initialDraft('wozValue.l,crimeRate.l2', 'originDutchPct').map(d => [d.key, d.dir, d.weight]),
-      [['wozValue', 'l', 1], ['crimeRate', 'l', 2], ['originDutchPct', null, 1]]);
+    assert.deepEqual(initialDraft('wozValue.l,crimeRate.l2', 'diversityPct').map(d => [d.key, d.dir, d.weight]),
+      [['wozValue', 'l', 1], ['crimeRate', 'l', 2], ['diversityPct', null, 1]]);
     assert.equal(initialDraft(null, 'wozValue')[0].dir, 'l');
     const html = builderBodyHtml(initialDraft('wozValue.l,crimeRate.l2'), 'rotterdam');
     assert.match(html, /data-stack-key="crimeRate"[^]*?checked[^]*?<option value="2" selected>/);
-    assert.match(html, /data-stack-key="originDutchPct"[^]*?Geen vaste richting: kies zelf/);
+    assert.match(html, /data-stack-key="diversityPct"[^]*?Geen vaste richting: kies zelf/);
   });
 
   it('happy flow: link → state → values → Ranglijst, tooltip and modal', () => {

@@ -8,6 +8,7 @@
 // Pure helpers are exported for the unit tests; loaders take an injectable fetcher.
 import { areaLevel, parentCode, per1000, toNumber, CRIME_CATEGORIES, CRIME_MIN_POPULATION, CRIME_MIN_POPULATION_BUURT, WIJK_YEAR } from './areas.js';
 import { withWoonscore, assignScore } from './presets.js';
+import { diversityFrom } from './datasets.js';
 import { addPc4Shares } from './herkomst-pc4.js';
 import { addBouwShares } from './bouwjaar-pc4.js';
 import { addP2000Values } from './p2000.js';
@@ -117,10 +118,12 @@ export function decodeLevel(data) {
     const values = {};
     for (const k of keys) values[k] = cols[k][i] ?? null;
     Object.assign(values, ovValues(values));   // distOvHalte, distOv (null without the OV columns)
+    if ('originDutchPct' in values) values.diversityPct = diversityFrom(values.originDutchPct);   // Diversiteit, derived (16 Nov 2026)
     const years = {};
     for (const [k, f] of Object.entries(fallback)) {
       if (values[k] != null && (fellAt[k] == null || fellAt[k].has(i))) years[k] = f.year;
     }
+    if (years.originDutchPct) years.diversityPct = years.originDutchPct;
     addCrimeRates(values, minPopulationFor(level));
     return { code, name: names[i] ?? code, level, parent: parentCode(code), gemeente: gemeenteOf(code), values, years, bounds: null };
   });

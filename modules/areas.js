@@ -4,7 +4,7 @@
 // codes are identical in the 2025 table).
 // Pure helpers are exported for the unit tests; loaders take injectable
 // fetcher/storage so they run under node --test as well as in the browser.
-import { DATASETS, DATASET_KEYS } from './datasets.js';
+import { DATASETS, DATASET_KEYS, diversityFrom } from './datasets.js';
 import { addPc4Shares } from './herkomst-pc4.js';
 import { addBouwShares } from './bouwjaar-pc4.js';
 import { addP2000Values } from './p2000.js';
@@ -215,6 +215,7 @@ export function extractAreaValues(row) {
     newBuildPct:   toNumber(r[C.builtLast10]),
     nonWesternPct: share(r[C.originOutsideEurope], population),
     originDutchPct:  share(r[C.originDutch], population),
+    diversityPct:    diversityFrom(share(r[C.originDutch], population)),
     originEuropePct: share(r[C.originEurope], population),
     // Herkomst Nederland is by definition born in NL, so _23 + _24 is everyone born abroad.
     bornAbroadPct: abroadE != null && abroadO != null ? share(abroadE + abroadO, population) : null,
@@ -241,7 +242,7 @@ export function extractAreaValues(row) {
 // Value keys taken over together from the fallback year: the education shares
 // come from one triple of counts, so they never mix years.
 // The herkomst shares travel together too, so the NL/Europa/buiten-Europa split is one year.
-const FALLBACK_BUNDLES = [['lowEdu', 'medEdu', 'highEdu'], ['nonWesternPct', 'originDutchPct', 'originEuropePct', 'bornAbroadPct']];
+const FALLBACK_BUNDLES = [['lowEdu', 'medEdu', 'highEdu'], ['nonWesternPct', 'originDutchPct', 'diversityPct', 'originEuropePct', 'bornAbroadPct']];
 
 /**
  * Values from the base-year row, with every field that is null there taken from
