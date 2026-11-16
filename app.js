@@ -4,7 +4,7 @@ import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData,
 import { applyDrillDataset }            from './modules/nl-drill.js';
 import { rescoreNlAreas }               from './modules/nl-areas.js';
 import { loadOvAfstand, withOvValues }   from './modules/ov.js';
-import { loadRegionRows, normalizeProvinces, normalizeCrime, DATASETS, groupDatasets, datasetInScope, datasetFor, crimeValues, isCrimeDataset } from './modules/datasets.js';
+import { loadRegionRows, normalizeProvinces, normalizeCrime, DATASETS, groupDatasets, datasetInScope, datasetFor, crimeValues, isCrimeDataset, levelSourceText } from './modules/datasets.js';
 import { initComparePanel, toggleCompare, closeCompare, addToCompare } from './modules/compare-panel.js';
 import { initState, getState, setState, onStateChange } from './modules/state.js';
 import { enableCityScope, disableCityScope, applyCityDataset, focusArea } from './modules/city-scope.js';
@@ -34,6 +34,7 @@ import { peekNlAreas }                    from './modules/nl-areas.js';
 import { loadBouwjaar, onBouwLoaded, addBouwShares, isBouwKey, isBouwLoaded, presetUsesBouw } from './modules/bouwjaar-pc4.js';
 import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, presetUsesPc4 } from './modules/herkomst-pc4.js';
 import { loadGemeenteRegio, isRegioLoaded, isRegionMetric, withRegionShares } from './modules/herkomst-regio.js';
+import { loadGemeenteLand, isLandLoaded, isLandMetric, withLandShares } from './modules/herkomst-land.js';
 import { showLoader, hideLoader, setLoaderProgress, withLoader } from './modules/loader.js';
 import { isMilieuKey, isMilieuLoaded, loadMilieu, onMilieuLoaded, addMilieuValues, withMilieuRows, presetUsesMilieu } from './modules/milieu.js';
 import { isEduKey, isEduLoaded, loadEduAreas, onEduLoaded, addEduValues, withEduRows, presetUsesEdu, eduAreasWanted } from './modules/onderwijs.js';
@@ -161,7 +162,7 @@ function refreshMunicipalityView() {
 loadRegionRows('cbs/70072ned-gemeenten')
   .then(async rawGM => {
     const ov = await loadOvAfstand();   // prebuilt metro/tram distances per gemeente ({} when it fails)
-    gemeenteRows = rowsWithWoonscore(withRegionShares(normalizeProvinces(rawGM).filter(r => r.regionCode).map(r => withOvValues(r, r.regionCode, ov))));   // regions: once loaded
+    gemeenteRows = rowsWithWoonscore(withLandShares(withRegionShares(normalizeProvinces(rawGM).filter(r => r.regionCode).map(r => withOvValues(r, r.regionCode, ov)))));   // regions, countries: once loaded
     gemeenteRows = withP2000Rows(gemeenteRows);   // P2000 meldingen (W30) when the layer was opened first
     gemeenteRows = withEduRows(gemeenteRows);     // onderwijsprestatie basisscholen when already loaded
     gemeenteRows = withMilieuRows(gemeenteRows);  // milieu (plan-milieu) when already loaded
@@ -348,6 +349,12 @@ async function activateDataset(key) {
     if (isRegioLoaded() && gemeenteRows.length) { gemeenteRows = withRegionShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
     if (getState().dataset !== key) return;
   }
+  // Gemeenschappen per land per gemeente (v0.55.0): the static file loads on first use, then joins the gemeente rows.
+  if (isLandMetric(key) && !isLandLoaded()) {
+    await loadGemeenteLand().catch(err => console.warn('herkomst per land:', err));
+    if (isLandLoaded() && gemeenteRows.length) { gemeenteRows = withLandShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
+    if (getState().dataset !== key) return;
+  }
   // Milieu (plan-milieu): the static file loads on first use; onMilieuLoaded joins it everywhere.
   if (isMilieuKey(key) && !isMilieuLoaded()) {
     await loadMilieu().catch(err => console.warn('milieu:', err));
@@ -372,7 +379,8 @@ async function activateDataset(key) {
   syncLegendExtras(key);
   if (getState().scope === 'rotterdam') {
     const { scale, level, hasData } = applyCityDataset(key, mode);
-    const suffix = hasData ? (level === 'buurt' ? 'buurt' : 'wijk') : 'geen wijkdata';
+    const src = hasData ? levelSourceText(key, level) : '';
+    const suffix = hasData ? `${level === 'buurt' ? 'buurt' : 'wijk'}${src ? ` · ${src}` : ''}` : 'geen wijkdata';
     await updateLegend({ title: `${ds.title} · ${suffix}`, scale, dataset: key, mode, showNoData: true });
     return;
   }
@@ -387,13 +395,13 @@ async function activateDataset(key) {
     const suffix = !status ? 'geen gemeente in beeld'
       : status.error === 'geo' ? `wijk- en buurtgrenzen niet beschikbaar (PDOK) · ${gemeenteName(status.gemeente)}`
       : status.error === 'data' || !hasData ? `geen ${level}data · ${gemeenteName(status.gemeente)}`
-      : `${level} · ${gemeenteName(status.gemeente)} · t.o.v. heel NL`;
+      : `${level} · ${gemeenteName(status.gemeente)} · t.o.v. heel NL${levelSourceText(key, level) ? ` · ${levelSourceText(key, level)}` : ''}`;
     await updateLegend({ title: `${ds.title} · ${suffix}`, scale, dataset: key, mode, showNoData: true });
     return;
   }
   if (!rows.length) return;
   const title = !datasetInScope(key, 'nederland') ? `${ds.title} · alleen per wijk/buurt: zoom in op een gemeente`
-    : useGemeente ? `${ds.title} · gemeente` : ds.title;
+    : useGemeente ? `${ds.title} · gemeente${levelSourceText(key, 'gemeente') ? ` · ${levelSourceText(key, 'gemeente')}` : ''}` : ds.title;
   const { scale } = applyDataset(rows.map(r => crimeValues(r, mode)), ds.key);
   await updateLegend({ title, scale, dataset: key, mode });
 }
@@ -510,6 +518,12 @@ function ensureStackData(items) {
   if (keys.some(isRegionMetric) && !isRegioLoaded()) {
     loadGemeenteRegio().then(() => {
       if (gemeenteRows.length) { gemeenteRows = withRegionShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
+      applyStack();
+    }).catch(() => { /* idem */ });
+  }
+  if (keys.some(isLandMetric) && !isLandLoaded()) {
+    loadGemeenteLand().then(() => {
+      if (gemeenteRows.length) { gemeenteRows = withLandShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
       applyStack();
     }).catch(() => { /* idem */ });
   }

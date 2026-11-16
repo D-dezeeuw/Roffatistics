@@ -196,7 +196,7 @@ describe('new layers and dropdown groups', () => {
     assert.deepEqual(groups.map(g => g.label), ['Woonscore', 'Bevolking & huishoudens', 'Leeftijd', 'Gemeenschappen', 'Gemeenschappen per land', 'Criminaliteit', 'Opleiding', 'Welvaart & wonen', 'Milieu', 'Voorzieningen', 'Actueel: meldingen hulpdiensten']);
     assert.equal(groups.find(g => g.key === 'herkomst').scope, 'all', 'v0.28.0 regions: every level');
     assert.equal(groups.find(g => g.key === 'herkomst').datasets[0].key, 'diversityPct', '16 Nov 2026: Diversiteit heads Gemeenschappen');
-    assert.equal(groups.find(g => g.key === 'herkomstLand').scope, 'rotterdam', 'postcode country groups: wijk/buurt only');
+    assert.equal(groups.find(g => g.key === 'herkomstLand').scope, 'all', 'v0.55.0: CBS countries per gemeente, postcode estimate per wijk/buurt');
     assert.ok(datasetInScope('hr_noordAfrika', 'nederland') && datasetInScope('hr_noordAfrika', 'rotterdam'), 'Noord-Afrika: Marokko per wijk/buurt');
     assert.ok(datasetInScope('hr_oostAfrika', 'nederland') && !datasetInScope('hr_oostAfrika', 'rotterdam'), 'Oost-Afrika: gemeente only');
     assert.deepEqual(groups.find(g => g.key === 'score').datasets.map(d => d.key), ['woonscore', 'stapel']);   // Mijn stapel sits under the Woonscore (plan-laagstapel)

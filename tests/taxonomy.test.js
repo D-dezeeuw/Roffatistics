@@ -9,6 +9,7 @@ import {
 } from '../modules/datasets.js';
 import { NEDERLAND_REGION, LAYER_REGIONS, REGIONS, decodeRegio, regionSharesOf, nederlandShareOf, onbekendShareOf } from '../modules/herkomst-regio.js';
 import { sanitizePatch, parseHash } from '../modules/state.js';
+import { LAND_METRICS } from '../modules/herkomst-land.js';
 import { diversityFrom, normalizeProvinces, CBS_COLUMNS } from '../modules/datasets.js';
 import { encodeLevel, decodeLevel } from '../modules/nl-areas.js';
 import { extractAreaValues } from '../modules/areas.js';
@@ -46,7 +47,7 @@ describe('categories', () => {
     assert.equal(rankKeyForCategory('score'), 'woonscore');
     assert.equal(rankKeyForCategory('herkomst', null, 'nederland'), 'diversityPct');
     assert.equal(rankKeyForCategory('herkomstLand', null, 'rotterdam'), 'hk_marokko');
-    assert.equal(categoryHeadline('herkomstLand', 'nederland'), null, 'postcode country groups: not in the Nederland scope');
+    assert.equal(categoryHeadline('herkomstLand', 'nederland'), 'hk_marokko', 'v0.55.0: CBS countries per gemeente');
     assert.equal(rankKeyForCategory('criminaliteit', 'crimeBike', 'rotterdam'), 'crimeBike');
     assert.equal(rankKeyForCategory('criminaliteit', 'avgIncome', 'rotterdam'), 'crimeRate', 'a metric of another category is ignored');
     assert.equal(rankKeyForCategory('criminaliteit', 'crimeBike', 'nederland'), 'crimeRate', 'not in scope');
@@ -152,15 +153,18 @@ describe('Gemeenschappen per land (16 Nov 2026)', () => {
     assert.equal(cat.label, 'Gemeenschappen per land');
     const order = LAYER_CATEGORIES.map(c => c.key);
     assert.equal(order.indexOf('herkomstLand'), order.indexOf('herkomst') + 1);
-    assert.deepEqual(categoryDatasets('herkomstLand').map(d => d.key), [...PC4_KEYS]);
-    for (const k of PC4_KEYS) {
+    const keys = categoryDatasets('herkomstLand').map(d => d.key);
+    assert.deepEqual([...keys].sort(), [...new Set([...PC4_KEYS, ...LAND_METRICS])].sort());
+    const labels = categoryDatasets('herkomstLand').map(d => d.label);
+    assert.deepEqual(labels, [...labels].sort((a, b) => a.localeCompare(b, 'nl')), 'sorted by label');
+    for (const k of keys) {
       assert.ok(LAYER_KEYS.includes(k) && !(k in RETIRED_LAYERS), k);
       assert.equal(metricKind(DATASETS[k]), 'origin', k);
-      assert.match(DATASETS[k].title, /geschat via postcode/, k);
     }
+    for (const k of PC4_KEYS.filter(k => !LAND_METRICS.includes(k))) assert.match(DATASETS[k].title, /geschat via postcode/, k);
   });
   it('keeps the Uitleg free of good/bad and "mensen zoals jij" wording', () => {
-    for (const k of ['diversityPct', ...PC4_KEYS]) {
+    for (const k of ['diversityPct', ...PC4_KEYS, ...LAND_METRICS]) {
       const text = [DATASETS[k].label, DATASETS[k].title, DATASETS[k].description, ...DATASETS[k].caveats].join(' ');
       assert.doesNotMatch(text, /mensen zoals jij|\b(goed|slecht)\b/i, k);
     }

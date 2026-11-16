@@ -10,6 +10,7 @@ import { DATASETS, groupDatasets, datasetFor } from './datasets.js';
 import { ORIGIN_GROUPS, HERKOMST_TABLE, HERKOMST_FIRST_YEAR, HERKOMST_YEAR } from './herkomst.js';
 import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, PC4_VALIDATION, pc4RegionComposition } from './herkomst-pc4.js';
 import { REGIONS, regionComposition } from './herkomst-regio.js';
+import { LAND_COUNTRIES } from './herkomst-land.js';
 import { OLD_BUILD_BEFORE, MODERN_BUILD_FROM, BOUW_MIN_DWELLINGS } from './bouwjaar-pc4.js';
 import { CITY, cityNeighbours } from './city.js';
 
@@ -123,6 +124,15 @@ export const GENERAL_SECTIONS = Object.freeze([
       `Het Dashboard toont de bevolking van heel ${CITY.name} op 1 januari ${HERKOMST_YEAR} naar herkomstgroep, de grootste herkomstlanden en de groei sinds ${HERKOMST_FIRST_YEAR} (CBS ${HERKOMST_TABLE}). Per wijk en buurt levert CBS alleen Nederland, Europa (exclusief Nederland) en buiten Europa, plus wie in het buitenland is geboren; landengroepen per wijk bestaan niet als open data; een schatting via de postcode staat hieronder.`,
       'De groepen sluiten elkaar uit en tellen precies op tot het totaal. Samenstelling: ' + ORIGIN_GROUPS.map(g => `${g.label}: ${g.composition}.`).join(' '),
       `Kanttekeningen: CBS rekent Turkije en de Kaukasische en Centraal-Aziatische landen tot Azië. CBS levert van Noord-Afrika alleen Marokko en Egypte apart; Algerije, Tunesië, Libië en Soedan zitten daardoor in "Afrika bezuiden de Sahara" (in ${CITY.name} een kleine groep naast onder meer Kaapverdië en Somalië). De top 15 noemt alleen landen die CBS apart publiceert (45 landen); verzamelposten als "voormalig Joegoslavië" en "voormalige Sovjet-Unie" overlappen hun opvolgers en blijven buiten de top. De groei is het verschil tussen de aantallen op 1 januari en zegt niets over de oorzaak (migratie, geboorte, verhuizing, sterfte).`,
+    ],
+  },
+  {
+    id: 'herkomst-land',
+    title: `Gemeenschappen per land per gemeente (CBS ${HERKOMST_TABLE}, ${HERKOMST_YEAR})`,
+    paragraphs: [
+      `In het Nederland-overzicht toont de categorie Gemeenschappen per land per gemeente het aandeel inwoners per herkomstland: alle ${LAND_COUNTRIES.length - 1} landen die CBS apart levert, plus Nederlandse Cariben (Curaçao, Aruba, Bonaire, Sint-Maarten, Sint-Eustatius en Saba samen). Dit zijn de officiële cijfers van 1 januari ${HERKOMST_YEAR}, geen schatting: ${LAND_COUNTRIES.map(c => c.label).join(', ')}.`,
+      `${LAND_COUNTRIES.filter(c => c.pc4).map(c => c.label).join(', ')} hebben ook een waarde per wijk en buurt: daar is het een schatting via postcode (${PC4_YEAR}, zie hieronder). De legenda zegt per niveau welke bron je ziet. De andere landen bestaan alleen per gemeente.`,
+      'Werelddelen, EU-groepen en verzamelposten als "voormalig Joegoslavië", "voormalige Sovjet-Unie" en "voormalig Tsjecho-Slowakije" zijn geen eigen laag: ze overlappen de landen in de lijst. Weinig of veel van een gemeenschap is beschrijvend: er zit geen oordeel in.',
     ],
   },
   {

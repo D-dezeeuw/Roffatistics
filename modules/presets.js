@@ -4,6 +4,7 @@
 import { DATASETS, DATASET_KEYS } from './datasets.js';
 import { scoreAreas, MIN_COVERAGE } from './score.js';
 import { ALL_DETAIL_KEYS, withDetailShares } from './herkomst-gemeente.js';
+import { LAND_METRICS } from './herkomst-land.js';
 import { classifyWoongebied } from './woongebied.js';
 import { assignStack, assignStackRows } from './stapel.js';
 
@@ -206,7 +207,7 @@ export const RATE_KEYS = Object.freeze(DATASET_KEYS.filter(k => DATASETS[k].unit
  * a chosen group = plus), never lower, as a target or as a filter, so no
  * preset can rank an area by the absence of a group.
  */
-export const ORIGIN_KEYS = Object.freeze(['originDutchPct', 'diversityPct', 'originEuropePct', 'nonWesternPct', ...ALL_DETAIL_KEYS]);
+export const ORIGIN_KEYS = Object.freeze(['originDutchPct', 'diversityPct', 'originEuropePct', 'nonWesternPct', ...new Set([...ALL_DETAIL_KEYS, ...LAND_METRICS])]);
 const originAllowed = (m, target) => !ORIGIN_KEYS.includes(m.key) || (m.pref === 'higher' && !target);
 /**
  * "Jouw situatie" (v0.23.0) is positive-only: in that theme a metric counts only
