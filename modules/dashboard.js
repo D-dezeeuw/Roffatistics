@@ -6,7 +6,7 @@
 // Jouw dashboard (dashboard-personal.js, blue), the latter from the wizard answers.
 import { getState, setState, onStateChange } from './state.js';
 import { openAreaModal } from './area-modal.js';
-import { loadRotterdamAreas } from './areas.js';
+import { loadCityAreas } from './areas.js';
 import { loadNlLevel, findNlArea } from './nl-areas.js';
 import { loadGemeenteRegio } from './herkomst-regio.js';
 import { loadBouwjaar, isBouwLoaded } from './bouwjaar-pc4.js';
@@ -15,12 +15,13 @@ import { sumRegioEntries } from './dashboard-herkomst.js';
 import { personalDashboardSpec, personalLayout, personalContext, standardScores } from './dashboard-personal.js';
 import { decodeAnswers, presetFromScore, scoreKind } from './wizard-model.js';
 import { openWizard } from './wizard.js';
+import { CITY } from './city.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const ROTTERDAM_GM = 'GM0599';
+const CITY_GM = CITY.gemeente;
 
 let root = null, tip = null, renderSeq = 0;
-let rd = null;            // loadRotterdamAreas() result
+let rd = null;            // loadCityAreas() result
 let nlWijken = null;      // all NL wijken (scored)
 let nlCache = null;       // { key, gemeenten }
 let regio = null;         // Map(GM → herkomst-regio entry) once loaded
@@ -98,7 +99,7 @@ async function render() {
       nlWijken = await loadNlLevel('wijk');
     } else if (scope !== 'nederland' && !rd) {
       root.innerHTML = '<p class="dash-loading">Wijkcijfers laden…</p>';
-      rd = await loadRotterdamAreas();
+      rd = await loadCityAreas();
     }
   } catch {
     if (seq === renderSeq) root.innerHTML = '<div class="placeholder-card dash-message"><h2>Dashboard</h2><p>De gegevens konden niet worden geladen.</p></div>';
@@ -135,10 +136,10 @@ function contextFor(state) {
     });
   }
   if (!rd) return null;
-  const selected = code && code !== ROTTERDAM_GM ? rd.wijken.find(a => a.code === code) ?? rd.buurten.find(a => a.code === code) ?? null : null;
+  const selected = code && code !== CITY_GM ? rd.wijken.find(a => a.code === code) ?? rd.buurten.find(a => a.code === code) ?? null : null;
   return buildContext({
     scope: 'rotterdam', units: rd.wijken, scored: rd.wijken, selected, bouwLoaded: isBouwLoaded(),
-    regio: { area: regio?.get(ROTTERDAM_GM) ?? null, ref: regioAll, areaName: 'Rotterdam', refName: 'Nederland' },
+    regio: { area: regio?.get(CITY_GM) ?? null, ref: regioAll, areaName: CITY.name, refName: 'Nederland' },
   });
 }
 
@@ -173,10 +174,10 @@ function paint() {
     const spec = personalDashboardSpec(answers, presetFromScore(state.score));
     const pc = personalContext(ctx, { answers, std: standardFor(state, ctx), weights: spec.weights });
     const sub = compare ?? `<p>Op basis van jouw antwoorden in de wizard · ${ctx.units.length} ${ctx.unitWord} · <button type="button" class="dash-btn dash-btn-small" data-action="open-wizard">Wensen aanpassen</button></p>`;
-    root.innerHTML = `${tabs}<header class="dash-head dash-head-personal"><h2>Jouw dashboard · ${state.scope === 'nederland' ? 'Nederland' : 'Rotterdam'}</h2>${sub}</header>${boardHtml(personalLayout(ctx, spec, pc), { personal: true })}`;
+    root.innerHTML = `${tabs}<header class="dash-head dash-head-personal"><h2>Jouw dashboard · ${state.scope === 'nederland' ? 'Nederland' : CITY.name}</h2>${sub}</header>${boardHtml(personalLayout(ctx, spec, pc), { personal: true })}`;
     return;
   }
-  const title = state.scope === 'nederland' ? 'Nederland in cijfers' : 'Rotterdam in cijfers';
+  const title = state.scope === 'nederland' ? 'Nederland in cijfers' : `${CITY.name} in cijfers`;
   const sub = compare ?? `<p>${ctx.units.length} ${ctx.unitWord} · kies een gebied op de kaart of in een lijst om het met ${esc(ctx.refName)} te vergelijken</p>`;
   root.innerHTML = `${tabs}<header class="dash-head"><h2>${title}</h2>${sub}</header>${boardHtml(dashboardLayout(ctx))}`;
 }

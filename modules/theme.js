@@ -11,6 +11,14 @@ export const THEMES = Object.freeze({
 });
 
 export const DEFAULT_THEME = 'rotterdam';
+
+/** Map colours per theme: the city outline and wijk strokes (accent) and the mask outside the gemeente. */
+export const MAP_COLORS = Object.freeze({
+  rotterdam: Object.freeze({ accent: '#7c3aed', mask: '#0d0a14', maskOpacity: 0.85 }),
+  klassiek:  Object.freeze({ accent: '#7c3aed', mask: '#0d0a14', maskOpacity: 0.85 }),
+});
+/** MAP_COLORS of theme `id`, else of the default theme. */
+export const mapColors = id => MAP_COLORS[id] ?? MAP_COLORS[DEFAULT_THEME];
 export const THEME_STORAGE_KEY = 'roffatistics.theme';
 
 /** Returns the config for `id`, or the default theme for unknown ids. */

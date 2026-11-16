@@ -11,13 +11,14 @@
 // dialog (`?`, ☰ menu item), the skip link and the aria-keyshortcuts
 // attributes. Actions only click the existing buttons, so the modules that
 // own them (wizard, share-dialog, explain, nav-menu, panel, …) stay in charge.
+import { CITY } from './city.js';
 
 /** The registry, in help-dialog order. `aria` = aria-keyshortcuts value, `selector` = the button it describes. */
 export const SHORTCUTS = Object.freeze([
   { id: 'view-map',       keys: ['1'],      label: 'Kaart',                         group: 'Weergave',  selector: '.view-opt[data-view="map"]',       aria: '1' },
   { id: 'view-dashboard', keys: ['2'],      label: 'Dashboard',                     group: 'Weergave',  selector: '.view-opt[data-view="dashboard"]', aria: '2' },
   { id: 'view-list',      keys: ['3'],      label: 'Ranglijst',                     group: 'Weergave',  selector: '.view-opt[data-view="list"]',      aria: '3' },
-  { id: 'scope',          keys: ['n'],      label: 'Wissel Rotterdam / Nederland',  group: 'Weergave',  selector: '.scope-select',                    aria: 'N' },
+  { id: 'scope',          keys: ['n'],      label: `Wissel ${CITY.name} / Nederland`,  group: 'Weergave',  selector: '.scope-select',                    aria: 'N' },
   { id: 'layers',         keys: ['l'],      label: 'Lagen kiezen',                  group: 'Lagen',     selector: '.layers-btn',                      aria: 'L' },
   { id: 'layer-prev',     keys: ['['],      label: 'Vorige laag in deze categorie', group: 'Lagen' },
   { id: 'layer-next',     keys: [']'],      label: 'Volgende laag in deze categorie', group: 'Lagen' },

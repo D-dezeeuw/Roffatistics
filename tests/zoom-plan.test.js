@@ -1,10 +1,10 @@
 // W10: the Woonscore is coloured and stamped at every zoom of both scopes.
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { zoomPlan, nlPlan, nlTier, rotterdamLevel, labelsVisibleAt, MAX_ZOOM, LABEL_MIN_ZOOM } from '../modules/zoom-plan.js';
+import { zoomPlan, nlPlan, nlTier, cityLevel, labelsVisibleAt, MAX_ZOOM, LABEL_MIN_ZOOM } from '../modules/zoom-plan.js';
 import { declutter, geometryArea } from '../modules/score-labels.js';
 import { resolveZoomTier, DRILL_ZOOM } from '../modules/overlays.js';
-import { resolveRotterdamLevel, ZOOM_BUURT_RD } from '../modules/rotterdam.js';
+import { resolveCityLevel, ZOOM_BUURT_RD } from '../modules/city-scope.js';
 
 const ZOOMS = Array.from({ length: MAX_ZOOM + 1 }, (_, z) => z);   // 0 … 17, covers both minZooms
 const READY = [null, 'GM0363'];
@@ -54,9 +54,9 @@ describe('zoomPlan: no zoom without a coloured, stamped level', () => {
 
   it('rotterdam: wijk below 13, buurt from 13 while buurten have values, else wijk', () => {
     for (const z of ZOOMS) {
-      assert.equal(rotterdamLevel(z), z >= ZOOM_BUURT_RD ? 'buurt' : 'wijk');
-      assert.equal(rotterdamLevel(z, { buurtReady: false }), 'wijk');
-      assert.equal(resolveRotterdamLevel(z), rotterdamLevel(z));
+      assert.equal(cityLevel(z), z >= ZOOM_BUURT_RD ? 'buurt' : 'wijk');
+      assert.equal(cityLevel(z, { buurtReady: false }), 'wijk');
+      assert.equal(resolveCityLevel(z), cityLevel(z));
     }
   });
 

@@ -13,6 +13,7 @@
 //              never an outlier mark.
 // The choice is stored per device under roffatistics.mapPalette ('auto' =
 // "Volgt thema"); it is not part of the share link.
+import { CITY } from './city.js';
 
 export const MAP_PALETTE_STORAGE_KEY = 'roffatistics.mapPalette';
 export const PALETTE_AUTO = 'auto';
@@ -176,7 +177,7 @@ export function applyPaletteVars(palette, doc = globalThis.document) {
 
 // ── Herkomst: value against the average of the scope ─────────────────────────
 
-const SCOPE_AVERAGE = Object.freeze({ rotterdam: 'het Rotterdamse gemiddelde', nederland: 'het landelijke gemiddelde' });
+const SCOPE_AVERAGE = Object.freeze({ rotterdam: `het ${CITY.adjective} gemiddelde`, nederland: 'het landelijke gemiddelde' });
 
 /** "het Rotterdamse gemiddelde" / "het landelijke gemiddelde"; anything else "het gemiddelde". */
 export function scopeAverageLabel(scope) {

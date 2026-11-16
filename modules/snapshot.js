@@ -4,6 +4,7 @@
 // Drawing is snapshot-render.js; the buttons live in share-dialog.js.
 // Privacy: the image carries only the layer title, the area name, the legend
 // colours/range and the site address — never wizard answers (see decisions.md).
+import { CITY } from './city.js';
 
 export const SNAPSHOT_W = 1200;
 export const SNAPSHOT_H = 630;
@@ -73,7 +74,7 @@ export function coverCrop(srcW, srcH, dstW = SNAPSHOT_W, dstH = SNAPSHOT_H) {
 export function snapshotTexts({ title = '', area = '', view = 'map', legend = null } = {}) {
   const viewLabel = view === 'dashboard' ? 'Dashboard' : view === 'list' ? 'Ranglijst' : '';
   return {
-    title: String(title || 'Rotterdam en Nederland in cijfers').trim(),
+    title: String(title || `${CITY.name} en Nederland in cijfers`).trim(),
     area: String(area || '').trim(),
     viewLabel,
     colors: (legend?.colors ?? []).filter(c => typeof c === 'string' && c).slice(0, 9),

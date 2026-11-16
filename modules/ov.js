@@ -3,19 +3,21 @@
 // distances, values) are unit-tested; addOvLayers draws the Leaflet layers.
 // The Metro / Tram / Bus checkboxes live in Instellingen (modules/settings.js).
 // Data © OpenStreetMap contributors (ODbL).
+import { CITY } from './city.js';
 
 export const OV_MODES = Object.freeze({
   metro: Object.freeze({ id: 'metro', label: 'Metro', color: '#2662cc', weight: 1.4, stopRadius: 3.5 }),
   tram:  Object.freeze({ id: 'tram',  label: 'Tram',  color: '#b72824', weight: 1, stopRadius: 2.5 }),
-  bus:   Object.freeze({ id: 'bus',   label: 'Bus',   color: '#907b55', weight: 0.5, stopRadius: 2,   hint: 'alleen regio Rotterdam' }),
+  bus:   Object.freeze({ id: 'bus',   label: 'Bus',   color: '#907b55', weight: 0.5, stopRadius: 2,   hint: `alleen ${CITY.ov.busRegion}` }),
 });
 /** Draw order, bottom to top. */
 export const OV_DRAW_ORDER = Object.freeze(['bus', 'tram', 'metro']);
 
+// Metro and tram cover all of NL; bus and the distances come per city (config/cities.json `ov`).
 export const OV_URLS = Object.freeze({
   lines:   './data/ov/metro-tram.json',
-  bus:     './data/ov/bus-rotterdam.json',
-  afstand: './data/ov/afstand.json',
+  bus:     CITY.ov.bus,
+  afstand: CITY.ov.afstand,
 });
 export const OV_STORAGE_KEY = 'roffatistics.ov';
 export const DEFAULT_OV = Object.freeze({ metro: false, tram: false, bus: false });   // all off until switched on in Instellingen
@@ -93,12 +95,12 @@ export function withOvValues(values, code, table) {
 }
 
 let afstandPromise = null;
-/** Prebuilt { CODE: [distMetro, distTram] } for gemeenten and Rotterdam wijken/buurten; {} when it fails. */
-export function loadOvAfstand({ fetcher = globalThis.fetch?.bind(globalThis) } = {}) {
+/** Prebuilt { CODE: [distMetro, distTram] } for gemeenten and the city's wijken/buurten; {} when it fails. */
+export function loadOvAfstand({ fetcher = globalThis.fetch?.bind(globalThis), url = OV_URLS.afstand } = {}) {
   if (afstandPromise) return afstandPromise;
   afstandPromise = (async () => {
     try {
-      const res = await fetcher(OV_URLS.afstand);
+      const res = await fetcher(url);
       if (!res.ok) return {};
       return (await res.json())?.codes ?? {};
     } catch { return {}; }

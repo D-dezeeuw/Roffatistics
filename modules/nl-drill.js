@@ -11,7 +11,7 @@ import { metricKind } from './palette.js';
 import { datasetValue, DATASETS } from './datasets.js';
 import { createScoreLabels } from './score-labels.js';
 import { formatValue } from './dashboard-data.js';
-import { areaFillStyle, outlierStroke, tooltipHtml, areaNote } from './rotterdam.js';
+import { areaFillStyle, outlierStroke, tooltipHtml, areaNote } from './city-scope.js';
 import { loadNlLevel, loadGemeenteGeo, gemeenteOf, findNlArea, isNlLevelLoaded } from './nl-areas.js';
 import { withLoader } from './loader.js';
 

@@ -11,11 +11,20 @@
 //
 // Usage: node scripts/build-ov-lines.mjs   (OV_CACHE=/tmp/dir keeps the raw
 // Overpass/PDOK responses for a re-run without fetching again)
+//
+// Another city: node scripts/build-ov-lines.mjs --city amsterdam writes only
+// that city's files (config/cities.json `ov`): its bus lines and stops in
+// `ov.busBbox` (e.g. data/ov/amsterdam/bus.json, GVB and the regional
+// operators) and its afstand.json: the gemeente codes of data/ov/afstand.json
+// plus its own wijken/buurten, measured to the stops of metro-tram.json (all
+// of NL, so GVB metro and tram are in it already). Run build-city-geo first.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { geoCentroid, normalizeAreaCode } from '../modules/areas.js';
 import { nearestStopKm } from '../modules/ov.js';
 import { NL_GEO_WFS, NL_GEO_TYPES, NL_DATA_YEAR } from '../modules/nl-areas.js';
+import { CITIES, DEFAULT_CITY } from '../modules/city.js';
+import { cityArg } from './build-city-geo.mjs';
 
 const OVERPASS = 'https://overpass-api.de/api/interpreter';
 const UA = 'roffatistics-build';
@@ -25,8 +34,8 @@ const ROOT = new URL('../data/', import.meta.url);
 const CACHE = process.env.OV_CACHE || null;
 const TODAY = new Date().toISOString().slice(0, 10);
 export const OSM_SOURCE = '© OpenStreetMap-bijdragers (ODbL), via Overpass API';
-/** Rotterdam region for the bus layer: [south, west, north, east]. */
-export const BUS_BBOX = Object.freeze([51.82, 4.22, 52.02, 4.64]);
+/** Rotterdam region for the bus layer: [south, west, north, east] (config/cities.json ov.busBbox). */
+export const BUS_BBOX = Object.freeze([...CITIES.rotterdam.ov.busBbox]);
 const SIMPLIFY_M = 6;          // Douglas-Peucker tolerance in metres
 const DECIMALS = 5;            // ~1 m
 
@@ -251,4 +260,42 @@ async function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) await main();
+/** { CODE: [distMetro, distTram] } for every feature of the given FeatureCollections. */
+export function afstandCodes(collections, metroStops, tramStops) {
+  const codes = {};
+  for (const geo of collections) for (const f of geo.features ?? []) {
+    const code = normalizeAreaCode(f.properties?.statcode);
+    const c = code && geoCentroid(f);
+    if (c) codes[code] = [dist(c, metroStops), dist(c, tramStops)];
+  }
+  return codes;
+}
+
+/** --city <slug> (not the default city): bus and afstand of that city only; the NL files stay as they are. */
+async function cityMain(city) {
+  const file = p => new URL(p.replace(/^\.\//, ''), new URL('../', import.meta.url));
+  const [s, w, n, e] = city.ov.busBbox;
+  const bus = await cached(`osm-bus-${city.slug}.json`, () => overpass(
+    `[out:json][timeout:600];rel["type"="route"]["route"="bus"](${s},${w},${n},${e})->.r;.r out body;way(r.r);out geom;node(r.r);out;`));
+  const bm = buildModes(bus, ['bus'], city.ov.busBbox);
+  const meta = { format: 1, built: TODAY, source: OSM_SOURCE, license: 'ODbL 1.0', attribution: '© OpenStreetMap contributors' };
+  await mkdir(new URL('./', file(city.ov.bus)), { recursive: true });
+  const btext = JSON.stringify({ ...meta, coverage: `${city.ov.busRegion} ${city.ov.busBbox.join(',')}`, modes: { bus: { lines: bm.bus.lines, stops: bm.bus.stops } } });
+  await writeFile(file(city.ov.bus), btext);
+  console.log(`${city.ov.bus}: ${bm.bus.routes} routes, ${bm.bus.lines.length} lines, ${bm.bus.stops.length} stops, ${(btext.length / 1e3).toFixed(0)} kB`);
+
+  const { modes } = JSON.parse(await readFile(new URL('metro-tram.json', OUT), 'utf8'));
+  const nl = JSON.parse(await readFile(new URL('afstand.json', OUT), 'utf8'));
+  const gemeenten = Object.fromEntries(Object.entries(nl.codes).filter(([k]) => k.startsWith('GM')));
+  const geos = await Promise.all([city.geo.wijken, city.geo.buurten].map(async p => JSON.parse(await readFile(file(p), 'utf8'))));
+  const codes = { ...gemeenten, ...afstandCodes(geos, modes.metro.stops, modes.tram.stops) };
+  const atext = JSON.stringify({ format: 1, built: TODAY, source: `${OSM_SOURCE}; gebieden: PDOK CBS gebiedsindelingen`, keys: ['distMetro', 'distTram'], codes });
+  await writeFile(file(city.ov.afstand), atext);
+  console.log(`${city.ov.afstand}: ${Object.keys(codes).length} codes, ${(atext.length / 1e3).toFixed(0)} kB`);
+}
+
+if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+  const slug = cityArg();
+  if (!CITIES[slug]) throw new Error(`unknown city ${slug}`);
+  await (slug === DEFAULT_CITY ? main() : cityMain(CITIES[slug]));
+}

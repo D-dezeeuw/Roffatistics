@@ -18,10 +18,11 @@ import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
-  buildWijkUrl, buildNabijUrl, buildGroenUrl, buildCityWozUrl, buildGemeenteNamesUrl, buildWijkCrimeUrl, buildBuurtCrimeUrl,
-  WIJK_TABLE, WIJK_FALLBACK_TABLE, NABIJ_TABLE, NABIJ_FALLBACK_TABLE, GROEN_TABLE, WOZ_TABLE, CRIME_TABLE, CRIME_PERIOD, WOZ_PERIOD,
+  buildWijkUrl, buildNabijUrl, buildCrimeUrl, CRIME_PREV_PERIOD, buildGroenUrl, buildCityWozUrl, buildGemeenteNamesUrl, buildWijkCrimeUrl, buildBuurtCrimeUrl, citySourceKeys,
+  WIJK_TABLE, WIJK_SELECT, WIJK_FALLBACK_TABLE, NABIJ_TABLE, NABIJ_FALLBACK_TABLE, GROEN_TABLE, WOZ_TABLE, CRIME_TABLE, CRIME_PERIOD, WOZ_PERIOD,
 } from '../modules/areas.js';
-import { buildHerkomstUrls, HERKOMST_SOURCE_KEYS, HERKOMST_TABLE, HERKOMST_YEAR } from '../modules/herkomst.js';
+import { buildHerkomstUrls, herkomstSourceKeys, HERKOMST_TABLE, HERKOMST_YEAR } from '../modules/herkomst.js';
+import { CITIES, cityCodes } from '../modules/city.js';
 import { buildGemeenteGroupUrl, GEMEENTE_GROUPS_SOURCE, FETCHED_GROUP_KEYS } from '../modules/herkomst-gemeente.js';
 import { NL_REGION_QUERIES, nlRegionUrl, CBS_PERIOD } from '../modules/datasets.js';
 import { NL_GEO_TYPES, NL_GEO_YEAR, slimGeo, buildGemeenteGeoUrl, gemeenteGeoKey } from '../modules/nl-areas.js';
@@ -35,24 +36,34 @@ export const OVERLAY_YEAR = 2024;
 
 const odata = (key, live, meta) => ({ kind: 'odata', key, urls: [live], live, ...meta });
 
+/** The city tables of one city (config/cities.json): kerncijfers, nabijheid, groen, WOZ, police, herkomst. `city` = slug. */
+export function cityEntries(city) {
+  const k = citySourceKeys(city), hk = herkomstSourceKeys(city), hu = buildHerkomstUrls(city), n = city.name, c = { city: city.slug };
+  return [
+    odata(k.kwb, buildWijkUrl(WIJK_TABLE, WIJK_SELECT, city), { module: 'areas.js', table: WIJK_TABLE, period: '2025', title: `Kerncijfers wijken en buurten 2025, ${n}`, ...c }),
+    odata(k.kwbFallback, buildWijkUrl(WIJK_FALLBACK_TABLE, WIJK_SELECT, city), { module: 'areas.js', table: WIJK_FALLBACK_TABLE, period: '2024', title: `Kerncijfers wijken en buurten 2024, ${n} (fallback)`, ...c }),
+    odata(k.nabij, buildNabijUrl(NABIJ_TABLE, city), { module: 'areas.js', table: NABIJ_TABLE, period: '2025', title: `Nabijheid voorzieningen 2025, ${n}`, ...c }),
+    odata(k.nabijFallback, buildNabijUrl(NABIJ_FALLBACK_TABLE, city), { module: 'areas.js', table: NABIJ_FALLBACK_TABLE, period: '2024', title: `Nabijheid voorzieningen 2024, ${n} (fallback)`, ...c }),
+    odata(k.groen, buildGroenUrl(city), { module: 'areas.js', table: GROEN_TABLE, period: '2017', title: `Afstand tot groen 2017, ${n}`, ...c }),
+    odata(k.woz, buildCityWozUrl(city), { module: 'areas.js', table: WOZ_TABLE, period: WOZ_PERIOD, title: `Gemiddelde WOZ-waarde, gemeente ${n}`, ...c }),
+    odata(k.crimeWijk, buildWijkCrimeUrl(city), { module: 'areas.js', table: CRIME_TABLE, period: CRIME_PERIOD, title: `Geregistreerde misdrijven, wijken ${n}`, ...c }),
+    // CBS answers at most 10,000 rows per query: a city with many buurten (Amsterdam, config `splitBuurtCrime`) asks one year at a time.
+    { ...odata(k.crimeBuurt, buildBuurtCrimeUrl(city), { module: 'areas.js', table: CRIME_TABLE, period: CRIME_PERIOD, title: `Geregistreerde misdrijven, buurten ${n}`, ...c }),
+      ...(city.splitBuurtCrime ? { urls: [CRIME_PERIOD, CRIME_PREV_PERIOD].map(p => buildCrimeUrl(cityCodes(city).buurtPrefix, [p])) } : {}) },
+    odata(hk[0], hu[0], { module: 'herkomst.js', table: HERKOMST_TABLE, period: 'all', title: `Herkomstland, ${n}`, ...c }),
+    odata(hk[1], hu[1], { module: 'herkomst.js', table: HERKOMST_TABLE, period: 'all', title: `Geboren buiten Nederland, ${n}`, ...c }),
+  ];
+}
+
 /**
- * The registry: one entry per runtime query of the app. kind 'odata' writes
+ * The registry: one entry per runtime query of the app; the city tables once per city. kind 'odata' writes
  * one table; 'geo-split' fetches every polygon of a level once (paged WFS) and
  * writes one file per gemeente (`key` is a template with {gm}); 'geo' writes
  * one FeatureCollection. `module` names the file that reads the key.
  */
 export const REGISTRY = Object.freeze([
-  odata('cbs/86165NED-rotterdam', buildWijkUrl(), { module: 'areas.js', table: WIJK_TABLE, period: '2025', title: 'Kerncijfers wijken en buurten 2025, Rotterdam' }),
-  odata('cbs/85984NED-rotterdam', buildWijkUrl(WIJK_FALLBACK_TABLE), { module: 'areas.js', table: WIJK_FALLBACK_TABLE, period: '2024', title: 'Kerncijfers wijken en buurten 2024, Rotterdam (fallback)' }),
-  odata('cbs/86270NED-rotterdam', buildNabijUrl(), { module: 'areas.js', table: NABIJ_TABLE, period: '2025', title: 'Nabijheid voorzieningen 2025, Rotterdam' }),
-  odata('cbs/86134NED-rotterdam', buildNabijUrl(NABIJ_FALLBACK_TABLE), { module: 'areas.js', table: NABIJ_FALLBACK_TABLE, period: '2024', title: 'Nabijheid voorzieningen 2024, Rotterdam (fallback)' }),
-  odata('cbs/84334NED-rotterdam', buildGroenUrl(), { module: 'areas.js', table: GROEN_TABLE, period: '2017', title: 'Afstand tot groen 2017, Rotterdam' }),
-  odata('cbs/85036NED-rotterdam-woz', buildCityWozUrl(), { module: 'areas.js', table: WOZ_TABLE, period: WOZ_PERIOD, title: 'Gemiddelde WOZ-waarde, gemeente Rotterdam' }),
+  ...Object.values(CITIES).flatMap(cityEntries),
   odata('cbs/86165NED-gemeenten', buildGemeenteNamesUrl(), { module: 'areas.js', table: WIJK_TABLE, period: '2025', title: 'Gemeentenamen (indeling 2025)' }),
-  odata('politie/47018NED-rotterdam-wijk', buildWijkCrimeUrl(), { module: 'areas.js', table: CRIME_TABLE, period: CRIME_PERIOD, title: 'Geregistreerde misdrijven, wijken Rotterdam' }),
-  odata('politie/47018NED-rotterdam-buurt', buildBuurtCrimeUrl(), { module: 'areas.js', table: CRIME_TABLE, period: CRIME_PERIOD, title: 'Geregistreerde misdrijven, buurten Rotterdam' }),
-  odata(HERKOMST_SOURCE_KEYS[0], buildHerkomstUrls()[0], { module: 'herkomst.js', table: HERKOMST_TABLE, period: 'all', title: 'Herkomstland, Rotterdam' }),
-  odata(HERKOMST_SOURCE_KEYS[1], buildHerkomstUrls()[1], { module: 'herkomst.js', table: HERKOMST_TABLE, period: 'all', title: 'Geboren buiten Nederland, Rotterdam' }),
   {
     kind: 'odata', key: GEMEENTE_GROUPS_SOURCE, module: 'herkomst-gemeente.js', table: HERKOMST_TABLE, period: String(HERKOMST_YEAR),
     title: 'Herkomstgroepen per gemeente (Totaal + de sleutels van elke groep)',

@@ -7,6 +7,9 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { REGISTRY } from '../scripts/snapshot-sources.mjs';
 import { isSourceKey } from '../modules/source.js';
+import { CITIES } from '../modules/city.js';
+import { citySourceKeys } from '../modules/areas.js';
+import { herkomstSourceKeys } from '../modules/herkomst.js';
 
 const root = new URL('../', import.meta.url);
 const files = [...(await readdir(new URL('modules/', root))).filter(f => f.endsWith('.js')).map(f => `modules/${f}`), 'app.js'];
@@ -41,7 +44,11 @@ describe('source registry coverage', () => {
 
   it('every snapshot key a module reads is registered', () => {
     const plain = [...keyLiterals.keys()].filter(k => !k.includes('${'));
-    assert.ok(plain.length >= 15, `found ${plain.length} keys`);
+    assert.ok(plain.length >= 5, `found ${plain.length} keys`);
+    // City tables are templated by slug (citySourceKeys / herkomstSourceKeys): check each city's keys.
+    const cityKeys = Object.values(CITIES).flatMap(c => [...Object.values(citySourceKeys(c)), ...herkomstSourceKeys(c)]);
+    assert.ok(cityKeys.length >= 20, `found ${cityKeys.length} city keys`);
+    for (const k of cityKeys) assert.ok(registered.has(k), `${k} (city table) is not in scripts/snapshot-sources.mjs`);
     for (const k of plain) assert.ok(registered.has(k) || REGISTRY.some(e => matches(e.key, k)), `${k} (${[...keyLiterals.get(k)]}) is not in scripts/snapshot-sources.mjs`);
   });
 
@@ -55,12 +62,16 @@ describe('source registry coverage', () => {
       const text = sources[`modules/${e.module}`] ?? sources[e.module];
       assert.ok(text, `${e.key}: module ${e.module} exists`);
       if (e.kind === 'geo-split') assert.match(text, /gemeenteGeoKey\(level, gm\)/, `${e.key} read per gemeente`);
+      else if (e.city) {   // a city table: the key comes from the module's own key function for that city
+        const keys = e.module === 'areas.js' ? Object.values(citySourceKeys(CITIES[e.city])) : herkomstSourceKeys(CITIES[e.city]);
+        assert.ok(keys.includes(e.key), `${e.key} is read by ${e.module} for ${e.city}`);
+      }
       else assert.ok(keyLiterals.get(e.key)?.has(e.module) || text.includes(`'${e.key}'`) || new RegExp(`getRows\\(GEMEENTE_GROUPS_SOURCE|HERKOMST_SOURCE_KEYS|GEMEENTE_SOURCE`).test(text), `${e.key} is read by ${e.module}`);
     }
   });
 
   it('registers the queries named in the plan', () => {
-    for (const k of ['cbs/86165NED-rotterdam', 'politie/47018NED-rotterdam-wijk', 'politie/47018NED-rotterdam-buurt', 'cbs/85458NED-rotterdam', 'cbs/85458NED-gemeenten', 'geo/2025/{gm}-wijk', 'geo/2025/{gm}-buurt', 'geo/2024/gemeenten', 'cbs/70072ned-provincies', 'cbs/83648NED-gemeenten']) {
+    for (const k of ['cbs/86165NED-amsterdam', 'politie/47018NED-amsterdam-buurt', 'cbs/85458NED-amsterdam', 'cbs/86165NED-rotterdam', 'politie/47018NED-rotterdam-wijk', 'politie/47018NED-rotterdam-buurt', 'cbs/85458NED-rotterdam', 'cbs/85458NED-gemeenten', 'geo/2025/{gm}-wijk', 'geo/2025/{gm}-buurt', 'geo/2024/gemeenten', 'cbs/70072ned-provincies', 'cbs/83648NED-gemeenten']) {
       assert.ok(registered.has(k), k);
     }
     assert.equal(registered.size, REGISTRY.length, 'keys are unique');

@@ -1,5 +1,5 @@
 // Which area level is drawn (coloured) and which score stamps show, per zoom
-// and scope. Pure: overlays.js (Nederland), nl-drill.js and rotterdam.js
+// and scope. Pure: overlays.js (Nederland), nl-drill.js and city-scope.js
 // follow it, tests/zoom-plan.test.js sweeps every zoom of both scopes.
 //
 // Rule (W10, v0.28.1): every zoom from the minimum to MAX_ZOOM colours at
@@ -33,7 +33,7 @@ export function nlTier(zoom) {
 }
 
 /** Rotterdam level at `zoom`: buurt from ZOOM_BUURT_RD when the buurten have values, else wijk. */
-export function rotterdamLevel(zoom, { buurtReady = true } = {}) {
+export function cityLevel(zoom, { buurtReady = true } = {}) {
   return zoom >= ZOOM_BUURT_RD && buurtReady ? 'buurt' : 'wijk';
 }
 
@@ -57,11 +57,11 @@ export function nlPlan(tier, { readyGemeente = null, isScore = true } = {}) {
 /**
  * Full plan for (zoom, scope, dataset readiness):
  *   scope 'nederland': nlPlan(nlTier(zoom), { readyGemeente, isScore })
- *   scope 'rotterdam': one level, rotterdamLevel(zoom, { buurtReady })
+ *   scope 'rotterdam': one level, cityLevel(zoom, { buurtReady })
  */
 export function zoomPlan(zoom, scope, { isScore = true, readyGemeente = null, buurtReady = true } = {}) {
   if (scope === 'rotterdam') {
-    const level = rotterdamLevel(zoom, { buurtReady });
+    const level = cityLevel(zoom, { buurtReady });
     return { tier: level, draw: [{ level, except: null }], labels: isScore ? [level] : [] };
   }
   return nlPlan(nlTier(zoom), { readyGemeente, isScore });

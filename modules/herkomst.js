@@ -1,6 +1,7 @@
 // Herkomst (origin) helpers. Wijk/buurt level: the NL / Europa / buiten-Europa
 // split from the kerncijfers (86165NED). Pure; no DOM.
 import { odataUrl, getRows } from './source.js';
+import { CITY } from './city.js';
 
 const fmtPct = v => `${v.toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 const escAttr = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -36,7 +37,7 @@ export function originBarHtml(values) {
 <p class="origin-legend">${parts.map(p => `<span><i style="background:${p.color}"></i>${escAttr(p.short)} ${fmtPct(p.value)}</span>`).join('')}</p>`;
 }
 
-// ── Heel Rotterdam: landengroepen uit CBS 85458NED ────────────────────────────
+// ── De hele stad (Rotterdam): landengroepen uit CBS 85458NED ────────────────────────────
 // "Bevolking; herkomstland, geboorteland, leeftijd, regio, 1 januari" (2022–2026).
 // Keys checked against /85458NED/Herkomstland on 15 Nov 2026 (65 keys incl. totals).
 // Country groups exist only for the whole gemeente, not per wijk.
@@ -211,7 +212,7 @@ export function herkomstSummary({ byYear, bornAbroad } = {}, { year = HERKOMST_Y
   };
 }
 
-const baseFilter = `RegioS eq 'GM0599' and Geslacht eq '${HERKOMST_TOTALS.Geslacht}' and Leeftijd eq '${HERKOMST_TOTALS.Leeftijd}'`;
+const baseFilter = (city = CITY) => `RegioS eq '${city.gemeente}' and Geslacht eq '${HERKOMST_TOTALS.Geslacht}' and Leeftijd eq '${HERKOMST_TOTALS.Leeftijd}'`;
 const SELECT = 'Herkomstland,Geboorteland,Perioden,Bevolking_1';
 
 /**
@@ -219,20 +220,21 @@ const SELECT = 'Herkomstland,Geboorteland,Perioden,Bevolking_1';
  * years), and Totaal × geboren buiten Nederland. One query with a nested
  * "or" makes CBS answer 500, hence two.
  */
-export function buildHerkomstUrls() {
+export function buildHerkomstUrls(city = CITY) {
   const url = filter => odataUrl(HERKOMST_TABLE, { filter, select: SELECT });
   return [
-    url(`${baseFilter} and Geboorteland eq '${HERKOMST_TOTALS.Geboorteland}'`),
-    url(`${baseFilter} and Herkomstland eq '${HK.total}' and Geboorteland eq '${BORN_ABROAD}'`),
+    url(`${baseFilter(city)} and Geboorteland eq '${HERKOMST_TOTALS.Geboorteland}'`),
+    url(`${baseFilter(city)} and Herkomstland eq '${HK.total}' and Geboorteland eq '${BORN_ABROAD}'`),
   ];
 }
 
 /** Snapshot keys of buildHerkomstUrls(), same order (data/snapshot/<key>.json). */
-export const HERKOMST_SOURCE_KEYS = Object.freeze(['cbs/85458NED-rotterdam', 'cbs/85458NED-rotterdam-buitenland']);
+export const herkomstSourceKeys = (city = CITY) => Object.freeze([`cbs/85458NED-${city.slug}`, `cbs/85458NED-${city.slug}-buitenland`]);
+export const HERKOMST_SOURCE_KEYS = herkomstSourceKeys(CITY);
 const getValue = (i, url, fetcher, storage) => getRows(HERKOMST_SOURCE_KEYS[i], { live: url, fetcher, storage });
 
 let cityPromise = null;
-/** herkomstSummary() of Rotterdam, fetched once per page (sessionStorage-cached); rejects when CBS fails. */
+/** herkomstSummary() of the city (Rotterdam by default), fetched once per page (sessionStorage-cached); rejects when CBS fails. */
 export function loadCityHerkomst({ fetcher = globalThis.fetch?.bind(globalThis), storage = globalThis.sessionStorage } = {}) {
   if (!cityPromise) {
     cityPromise = Promise.all(buildHerkomstUrls().map((u, i) => getValue(i, u, fetcher, storage).catch(e => { if (i === 0) throw e; return []; })))

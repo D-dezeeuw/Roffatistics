@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl" data-theme="rotterdam">
+<html lang="nl" data-theme="rotterdam" data-city="rotterdam">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -28,6 +28,8 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <!-- Theme before first paint (modules/theme.js: same key, ids and default). -->
+  <!-- City boot (docs/plan-mokumistics.md): ?city= → hostname → rotterdam, before the first paint. Keep the slugs and hosts in step with config/cities.json (tests/city.test.js). -->
+  <script>try{var s=["rotterdam","amsterdam"],h={"roffatistics.hermes.blockworlds.nl":"rotterdam","d-dezeeuw.github.io":"rotterdam","mokumistics.hermes.blockworlds.nl":"amsterdam"},c=(new URLSearchParams(location.search).get('city')||'').trim().toLowerCase(),n=String(location.hostname).toLowerCase();document.documentElement.dataset.city=s.indexOf(c)>=0?c:Object.prototype.hasOwnProperty.call(h,n)?h[n]:'rotterdam'}catch(e){}</script>
   <script>try{var t=localStorage.getItem('roffatistics.theme');document.documentElement.dataset.theme=t==='klassiek'||t==='rotterdam'?t:'rotterdam'}catch(e){}</script>
 
   <script type="importmap">

@@ -5,6 +5,7 @@ import { P2000_SOURCE_URL, P2000_COVERAGE, P2000_MIN_POPULATION } from './p2000.
 import { SMALL_N as EDU_SMALL_N, NEAR_RADIUS_KM, NEAR_BEST_KM, YEARS as EDU_YEARS } from './schools.js';
 
 import { odataUrl, getRows } from './source.js';
+import { CITY, centrumCoords, cityNeighbours } from './city.js';
 
 export function buildCBSUrl(tableId, filter, select, top = null) {
   return odataUrl(tableId, { filter, select, top });
@@ -161,14 +162,14 @@ export function normalizeCrime(rows) {
 
 const statline = id => `https://opendata.cbs.nl/statline/#/CBS/nl/dataset/${id}/table`;
 const SRC = Object.freeze({
-  kwb2025: Object.freeze({ id: '86165NED', name: 'Kerncijfers wijken en buurten 2025', publisher: 'CBS', url: statline('86165NED'), scope: 'Rotterdam' }),
-  kwb2024: Object.freeze({ id: '85984NED', name: 'Kerncijfers wijken en buurten 2024', publisher: 'CBS', url: statline('85984NED'), scope: 'Rotterdam' }),
+  kwb2025: Object.freeze({ id: '86165NED', name: 'Kerncijfers wijken en buurten 2025', publisher: 'CBS', url: statline('86165NED'), scope: CITY.name }),
+  kwb2024: Object.freeze({ id: '85984NED', name: 'Kerncijfers wijken en buurten 2024', publisher: 'CBS', url: statline('85984NED'), scope: CITY.name }),
   regio:   Object.freeze({ id: '70072ned', name: 'Regionale kerncijfers Nederland', publisher: 'CBS', url: statline('70072ned'), scope: 'Nederland' }),
-  crime:   Object.freeze({ id: '47018NED', name: 'Geregistreerde misdrijven; soort misdrijf, wijk, buurt', publisher: 'Politie (via CBS dataderden)', url: 'https://data.politie.nl/#/Politie/nl/dataset/47018NED/table', scope: 'Rotterdam' }),
-  nabij2025: Object.freeze({ id: '86270NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2025', publisher: 'CBS', url: statline('86270NED'), scope: 'Rotterdam' }),
+  crime:   Object.freeze({ id: '47018NED', name: 'Geregistreerde misdrijven; soort misdrijf, wijk, buurt', publisher: 'Politie (via CBS dataderden)', url: 'https://data.politie.nl/#/Politie/nl/dataset/47018NED/table', scope: CITY.name }),
+  nabij2025: Object.freeze({ id: '86270NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2025', publisher: 'CBS', url: statline('86270NED'), scope: CITY.name }),
   nabij2017: Object.freeze({ id: '84334NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2017', publisher: 'CBS', url: statline('84334NED'), scope: 'Nederland' }),
-  nabij2024: Object.freeze({ id: '86134NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2024', publisher: 'CBS', url: statline('86134NED'), scope: 'Rotterdam' }),
-  geo:     Object.freeze({ id: 'PDOK', name: 'CBS wijk- en buurtkaart (gebiedsgrenzen, via PDOK)', publisher: 'CBS / PDOK', url: 'https://www.pdok.nl/introductie/-/article/cbs-wijken-en-buurten', scope: 'Rotterdam' }),
+  nabij2024: Object.freeze({ id: '86134NED', name: 'Nabijheid voorzieningen; afstand locatie, wijk- en buurtcijfers 2024', publisher: 'CBS', url: statline('86134NED'), scope: CITY.name }),
+  geo:     Object.freeze({ id: 'PDOK', name: 'CBS wijk- en buurtkaart (gebiedsgrenzen, via PDOK)', publisher: 'CBS / PDOK', url: 'https://www.pdok.nl/introductie/-/article/cbs-wijken-en-buurten', scope: CITY.name }),
   pc4:     Object.freeze({ id: PC4_HERKOMST_TABLE, name: 'Bevolking; geslacht, migratieachtergrond, viercijferige postcode, 1 januari', publisher: 'CBS', url: statline(PC4_HERKOMST_TABLE), scope: 'postcode' }),
   pc4bouw: Object.freeze({ id: 'PC4-2023', name: `Gegevens per postcode (PC4) ${PC4_YEAR}, woningen naar bouwjaar`, publisher: 'CBS', url: BOUW_SOURCE_URL, scope: 'postcode' }),
   pc6:     Object.freeze({ id: 'pc6huisnr', name: `Buurt, wijk en gemeente per postcode en huisnummer ${PC4_YEAR}`, publisher: 'CBS', url: `https://download.cbs.nl/postcode/${PC4_YEAR}-cbs_pc6huisnr.zip`, scope: 'postcode' }),
@@ -206,7 +207,7 @@ const HERKOMST_DEF = 'Herkomst volgt de CBS-definitie (sinds 2022): het eigen ge
 const HERKOMST_NOTES = [
   'CBS rondt de wijk- en buurtaantallen af op vijftallen; Nederland, Europa en buiten Europa tellen daardoor niet altijd precies op tot 100 %.',
   'CBS rekent Turkije en de Kaukasische en Centraal-Aziatische landen van de voormalige Sovjet-Unie tot Azië, dus tot "buiten Europa".',
-  'Landen en landengroepen (Turkije, Marokko, Suriname, Afrika bezuiden de Sahara …) zijn alleen voor heel Rotterdam beschikbaar (Dashboard, CBS 85458NED), niet per wijk of buurt.',
+  `Landen en landengroepen (Turkije, Marokko, Suriname, Afrika bezuiden de Sahara …) zijn alleen voor heel ${CITY.name} beschikbaar (Dashboard, CBS 85458NED), niet per wijk of buurt.`,
   'Beschrijvend: telt niet mee in de totaalscore van de Ranglijst.',
 ];
 const TASTE_NOTE = 'Beschrijvend en een kwestie van smaak: telt niet mee in de totaalscore van de Ranglijst of de Woonscore Standaard.';
@@ -405,7 +406,7 @@ const INFO = {
     formula: 'Gemiddelde WOZ-waarde van woningen (CBS), × € 1.000',
     source: [SRC.kwb2025, SRC.regio],
     year: '2025 (wijk/buurt) · 2023 (Nederland)',
-    caveats: ['De dashboard-KPI "WOZ 2026" komt uit CBS 85036NED (peildatum 1 januari 2026) en geldt alleen voor heel Rotterdam.', FALLBACK_NOTE],
+    caveats: [`De dashboard-KPI "WOZ 2026" komt uit CBS 85036NED (peildatum 1 januari 2026) en geldt alleen voor heel ${CITY.name}.`, FALLBACK_NOTE],
   },
   ownerOccupiedPct: {
     description: 'Het aandeel koopwoningen in de woningvoorraad. Beschrijvend: er zit geen oordeel in.',
@@ -557,10 +558,10 @@ const INFO = {
     description: 'Hoeveel misdrijven er gebeuren in het gebied samen met de aangrenzende gebieden, per km² land. Lager telt als beter. Zo telt mee dat een woonbuurt naast een druk station, een uitgaansgebied of een haven- of bedrijventerrein de criminaliteit van daar dichtbij heeft, ook al woont er in dat buurgebied bijna niemand. Telt mee in de Woonscore (thema Veiligheid, bescheiden gewicht naast de eigen cijfers).',
     formula: '(misdrijven gebied + misdrijven aangrenzende gebieden) / (km² land gebied + km² land aangrenzende gebieden). Aangrenzend = een stuk gemeenschappelijke grens (een hoekpunt is niet genoeg), zelfde niveau: buurten met buurten, wijken met wijken, ook als dat buurgebied geen woonwijk is.',
     source: [SRC.crime, SRC.kwb2025, SRC.geo],
-    year: '2025 (misdrijven, oppervlakte) · indeling 2024 (Rotterdam-kaart) / 2025 (Nederland)',
+    year: `2025 (misdrijven, oppervlakte) · indeling 2024 (${CITY.name}-kaart) / 2025 (Nederland)`,
     caveats: [
       'Een groot buurgebied telt mee met zijn eigen dichtheid: 800 misdrijven op 30 km² haven wegen minder dan 300 op 1 km² rond een station.',
-      'Rotterdam-weergave: buren buiten de gemeentegrens (Schiedam, Capelle, Barendrecht …) tellen niet mee, want alleen de Rotterdamse kaart is geladen. In de Nederland-weergave tellen buren in andere gemeenten wel mee.',
+      `${CITY.name}-weergave: buren buiten de gemeentegrens (${cityNeighbours()} …) tellen niet mee, want alleen de ${CITY.adjective} kaart is geladen. In de Nederland-weergave tellen buren in andere gemeenten wel mee.`,
       'Buurten aan weerszijden van de Maas of een havenbekken grenzen in het water aan elkaar en tellen dus als buren.',
       'Gebieden zonder misdrijvencijfer of oppervlakte tellen niet mee in de som.',
     ],
@@ -715,8 +716,8 @@ const INFO = {
     caveats: ['Mengt twee maten: de treinafstand is de CBS-wegafstand gemiddeld over de inwoners, de metro- en tramafstand is hemelsbreed vanaf het midden van het gebied.', 'Zonder CBS-treinafstand (gemeenten, provincies) is er geen waarde.', ...OV_CAVEATS.slice(1)],
   },
   distCentrum: {
-    description: 'Hemelsbrede afstand van het midden van het gebied tot Rotterdam Centraal. Klein = midden in de stad; groot = aan de rand. Beschrijvend: of dat goed is, hangt af van wat je zoekt.',
-    formula: 'afstand in km over het aardoppervlak van het zwaartepunt van de gebiedsgrens tot Rotterdam Centraal (51,9244 N, 4,4690 O)',
+    description: `Hemelsbrede afstand van het midden van het gebied tot ${CITY.centrum.name}. Klein = midden in de stad; groot = aan de rand. Beschrijvend: of dat goed is, hangt af van wat je zoekt.`,
+    formula: `afstand in km over het aardoppervlak van het zwaartepunt van de gebiedsgrens tot ${CITY.centrum.name} (${centrumCoords()})`,
     source: [SRC.geo],
     year: 'indeling 2024',
     caveats: ['Berekend door deze app uit de kaart, geen CBS-cijfer. Het zwaartepunt van een groot of langgerekt gebied (havens, Hoek van Holland) kan ver van de woningen liggen.', 'Hemelsbreed: de Maas en de havens kunnen de werkelijke reisafstand veel groter maken.', TASTE_NOTE],
@@ -836,7 +837,7 @@ export const DATASETS = Object.freeze({
   distTram:         ds('distTram',         'Afstand tram',         'Hemelsbreed tot tramhalte (km)',  'km',         null,  'voorzieningen', { inOverall: false }),
   distOvHalte:      ds('distOvHalte',      'Afstand metro/tram',   'Hemelsbreed tot metro- of tramhalte (km)', 'km', null, 'voorzieningen', { inOverall: false }),
   distOv:           ds('distOv',           'Afstand OV',           'Tot trein-, metro- of tramstation (km)', 'km',  null,  'voorzieningen', { inOverall: false }),
-  distCentrum:      ds('distCentrum',      'Afstand centrum',      'Hemelsbreed tot Rotterdam Centraal (km)', 'km', null, 'voorzieningen', { ...RTM, inOverall: false }),
+  distCentrum:      ds('distCentrum',      'Afstand centrum',      `Hemelsbreed tot ${CITY.centrum.name} (km)`, 'km', null, 'voorzieningen', { ...RTM, inOverall: false }),
   // Live (W30): values only exist once modules/p2000.js loaded them; `live` keeps them out of Ranglijst and Vergelijken.
   p2000Totaal:      ds('p2000Totaal',      'Alle meldingen',       'Meldingen hulpdiensten (P2000) per 1.000 inw.', 'per 1.000', null, 'actueel', { inOverall: false, live: true }),
   p2000Verkeer:     ds('p2000Verkeer',     'Verkeersongevallen',   'Verkeersongevallen (P2000) per 1.000 inw.', 'per 1.000', null, 'actueel', { inOverall: false, live: true }),
@@ -856,7 +857,7 @@ export const DATASET_KEYS = Object.freeze(Object.keys(DATASETS));
 // Ranglijst column: the separate herkomst indelingen (Nederland / Europa /
 // buiten Europa and the postcode country groups) gave way to the per-regio
 // layers on 15 Nov 2026; links with those ids land on RETIRED_LAYERS.
-export const DATASET_GROUPS = Object.freeze([
+const ALL_DATASET_GROUPS = Object.freeze([
   Object.freeze({ key: 'score',          label: 'Woonscore',                     headline: 'woonscore' }),
   Object.freeze({ key: 'bevolking',      label: 'Bevolking & huishoudens',       headline: 'population' }),
   Object.freeze({ key: 'leeftijd',       label: 'Leeftijd',                      headline: 'pop65plus' }),
@@ -868,6 +869,11 @@ export const DATASET_GROUPS = Object.freeze([
   Object.freeze({ key: 'actueel',        label: 'Actueel: meldingen hulpdiensten', headline: 'p2000Totaal', live: true }),
   Object.freeze({ key: 'herkomstDetail', label: 'Gemeenschappen (overige indelingen)', headline: null, layer: false }),
 ]);
+/** Groups of `city`: without Actueel when the city has no P2000 source (config/cities.json `p2000`). */
+export const cityDatasetGroups = (city = CITY) => Object.freeze(ALL_DATASET_GROUPS.filter(g => g.key !== 'actueel' || city.p2000 !== false));
+export const DATASET_GROUPS = cityDatasetGroups(CITY);
+/** Group keys that exist in the app but not in this city: their datasets are left out of every section. */
+const HIDDEN_GROUPS = new Set(ALL_DATASET_GROUPS.filter(g => !DATASET_GROUPS.includes(g)).map(g => g.key));
 
 /**
  * Old layer ids → the nearest layer that still exists (deep links, share
@@ -911,7 +917,7 @@ export function groupDatasets(datasets = DATASETS, groups = DATASET_GROUPS, { in
   const known = new Set(groups.map(g => g.key));
   const last = [...groups].reverse().find(g => g.layer !== false && !g.live)?.key;   // never the live Actueel section
   return groups.filter(g => includeHidden || g.layer !== false).map(g => {
-    const list = Object.values(datasets).filter(d => (known.has(d.group) ? d.group : last) === g.key);
+    const list = Object.values(datasets).filter(d => !HIDDEN_GROUPS.has(d.group) && (known.has(d.group) ? d.group : last) === g.key);
     const only = ['rotterdam', 'nederland'].find(sc => list.length && list.every(d => d.scope === sc));
     return { key: g.key, label: g.label, headline: g.headline ?? null, scope: only ?? 'all', datasets: list };
   }).filter(g => g.datasets.length);

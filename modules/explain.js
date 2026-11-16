@@ -11,6 +11,7 @@ import { ORIGIN_GROUPS, HERKOMST_TABLE, HERKOMST_FIRST_YEAR, HERKOMST_YEAR } fro
 import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, PC4_VALIDATION, pc4RegionComposition } from './herkomst-pc4.js';
 import { REGIONS, regionComposition } from './herkomst-regio.js';
 import { OLD_BUILD_BEFORE, MODERN_BUILD_FROM, BOUW_MIN_DWELLINGS } from './bouwjaar-pc4.js';
+import { CITY, cityNeighbours } from './city.js';
 
 const pc = v => `${Math.round(v * 1000) / 10}`.replace('.', ',') + '%';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -72,7 +73,7 @@ export function entryHtml(ds) {
     ['Peiljaar', esc(ds.year)],
     ['Ranglijst', esc(directionLabel(ds))],
   ];
-  if (ds.scope === 'rotterdam') facts.push(['Gebied', 'Alleen Rotterdam (wijken en buurten)']);
+  if (ds.scope === 'rotterdam') facts.push(['Gebied', `Alleen ${CITY.name} (wijken en buurten)`]);
   return `
     <article class="explain-entry" id="explain-${esc(ds.key)}" data-key="${esc(ds.key)}" data-text="${esc(normalizeText(entryText(ds)))}" tabindex="-1">
       <h4>${esc(ds.label)}${ds.title !== ds.label ? ` <small>${esc(ds.title)}</small>` : ''}</h4>
@@ -100,7 +101,7 @@ export const GENERAL_SECTIONS = Object.freeze([
     title: 'Criminaliteit: per 1000 inwoners of absoluut',
     paragraphs: [
       'Per 1000 inwoners (standaard): misdrijven 2025 gedeeld door de inwoners van 2025, maal 1.000. Zo vergelijk je gebieden van verschillende grootte, maar gebieden waar veel mensen komen en weinig mensen wonen (Centrum, haven, winkel- en uitgaansgebieden) komen hoog uit. Wijken onder 1.000 en buurten onder 200 inwoners krijgen geen cijfer.',
-      'Absoluut: het aantal door de politie geregistreerde misdrijven in 2025. Grote gebieden komen vanzelf hoger uit, maar elk gebied krijgt een waarde, ook met weinig inwoners. Het dashboard toont dan het Rotterdamse totaal in plaats van een gewogen gemiddelde.',
+      `Absoluut: het aantal door de politie geregistreerde misdrijven in 2025. Grote gebieden komen vanzelf hoger uit, maar elk gebied krijgt een waarde, ook met weinig inwoners. Het dashboard toont dan het ${CITY.adjective} totaal in plaats van een gewogen gemiddelde.`,
       'De schakelaar geldt voor alle criminaliteitslagen (totaal en sublagen) op de kaart, in de legenda, het paneel, het dashboard en de Ranglijst, inclusief de scores. Je keuze wordt onthouden en staat in de link (&crime=abs).',
     ],
   },
@@ -115,12 +116,12 @@ export const GENERAL_SECTIONS = Object.freeze([
   },
   {
     id: 'herkomst-groepen',
-    title: 'Herkomst: landengroepen (heel Rotterdam)',
+    title: `Herkomst: landengroepen (heel ${CITY.name})`,
     paragraphs: [
       'Herkomst volgt de CBS-definitie (sinds 2022): het eigen geboorteland; voor wie in Nederland is geboren het geboorteland van de moeder, of als zij ook in Nederland is geboren dat van de vader. Herkomst zegt dus iets over waar iemand of diens ouders zijn geboren, niet over nationaliteit, taal, religie of hoe iemand zich voelt. Kleinkinderen van migranten met twee in Nederland geboren ouders tellen als herkomst Nederland.',
-      `Het Dashboard toont de bevolking van heel Rotterdam op 1 januari ${HERKOMST_YEAR} naar herkomstgroep, de grootste herkomstlanden en de groei sinds ${HERKOMST_FIRST_YEAR} (CBS ${HERKOMST_TABLE}). Per wijk en buurt levert CBS alleen Nederland, Europa (exclusief Nederland) en buiten Europa, plus wie in het buitenland is geboren; landengroepen per wijk bestaan niet als open data; een schatting via de postcode staat hieronder.`,
+      `Het Dashboard toont de bevolking van heel ${CITY.name} op 1 januari ${HERKOMST_YEAR} naar herkomstgroep, de grootste herkomstlanden en de groei sinds ${HERKOMST_FIRST_YEAR} (CBS ${HERKOMST_TABLE}). Per wijk en buurt levert CBS alleen Nederland, Europa (exclusief Nederland) en buiten Europa, plus wie in het buitenland is geboren; landengroepen per wijk bestaan niet als open data; een schatting via de postcode staat hieronder.`,
       'De groepen sluiten elkaar uit en tellen precies op tot het totaal. Samenstelling: ' + ORIGIN_GROUPS.map(g => `${g.label}: ${g.composition}.`).join(' '),
-      'Kanttekeningen: CBS rekent Turkije en de Kaukasische en Centraal-Aziatische landen tot Azië. CBS levert van Noord-Afrika alleen Marokko en Egypte apart; Algerije, Tunesië, Libië en Soedan zitten daardoor in "Afrika bezuiden de Sahara" (in Rotterdam een kleine groep naast onder meer Kaapverdië en Somalië). De top 15 noemt alleen landen die CBS apart publiceert (45 landen); verzamelposten als "voormalig Joegoslavië" en "voormalige Sovjet-Unie" overlappen hun opvolgers en blijven buiten de top. De groei is het verschil tussen de aantallen op 1 januari en zegt niets over de oorzaak (migratie, geboorte, verhuizing, sterfte).',
+      `Kanttekeningen: CBS rekent Turkije en de Kaukasische en Centraal-Aziatische landen tot Azië. CBS levert van Noord-Afrika alleen Marokko en Egypte apart; Algerije, Tunesië, Libië en Soedan zitten daardoor in "Afrika bezuiden de Sahara" (in ${CITY.name} een kleine groep naast onder meer Kaapverdië en Somalië). De top 15 noemt alleen landen die CBS apart publiceert (45 landen); verzamelposten als "voormalig Joegoslavië" en "voormalige Sovjet-Unie" overlappen hun opvolgers en blijven buiten de top. De groei is het verschil tussen de aantallen op 1 januari en zegt niets over de oorzaak (migratie, geboorte, verhuizing, sterfte).`,
     ],
   },
   {
@@ -171,7 +172,7 @@ export const GENERAL_SECTIONS = Object.freeze([
       'Elk levenstype geeft de thema\'s een eigen startgewicht (samen 100), dat je daarna met de schuifjes bijstelt. Zonder levenstype: veiligheid 35, voorzieningen 40, welvaart 15, opleiding 10. De woningmarkt telt bij geen enkel levenstype mee, tenzij je hem zelf aanzet (Gemiddeld = 10). Student: sfeer 40 (druk), voorzieningen 30, buurtgenoten 20, veiligheid 10; welvaart, opleiding en woningmarkt tellen niet mee. Starter (werkt, eerste huis): voorzieningen 30 (station, OV, supermarkt), veiligheid en sfeer 20 (druk), buurtgenoten 15. Nieuwkomer in Nederland: voorzieningen 35 (supermarkt, OV, huisarts, school), veiligheid 25; sfeer 10 telt pas als je de schuif instelt; herkomst kies je altijd zelf. Stel (jong stel, graag wat te doen): veiligheid en voorzieningen 25, sfeer 20 (druk). Gezin met kinderen: veiligheid en voorzieningen 35, met basisscholen dichtbij en hun kwaliteit, kinderopvang en groen; opleiding telt niet mee. 50-plusser: veiligheid en voorzieningen 30, sfeer 10 (rustig). Senior: voorzieningen 40 (huisarts, supermarkt, OV), veiligheid 35 (inbraak en straatroof zwaarder); geen woningmarkt.',
       'Buurtgenoten: student plus voor meer 15–24- en 25–44-jarigen, starter en nieuwkomer voor 25–44-jarigen, stel voor 25–44-jarigen, gezin voor huishoudens met kinderen, 50-plusser voor 45–64-jarigen, senior voor 65-plussers. Solo, graag onder de mensen: veel eenpersoonshuishoudens (laag Alleenwonenden) en 25–44-jarigen, met sfeer 30 voor een hogere bevolkingsdichtheid, cafés en restaurants binnen 1 km, centrum en podium dichtbij.',
       'Solo, graag op mezelf: sfeer 20 voor een lagere bevolkingsdichtheid, meer afstand tot het centrum en meer water, en groen en open natuur dichtbij bij de voorzieningen. Cafés tellen dan niet mee, ook niet als min. Vul je de stap Sfeer zelf in, dan bepaalt jouw keuze de richting; het gewicht van Sfeer blijft dat van je levenstype.',
-      'Groen en natuur meet CBS niet meer per buurt met de huidige indeling. Daarom staan lage dichtheid (parken en ruimte drukken het aantal inwoners per km²) en het aandeel water er als benadering voor. Echt groene buurten zijn zeldzaam in Rotterdam, dus de score is relatief: de rustigste en waterrijkste buurten van de lijst krijgen de meeste plus, ook als ze niet landelijk zijn. Kies je bij Sfeer zelf drukte of rust, dan wint die keuze voor dichtheid en afstand tot het centrum.',
+      `Groen en natuur meet CBS niet meer per buurt met de huidige indeling. Daarom staan lage dichtheid (parken en ruimte drukken het aantal inwoners per km²) en het aandeel water er als benadering voor. Echt groene buurten zijn zeldzaam in ${CITY.name}, dus de score is relatief: de rustigste en waterrijkste buurten van de lijst krijgen de meeste plus, ook als ze niet landelijk zijn. Kies je bij Sfeer zelf drukte of rust, dan wint die keuze voor dichtheid en afstand tot het centrum.`,
     ],
   },
   {
@@ -205,7 +206,7 @@ export const GENERAL_SECTIONS = Object.freeze([
     title: 'Criminaliteit in de omgeving',
     paragraphs: [
       'Wie naast een druk station, een uitgaansgebied of een haven- of bedrijventerrein woont, heeft de criminaliteit van daar dichtbij, ook als er in dat buurgebied bijna niemand woont. Daarom is er naast de eigen cijfers "criminaliteit in de omgeving": alle geregistreerde misdrijven van 2025 in het gebied en de aangrenzende gebieden samen, gedeeld door hun landoppervlakte samen (misdrijven per km²).',
-      'Aangrenzend betekent een stuk gemeenschappelijke grens (alleen een hoekpunt telt niet), op hetzelfde niveau: buurten met buurten, wijken met wijken, ook bedrijven-, haven- en lege gebieden. In de Rotterdam-weergave rekent de app dat uit de Rotterdamse kaart, dus buren in Schiedam, Capelle of Barendrecht tellen niet mee; in de Nederland-weergave zijn de buren vooraf berekend uit de CBS-kaart 2025 en tellen buren in andere gemeenten wel mee.',
+      `Aangrenzend betekent een stuk gemeenschappelijke grens (alleen een hoekpunt telt niet), op hetzelfde niveau: buurten met buurten, wijken met wijken, ook bedrijven-, haven- en lege gebieden. In de ${CITY.name}-weergave rekent de app dat uit de ${CITY.adjective} kaart, dus buren in ${cityNeighbours('of')} tellen niet mee; in de Nederland-weergave zijn de buren vooraf berekend uit de CBS-kaart 2025 en tellen buren in andere gemeenten wel mee.`,
       'In de Woonscore Standaard is het een zesde van het thema Veiligheid (lager is beter), naast de eigen misdrijfcijfers per 1.000 inwoners. In "Vind jouw ideale woonplek" kun je het bij Veiligheid zwaarder laten wegen. Het venster van een gebied noemt het buurgebied dat het meeste bijdraagt als dat ruim de grootste is (minstens 40 % van de misdrijven en anderhalf keer de volgende buur).',
     ],
   },
@@ -221,7 +222,7 @@ export const GENERAL_SECTIONS = Object.freeze([
     id: 'sneltoetsen',
     title: 'Sneltoetsen',
     paragraphs: [
-      'Druk op ? voor de lijst met sneltoetsen (ook in het menu ☰). 1, 2 en 3 openen Kaart, Dashboard en Ranglijst; s of / zoekt; w opent de wizard, d Delen, u deze Uitleg, v Vergelijken, m het menu en l de lagen; [ en ] gaan naar de vorige of volgende laag in dezelfde categorie; n wisselt tussen Rotterdam en Nederland en t het kleurthema.',
+      `Druk op ? voor de lijst met sneltoetsen (ook in het menu ☰). 1, 2 en 3 openen Kaart, Dashboard en Ranglijst; s of / zoekt; w opent de wizard, d Delen, u deze Uitleg, v Vergelijken, m het menu en l de lagen; [ en ] gaan naar de vorige of volgende laag in dezelfde categorie; n wisselt tussen ${CITY.name} en Nederland en t het kleurthema.`,
       'Op de kaart zoomen + en − in en uit; heeft de kaart focus (Tab), dan verschuiven de pijltjestoetsen haar. Met Tab bereik je eerst "Naar de inhoud". Sneltoetsen werken niet terwijl je in een tekstveld typt.',
     ],
   },

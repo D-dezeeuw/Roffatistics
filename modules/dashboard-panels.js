@@ -7,6 +7,7 @@ import { explain } from './score.js';
 import { isResidentialArea } from './woongebied.js';
 import { ORIGIN_PARTS, originSplit, HERKOMST_TABLE, HERKOMST_YEAR } from './herkomst.js';
 import { regionMix, diversityIndex, regionShare } from './dashboard-herkomst.js';
+import { CITY } from './city.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -211,7 +212,7 @@ export function buildContext({ scope = 'rotterdam', units = [], scored = units, 
   const nl = scope === 'nederland';
   return {
     scope,
-    refName: nl ? 'Nederland' : 'Rotterdam',
+    refName: nl ? 'Nederland' : CITY.name,
     unitWord: nl ? 'gemeenten' : 'wijken',
     unitOne: nl ? 'gemeente' : 'wijk',
     minPopulation: nl ? 0 : LIST_MIN_POPULATION,

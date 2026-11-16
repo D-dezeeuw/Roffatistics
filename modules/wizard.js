@@ -10,8 +10,8 @@
 
 import { getState, setState, onStateChange, resetScore } from './state.js';
 import { openShareDialog } from './share-dialog.js';
-import { loadRotterdamAreas, peekRotterdamAreas, getAreaIndex } from './areas.js';
-import { getRotterdamLevel } from './rotterdam.js';
+import { loadCityAreas, peekCityAreas, getAreaIndex } from './areas.js';
+import { getCityLevel } from './city-scope.js';
 import { scoreResult, getPersonalPreset, THEME_LABELS, profileTopThemes } from './presets.js';
 import { explain } from './score.js';
 import { openAreaModal } from './area-modal.js';
@@ -29,6 +29,7 @@ import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
 import { loadPc4Herkomst, presetUsesPc4 } from './herkomst-pc4.js';
 import { loadBouwjaar, presetUsesBouw } from './bouwjaar-pc4.js';
 import { loadEduAreas, presetUsesEdu } from './onderwijs.js';
+import { CITY } from './city.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -173,7 +174,7 @@ function stepBody(key) {
     return `
     <p class="wiz-q" id="wiz-q">Hoe wil je wonen, en wat wil je om de hoek hebben?</p>
     ${prefillWrap('sfeer', null, sfeer)}
-    <p class="wiz-hint">Drukte = bevolkingsdichtheid en afstand tot Rotterdam Centraal, aan de drukke kant ook horeca dichtbij. Relatief: “rustig” is rustig voor deze lijst.</p>
+    <p class="wiz-hint">Drukte = bevolkingsdichtheid en afstand tot ${CITY.centrum.name}, aan de drukke kant ook horeca dichtbij. Relatief: “rustig” is rustig voor deze lijst.</p>
     <div class="wiz-sliders" role="group" aria-labelledby="wiz-q">${BUURT_DICHTBIJ.map(k => prefillWrap('dichtbij', k, dichtSlider(k, DICHTBIJ[k], a.dichtbij?.[k] ?? 0))).join('')}</div>
     <p class="wiz-hint">${a.levensfase && (prefilled.sfeer || Object.keys(prefilled.dichtbij).length) ? `Wat “voorgesteld” is, vulde je profiel in; verander het gerust. ` : ''}“Maakt niet uit” telt niet mee. Hoe belangrijker, hoe zwaarder een korte afstand telt (gemiddelde afstand over de weg, CBS). ${BUURT_DICHTBIJ.map(k => `${esc(DICHTBIJ[k].label)}: ${esc(DICHTBIJ[k].hint)}`).join('. ')}. Groen en natuur zijn CBS-cijfers uit 2017, de nieuwste die er zijn.</p>`;
   }
@@ -230,8 +231,8 @@ export function resetButtonHtml(state = getState()) {
 
 async function resultItems() {
   if (getState().scope === 'rotterdam') {
-    const areas = peekRotterdamAreas() ?? await loadRotterdamAreas();
-    const level = getRotterdamLevel() === 'buurt' ? 'buurten' : 'wijken';
+    const areas = peekCityAreas() ?? await loadCityAreas();
+    const level = getCityLevel() === 'buurt' ? 'buurten' : 'wijken';
     return { level, items: areas[level].map(a => ({ code: a.code, name: a.name })) };
   }
   const { level, rows } = nationalRows();
@@ -263,7 +264,7 @@ function zorgenHtml() {
   const n = answers.veiligheid.length;
   return `<details class="wiz-sub"${n ? ' open' : ''}><summary>Specifieke zorgen${n ? ` (${n})` : ''}</summary>
       <div class="wiz-chips" role="group" aria-label="Specifieke zorgen">${Object.entries(CRIMES).map(([k, c]) => chip('veiligheid', k, c.label, answers.veiligheid.includes(k))).join('')}</div>
-      <p class="wiz-hint">Gekozen misdrijven tellen drie keer zwaarder binnen Veiligheid. “Criminaliteit in de omgeving” telt ook de aangrenzende buurten mee. Per soort misdrijf is er alleen data voor Rotterdamse wijken en buurten.</p></details>`;
+      <p class="wiz-hint">Gekozen misdrijven tellen drie keer zwaarder binnen Veiligheid. “Criminaliteit in de omgeving” telt ook de aangrenzende buurten mee. Per soort misdrijf is er alleen data voor ${CITY.adjective} wijken en buurten.</p></details>`;
 }
 
 /** "Extra wensen": Bouwstijl (luxury theme, at 5 when chosen). */

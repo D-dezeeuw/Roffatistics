@@ -1,0 +1,73 @@
+{
+  "format": 1,
+  "default": "rotterdam",
+  "cities": {
+    "rotterdam": {
+      "slug": "rotterdam",
+      "gemeente": "GM0599",
+      "name": "Rotterdam",
+      "adjective": "Rotterdamse",
+      "nickname": "Roffa",
+      "appName": "Roffatistics",
+      "slogan": null,
+      "centre": [51.9225, 4.4792],
+      "zoom": 12,
+      "bounds": null,
+      "centrum": { "name": "Rotterdam Centraal", "point": [51.9244, 4.4690] },
+      "neighbours": ["Schiedam", "Capelle", "Barendrecht"],
+      "theme": "rotterdam",
+      "palette": "rotterdam",
+      "logo": { "mark": "assets/logo-mark.svg", "full": "assets/logo.svg" },
+      "og": "assets/og-image.png",
+      "canonical": "https://d-dezeeuw.github.io/Roffatistics/",
+      "hosts": ["roffatistics.hermes.blockworlds.nl", "d-dezeeuw.github.io"],
+      "geo": {
+        "gemeente": "./data/rotterdam_gemeente.geojson",
+        "wijken": "./data/rotterdam_wijken.geojson",
+        "buurten": "./data/rotterdam_buurten.geojson"
+      },
+      "ov": {
+        "bus": "./data/ov/bus-rotterdam.json",
+        "afstand": "./data/ov/afstand.json",
+        "busRegion": "regio Rotterdam",
+        "busBbox": [51.82, 4.22, 52.02, 4.64]
+      },
+      "p2000": true,
+      "herkomstLocal": true
+    },
+    "amsterdam": {
+      "slug": "amsterdam",
+      "gemeente": "GM0363",
+      "name": "Amsterdam",
+      "adjective": "Amsterdamse",
+      "nickname": "Mokum",
+      "appName": "Mokumistics",
+      "slogan": null,
+      "centre": [52.3728, 4.8936],
+      "zoom": 12,
+      "bounds": null,
+      "centrum": { "name": "Amsterdam Centraal", "point": [52.3789, 4.9003] },
+      "neighbours": ["Amstelveen", "Diemen", "Zaanstad"],
+      "theme": "rotterdam",
+      "palette": "rotterdam",
+      "logo": { "mark": "assets/logo-mark.svg", "full": "assets/logo.svg" },
+      "og": "assets/og-image.png",
+      "canonical": "https://mokumistics.hermes.blockworlds.nl/",
+      "hosts": ["mokumistics.hermes.blockworlds.nl"],
+      "geo": {
+        "gemeente": "./data/amsterdam_gemeente.geojson",
+        "wijken": "./data/amsterdam_wijken.geojson",
+        "buurten": "./data/amsterdam_buurten.geojson"
+      },
+      "ov": {
+        "bus": "./data/ov/amsterdam/bus.json",
+        "afstand": "./data/ov/amsterdam/afstand.json",
+        "busRegion": "regio Amsterdam",
+        "busBbox": [52.26, 4.72, 52.44, 5.10]
+      },
+      "p2000": false,
+      "splitBuurtCrime": true,
+      "herkomstLocal": true
+    }
+  }
+}

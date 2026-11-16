@@ -10,7 +10,7 @@ import {
 import { decodeLevel } from '../modules/nl-areas.js';
 import { scoreWithPreset, STANDAARD } from '../modules/presets.js';
 import { buildAreaDetail } from '../modules/area-detail.js';
-import { tooltipHtml } from '../modules/rotterdam.js';
+import { tooltipHtml } from '../modules/city-scope.js';
 import { WIJK_COLUMNS, extractAreaValues } from '../modules/areas.js';
 import { SHRINK_K } from '../modules/score.js';
 

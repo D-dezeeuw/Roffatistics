@@ -14,6 +14,7 @@ import { BASEMAPS, DEFAULT_BASEMAP, BASEMAP_STORAGE_KEY, pickInitialBasemap, res
 import { OV_MODES, DEFAULT_OV, OV_STORAGE_KEY, pickInitialOv, serializeOvState } from './ov.js';
 import { PALETTE_OPTIONS, DEFAULT_PALETTE_CHOICE, MAP_PALETTE_STORAGE_KEY, parsePaletteChoice, pickInitialPaletteChoice } from './palette.js';
 import { DEFAULT_SCHOOL_PINS, SCHOOL_PINS_STORAGE_KEY, pickInitialSchoolPins, serializeSchoolPins } from './school-pins.js';
+import { CITY } from './city.js';
 
 export const SETTINGS_DEFAULTS = Object.freeze({ theme: DEFAULT_THEME, basemap: DEFAULT_BASEMAP, palette: DEFAULT_PALETTE_CHOICE, ov: DEFAULT_OV, schools: DEFAULT_SCHOOL_PINS });
 export const SETTINGS_KEYS = Object.freeze({ theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, palette: MAP_PALETTE_STORAGE_KEY, ov: OV_STORAGE_KEY, schools: SCHOOL_PINS_STORAGE_KEY });
@@ -75,7 +76,7 @@ export function settingsDialogHtml(settings = SETTINGS_DEFAULTS) {
         <fieldset class="settings-group"><legend>Kaartkleuren</legend><div class="settings-opts">${radios('settings-palette', PALETTE_OPTIONS, s.palette)}</div>
           <p class="settings-note">Kleuren van kaart, legenda, Ranglijst en scholen. Rotterdam: rood = slechter, groen = beter; cijfers zonder richting in groentinten, gemeenschappen in eigen tinten (weinig → veel).</p></fieldset>
         <fieldset class="settings-group"><legend>OV-lijnen</legend><div class="settings-opts">${ov}</div>
-          <p class="settings-note">Bus alleen in de regio Rotterdam. Lijnen &copy; OpenStreetMap-bijdragers.</p></fieldset>
+          <p class="settings-note">Bus alleen in de ${CITY.ov.busRegion}. Lijnen &copy; OpenStreetMap-bijdragers.</p></fieldset>
         <fieldset class="settings-group"><legend>Onderwijs</legend><div class="settings-opts"><label class="settings-opt settings-check"><input type="checkbox" name="settings-schools" value="on"${s.schools ? ' checked' : ''}><span class="school-swatch" aria-hidden="true"></span><span>Basisscholen</span></label></div>
           <p class="settings-note">Een punt per basisschool, gekleurd naar de schoolscore (referentieniveaus 2022–2024, DUO); grijs = geen toetsgegevens.</p></fieldset>
       </div>

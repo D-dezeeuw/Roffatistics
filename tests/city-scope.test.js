@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { areaFillStyle, outlierStroke, buildMaskRings, resolveRotterdamLevel, tooltipHtml, NO_DATA_COLOR, ZOOM_BUURT_RD } from '../modules/rotterdam.js';
+import { areaFillStyle, outlierStroke, buildMaskRings, resolveCityLevel, tooltipHtml, NO_DATA_COLOR, ZOOM_BUURT_RD } from '../modules/city-scope.js';
 import { buildScale, OUTLIER_COLOR } from '../modules/scale.js';
 import { activePalette, PALETTES } from '../modules/palette.js';
 
@@ -32,8 +32,8 @@ describe('Rotterdam styling', () => {
   });
 
   it('level switches to buurt at ZOOM_BUURT_RD', () => {
-    assert.equal(resolveRotterdamLevel(ZOOM_BUURT_RD - 1), 'wijk');
-    assert.equal(resolveRotterdamLevel(ZOOM_BUURT_RD), 'buurt');
+    assert.equal(resolveCityLevel(ZOOM_BUURT_RD - 1), 'wijk');
+    assert.equal(resolveCityLevel(ZOOM_BUURT_RD), 'buurt');
   });
 
   it('mask = world ring plus every gemeente ring, as [lat, lng]', () => {

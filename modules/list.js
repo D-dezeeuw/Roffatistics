@@ -3,7 +3,7 @@
 // Scoring and sorting live in ranking.js (pure, unit-tested); this file is DOM only.
 
 import { getState, setState, onStateChange } from './state.js';
-import { loadRotterdamAreas, getAreaIndex, DATASETS, DATASET_KEYS } from './areas.js';
+import { loadCityAreas, getAreaIndex, DATASETS, DATASET_KEYS } from './areas.js';
 import { datasetFor, crimeAreas, crimeValues, isCrimeDataset, LAYER_KEYS, LAYER_CATEGORIES, categoryOf, categoryDatasets, categoryHeadline, rankKeyForCategory, resolveLayerKey } from './datasets.js';
 import { crimeToggleHtml } from './crime-mode.js';
 import { infoButton } from './explain.js';
@@ -21,6 +21,7 @@ function withScorePreset(ds) {
 import { buildScale, getScaleMethod, outlierLabel, scaleAverageText, SCALE_EVENT } from './scale.js';
 import { metricKind } from './palette.js';
 import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES, rankKeyAfterDatasetChange } from './ranking.js';
+import { CITY } from './city.js';
 
 const LEVELS = {
   rotterdam: [{ key: 'wijken', label: 'Wijken' }, { key: 'buurten', label: 'Buurten' }],
@@ -288,7 +289,7 @@ function render() {
 
 async function loadRows(scope, level, mode) {
   if (scope === 'rotterdam') {
-    const areas = await loadRotterdamAreas();
+    const areas = await loadCityAreas();
     return { areas: crimeAreas(areas[level] ?? [], mode), dataOk: areas.dataOk };
   }
   const rows = national[level];
@@ -309,7 +310,7 @@ async function doRender() {
     ui.root.querySelector('.list-table-wrap').innerHTML = `
       <div class="list-empty">
         <p>De landelijke cijfers zijn nog niet geladen.</p>
-        <button type="button" class="list-to-rotterdam">Toon ranglijst Rotterdam</button>
+        <button type="button" class="list-to-rotterdam">Toon ranglijst ${CITY.name}</button>
       </div>`;
     return;
   }

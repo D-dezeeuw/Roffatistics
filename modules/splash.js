@@ -2,7 +2,8 @@
 // Three cards: "Jouw buurt" (search → Ranglijst + area modal), "Jouw ideale
 // woonplek" (wizard) and "Cijfers & dashboard" (dashboard, Uitleg).
 import { getState, setState } from './state.js';
-import { createResultBox, ensureIndex, ROTTERDAM_GM } from './search.js';
+import { createResultBox, ensureIndex, CITY_GM } from './search.js';
+import { isCityAreaCode } from './city.js';
 
 export const SPLASH_STORAGE_KEY = 'roffatistics.splash.hidden';
 
@@ -38,10 +39,10 @@ export function splashTarget(item) {
   const code = String(item?.code ?? '').toUpperCase();
   if (!AREA_CODE.test(code)) return null;
   const base = { view: 'list', area: null, highlight: null, modal: null };
-  if (code === ROTTERDAM_GM) return { ...base, scope: 'rotterdam', level: 'wijken' };
+  if (code === CITY_GM) return { ...base, scope: 'rotterdam', level: 'wijken' };
   if (/^(WK|BU)/.test(code)) {
     const level = code.startsWith('BU') ? 'buurten' : 'wijken';
-    if (code.slice(2, 6) === '0599') return { ...base, scope: 'rotterdam', level, area: code, highlight: code, modal: code };
+    if (isCityAreaCode(code)) return { ...base, scope: 'rotterdam', level, area: code, highlight: code, modal: code };
     const gm = `GM${code.slice(2, 6)}`;
     return { ...base, scope: 'nederland', level: 'gemeenten', area: gm, highlight: gm, modal: code };
   }

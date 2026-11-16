@@ -1,5 +1,6 @@
 import { addOvLayers, pickInitialOv } from './ov.js';
 import { addSchoolPinsLayer, pickInitialSchoolPins } from './school-pins.js';
+import { CITY } from './city.js';
 
 // ── Basemap configuration (pure data, unit-tested) ───────────────────────────
 // Keyless providers only: OpenFreeMap vector styles (rendered by MapLibre GL
@@ -87,7 +88,7 @@ export function patchMissingImages(glMap) {
 
 // ── Map ───────────────────────────────────────────────────────────────────────
 
-const NL_CENTER = [51.9225, 4.4792]; // Rotterdam centre
+const NL_CENTER = CITY.centre;   // the city's centre (config/cities.json; Rotterdam by default)
 const MAX_ZOOM  = 17;
 
 const NL_MIN_ZOOM = 6;
@@ -104,7 +105,7 @@ export function initMap() {
 
   map = L.map('map', {
     center:    NL_CENTER,
-    zoom:      12,
+    zoom:      CITY.zoom,
     minZoom:   NL_MIN_ZOOM,
     maxZoom:   MAX_ZOOM,
     maxBounds: NL_BOUNDS,

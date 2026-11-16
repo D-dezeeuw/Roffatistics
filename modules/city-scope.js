@@ -1,9 +1,10 @@
-// Rotterdam scope: mask outside GM0599, wijk choropleth, buurt choropleth at
+// City scope (the city of config/cities.json on this page; GM0599 Rotterdam by
+// default): mask outside the gemeente, wijk choropleth, buurt choropleth at
 // higher zoom. Every wijk/buurt is always drawn; areas without a value share
 // NO_DATA_COLOR. Pure styling helpers are exported for the unit tests.
 import { getMap } from './map.js';
 import { addKeyboardNav } from './overlays.js';
-import { loadRotterdamAreas, toNumber } from './areas.js';
+import { loadCityAreas, toNumber } from './areas.js';
 import { routeToCompare } from './compare.js';
 import { buildScale, getScaleMethod, outlierLabel, scaleAverageText, NO_DATA_COLOR, OUTLIER_COLOR } from './scale.js';
 import { activePalette, metricKind } from './palette.js';
@@ -12,20 +13,23 @@ import { createScoreLabels } from './score-labels.js';
 import { formatValue } from './dashboard-data.js';
 import { p2000Note } from './p2000.js';
 import { nonResidentialLabel } from './woongebied.js';
-import { rotterdamLevel, ZOOM_BUURT_RD } from './zoom-plan.js';
+import { cityLevel, ZOOM_BUURT_RD } from './zoom-plan.js';
+import { CITY } from './city.js';
+import { mapColors } from './theme.js';
 
 export { NO_DATA_COLOR };
-export const MASK_COLOR      = '#0d0a14';
-export const MASK_OPACITY    = 0.85;
+const MAP_COLORS = mapColors(CITY.theme);   // mask and accent come from the city's theme
+export const MASK_COLOR      = MAP_COLORS.mask;
+export const MASK_OPACITY    = MAP_COLORS.maskOpacity;
 export { ZOOM_BUURT_RD };
-const ACCENT = '#7c3aed';
+const ACCENT = MAP_COLORS.accent;
 
 // Leaflet's Web Mercator stops at ±85.05°.
 const WORLD_RING = [[-85, -180], [-85, 180], [85, 180], [85, -180]];
 
 /** 'wijk' below ZOOM_BUURT_RD, 'buurt' from there on while the buurten have values (zoom-plan.js). */
-export function resolveRotterdamLevel(zoom, opts) {
-  return rotterdamLevel(zoom, opts);
+export function resolveCityLevel(zoom, opts) {
+  return cityLevel(zoom, opts);
 }
 
 /** Fill style for one area; null/undefined values (or an empty scale) get the neutral colour. */
@@ -125,7 +129,7 @@ let selectCallback = null;
 
 async function ensureLayers() {
   if (layers.wijk) return;
-  areas = await loadRotterdamAreas();
+  areas = await loadCityAreas();
   const map = getMap();
   if (!map.getPane('rdMask')) {
     const pane = map.createPane('rdMask');
@@ -146,7 +150,7 @@ async function ensureLayers() {
 /** Level the plan wants now: buurt only when some buurt has a value for the active layer. */
 function targetLevel() {
   const buurtReady = areas.buurten.some(a => toNumber(valueOf(a)) != null);
-  return resolveRotterdamLevel(getMap().getZoom(), { buurtReady });
+  return resolveCityLevel(getMap().getZoom(), { buurtReady });
 }
 
 function placeLevel(next) {
@@ -207,10 +211,10 @@ function stampScores(lvl, lookup) {
 }
 
 /**
- * Turns Rotterdam mode on: adds mask, outline and wijk layer, follows zoom.
- * Resolves to the loaded areas (see areas.loadRotterdamAreas).
+ * Turns the city scope on: adds mask, outline and wijk layer, follows zoom.
+ * Resolves to the loaded areas (see areas.loadCityAreas).
  */
-export async function enableRotterdam({ onSelect } = {}) {
+export async function enableCityScope({ onSelect } = {}) {
   selectCallback = onSelect ?? null;
   await ensureLayers();
   enabled = true;
@@ -225,7 +229,7 @@ export async function enableRotterdam({ onSelect } = {}) {
   return areas;
 }
 
-export function disableRotterdam() {
+export function disableCityScope() {
   enabled = false;
   level = null;
   const map = getMap();
@@ -234,7 +238,7 @@ export function disableRotterdam() {
 }
 
 /** Colours the layers for `key` in crime mode `mode`; returns { scale, min, max, level, hasData } for the legend. */
-export function applyRotterdamDataset(key, mode = crimeMode) {
+export function applyCityDataset(key, mode = crimeMode) {
   dataset = key;
   crimeMode = mode;
   if (enabled && layers.wijk) {
@@ -247,8 +251,8 @@ export function applyRotterdamDataset(key, mode = crimeMode) {
   return { scale, min: scale.min, max: scale.max, level: lvl, hasData: scale.count > 0 };
 }
 
-export function getRotterdamLevel() { return level; }
-export function getRotterdamAreas() { return areas; }
+export function getCityLevel() { return level; }
+export function getCityAreas() { return areas; }
 export function getActiveArea()     { return activeArea; }
 
 /** Zooms to `code` (deep links, search, ranking) and makes it the active area. */

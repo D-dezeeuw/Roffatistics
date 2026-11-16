@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import {
   normalizeAreaCode, areaLevel, parentCode, toNumber, hasValue, extractAreaValues, emptyAreaValues,
   valueRange, geoBounds, padBounds, joinAreas, areaPanelData, cleanRegionName, buildAreaIndex,
-  buildWijkUrl, loadRotterdamAreas, getAreaIndex, _resetAreaCache, WIJK_COLUMNS, WIJK_TABLE, DATASETS, DATASET_KEYS,
+  buildWijkUrl, loadCityAreas, getAreaIndex, _resetAreaCache, WIJK_COLUMNS, WIJK_TABLE, DATASETS, DATASET_KEYS,
 } from '../modules/areas.js';
 
 const C = WIJK_COLUMNS;
@@ -164,8 +164,8 @@ describe('loaders (local files, stubbed CBS)', () => {
     assert.ok(url.includes("startswith(WijkenEnBuurten,'BU0599')"));
   });
 
-  it('loadRotterdamAreas returns all 21 wijken and 91 buurten, values joined', async () => {
-    const res = await loadRotterdamAreas({
+  it('loadCityAreas returns all 21 wijken and 91 buurten, values joined', async () => {
+    const res = await loadCityAreas({
       fetcher: localFetch(() => ({ ok: true, json: async () => ({ value: [row('WK059901')] }) })),
       storage: null,
     });
@@ -180,7 +180,7 @@ describe('loaders (local files, stubbed CBS)', () => {
   });
 
   it('a CBS failure still yields every area, with null values', async () => {
-    const res = await loadRotterdamAreas({ fetcher: localFetch(() => ({ ok: false, status: 500 })), storage: null });
+    const res = await loadCityAreas({ fetcher: localFetch(() => ({ ok: false, status: 500 })), storage: null });
     assert.equal(res.dataOk, false);
     assert.equal(res.wijken.length, 21);
     assert.ok(res.wijken.every(a => a.values.population === null));

@@ -48,14 +48,15 @@ describe('applyTheme', () => {
 
 describe('index.html theme bootstrap', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  const inline = html.match(/<script>(try\{[^<]*)<\/script>/)?.[1] ?? '';
+  // The city boot script (tests/city.test.js) comes first; this is the theme one.
+  const inline = [...html.matchAll(/<script>(try\{[^<]*)<\/script>/g)].map(m => m[1]).find(s => s.includes(THEME_STORAGE_KEY)) ?? '';
 
   it('applies the stored theme in <head> before the stylesheets, inside try/catch', () => {
     assert.ok(html.indexOf(inline) < html.indexOf('href="style.css"'));
     assert.match(inline, /^try\{/);
     assert.ok(inline.includes(`'${THEME_STORAGE_KEY}'`));
     for (const id of Object.keys(THEMES)) assert.ok(inline.includes(`'${id}'`), id);
-    assert.match(html, new RegExp(`<html lang="nl" data-theme="${DEFAULT_THEME}">`));
+    assert.match(html, new RegExp(`<html lang="nl" data-theme="${DEFAULT_THEME}"[ >]`));
   });
 
   it('behaves like pickInitialTheme', () => {

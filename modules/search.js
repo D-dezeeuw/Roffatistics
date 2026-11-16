@@ -4,14 +4,15 @@
 import { getState, setState } from './state.js';
 import { createSearcher } from './fuzzy.js';
 import { isPostcodeQuery } from './postcode.js';
+import { CITY, isCityAreaCode } from './city.js';
 
 export const RECENT_KEY   = 'roffatistics.recentSearches';
 export const RECENT_MAX   = 5;
 export const RESULT_LIMIT = 12;
-export const ROTTERDAM_GM = 'GM0599';
+export const CITY_GM = CITY.gemeente;
 
 export const LEVEL_LABELS = Object.freeze({
-  wijk: 'Wijk · Rotterdam', buurt: 'Buurt · Rotterdam', gemeente: 'Gemeente', provincie: 'Provincie',
+  wijk: `Wijk · ${CITY.name}`, buurt: `Buurt · ${CITY.name}`, gemeente: 'Gemeente', provincie: 'Provincie',
 });
 
 // ── Pure helpers (unit-tested) ───────────────────────────────────────────────
@@ -39,7 +40,7 @@ export function saveRecent(storage, list) {
  * gemeenten/provincies → Nederland scope, except GM0599 which is the whole Rotterdam city.
  */
 export function resolveSelection(item, state) {
-  const wholeCity = item.code === ROTTERDAM_GM;
+  const wholeCity = item.code === CITY_GM;
   const scope = wholeCity || item.scope === 'rotterdam' ? 'rotterdam' : 'nederland';
   const patch = { scope, area: wholeCity ? null : item.code };
   return {
@@ -61,7 +62,7 @@ const POSTCODE_LEVEL = Object.freeze({ buurt: 'buurt', wijk: 'wijk', gemeente: '
  */
 export function postcodeItem(hit, nameOf = () => null) {
   if (!hit?.code) return null;
-  const rtm = /^(WK|BU)0599/.test(hit.code);
+  const rtm = isCityAreaCode(hit.code);
   return {
     code: hit.code, name: nameOf(hit.code) ?? hit.name, level: hit.level,
     scope: rtm ? 'rotterdam' : 'nederland', postcode: hit.pc4,
@@ -313,9 +314,9 @@ export async function applySelection(item) {
 }
 
 function fitWholeCity() {
-  Promise.all([import('./rotterdam.js'), import('./map.js')])
+  Promise.all([import('./city-scope.js'), import('./map.js')])
     .then(([rd, map]) => {
-      const bounds = rd.getRotterdamAreas()?.bounds;
+      const bounds = rd.getCityAreas()?.bounds;
       if (bounds) map.getMap().fitBounds(bounds);
     })
     .catch(() => {});

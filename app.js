@@ -7,7 +7,7 @@ import { loadOvAfstand, withOvValues }   from './modules/ov.js';
 import { loadRegionRows, normalizeProvinces, normalizeCrime, DATASETS, groupDatasets, datasetInScope, datasetFor, crimeValues, isCrimeDataset } from './modules/datasets.js';
 import { initComparePanel, toggleCompare, closeCompare, addToCompare } from './modules/compare-panel.js';
 import { initState, getState, setState, onStateChange } from './modules/state.js';
-import { enableRotterdam, disableRotterdam, applyRotterdamDataset, focusArea } from './modules/rotterdam.js';
+import { enableCityScope, disableCityScope, applyCityDataset, focusArea } from './modules/city-scope.js';
 import { updateLegend, initScaleToggle, initLegendCollapse, SCALE_EVENT } from './modules/legend.js';
 import { initSplash }                     from './modules/splash.js';
 import { initNavMenu }                    from './modules/nav-menu.js';
@@ -29,7 +29,7 @@ import { applyTheme, pickInitialTheme }   from './modules/theme.js';
 import { initSettings }                   from './modules/settings.js';
 import { setMapPalette, refreshMapPalette } from './modules/scale.js';
 import { initShortcuts }                  from './modules/shortcuts.js';
-import { peekRotterdamAreas }             from './modules/areas.js';
+import { peekCityAreas }             from './modules/areas.js';
 import { peekNlAreas }                    from './modules/nl-areas.js';
 import { loadBouwjaar, onBouwLoaded, addBouwShares, isBouwKey, isBouwLoaded, presetUsesBouw } from './modules/bouwjaar-pc4.js';
 import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, presetUsesPc4 } from './modules/herkomst-pc4.js';
@@ -37,6 +37,7 @@ import { loadGemeenteRegio, isRegioLoaded, isRegionMetric, withRegionShares } fr
 import { showLoader, hideLoader, setLoaderProgress, withLoader } from './modules/loader.js';
 import { isEduKey, isEduLoaded, loadEduAreas, onEduLoaded, addEduValues, withEduRows, presetUsesEdu, eduAreasWanted } from './modules/onderwijs.js';
 import { isP2000Key, isP2000Loaded, loadP2000, setP2000Window, getP2000Window, activeP2000, addP2000Values, withP2000Rows, p2000LegendHtml, P2000_ERROR_TEXT, P2000_LOADING_TEXT } from './modules/p2000.js';
+import { CITY, applyCityToDocument } from './modules/city.js';
 
 // ── Legend ────────────────────────────────────────────────────────────────────
 setValue('legend.title',           '');
@@ -76,6 +77,7 @@ globalThis.addEventListener?.('hashchange', () => {
   applySharedLook(ex, { live: true });
   setTimeout(() => applySharedView(ex), 0);
 });
+applyCityToDocument();   // title, meta and scope label from config/cities.json (no change for Rotterdam)
 const initialState = initState();
 showLoader('Kaart laden…');   // until the first map data is drawn (end of this file)
 setPersonalPreset(presetFromScore(initialState.score));   // before any area is scored (the Woonscore's active preset)
@@ -230,7 +232,7 @@ layersDropdown.innerHTML = '<li class="layers-cols" role="none"><ul role="none">
     <span class="layer-group-title" id="layer-group-${g.key}">${escHtml(g.label)}</span>
     <ul class="layer-group-list" role="none">${g.datasets.map(d => `
       <li role="none"><button class="layer-opt" type="button" data-dataset="${d.key}" role="option"${d.scope ? ` data-scope="${d.scope}"` : ''}>${escHtml(d.label)}</button></li>`).join('')}${rtmOnly ? `
-      <li role="none" class="layer-hint" data-scope="nederland">+${rtmOnly} lagen per wijk/buurt in de Rotterdam-weergave</li>` : ''}
+      <li role="none" class="layer-hint" data-scope="nederland">+${rtmOnly} lagen per wijk/buurt in de ${CITY.name}-weergave</li>` : ''}
     </ul>
   </li>`;
 }).join('') + '</ul></li>';
@@ -276,13 +278,14 @@ function renderP2000Legend() {
   document.querySelectorAll('[data-live-slot]').forEach(el => { el.innerHTML = p2000LegendHtml(getP2000Window(), p2000Status); });
 }
 function applyP2000ToLoaded() {
-  const rd = peekRotterdamAreas();
+  const rd = peekCityAreas();
   if (rd) { addP2000Values(rd.wijken); addP2000Values(rd.buurten); }
   const nl = peekNlAreas();
   addP2000Values(nl.wijken); addP2000Values(nl.buurten);
   if (gemeenteRows.length) { gemeenteRows = withP2000Rows(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
 }
 async function ensureP2000() {
+  if (CITY.p2000 === false) return;   // no P2000 source for this city: the Actueel layers are hidden
   if (isP2000Loaded()) { applyP2000ToLoaded(); return; }
   p2000Status = P2000_LOADING_TEXT; renderP2000Legend();
   try { await loadP2000(); p2000Status = ''; applyP2000ToLoaded(); }
@@ -346,7 +349,7 @@ async function activateDataset(key) {
     : isP2000Key(key) ? { ...base, title: `${base.title} · ${p2000?.days ?? Number.parseInt(getP2000Window(), 10)} dagen` } : base;   // "Woonscore · jouw wensen"
   syncLegendExtras(key);
   if (getState().scope === 'rotterdam') {
-    const { scale, level, hasData } = applyRotterdamDataset(key, mode);
+    const { scale, level, hasData } = applyCityDataset(key, mode);
     const suffix = hasData ? (level === 'buurt' ? 'buurt' : 'wijk') : 'geen wijkdata';
     await updateLegend({ title: `${ds.title} · ${suffix}`, scale, dataset: key, mode, showNoData: true });
     return;
@@ -388,18 +391,18 @@ async function applyScope(scope, { initial = false } = {}) {
   if (scope === 'rotterdam') {
     await setOverlaysEnabled(false);
     try {
-      const areas = await enableRotterdam({ onSelect: a => setState({ area: a.code }, { source: 'map' }) });
+      const areas = await enableCityScope({ onSelect: a => setState({ area: a.code }, { source: 'map' }) });
       if (seq !== scopeSeq) return;
       setMapScope('rotterdam', { bounds: areas.bounds });
       await activateDataset(getState().dataset);
       const area = getState().area;
       if (area && (area.startsWith('WK') || area.startsWith('BU'))) await focusArea(area);
     } catch (err) {
-      console.warn('Rotterdam areas unavailable:', err);
+      console.warn('City areas unavailable:', err);
     }
     return;
   }
-  disableRotterdam();
+  disableCityScope();
   setMapScope('nederland', { fit: !initial });
   if (!initial) await setOverlaysEnabled(true);   // initOverlays already enabled them on a Nederland start
   if (seq === scopeSeq) await activateDataset(getState().dataset);
@@ -446,7 +449,7 @@ function applyPersonalScore(score) {
   if (presetUsesPc4(preset) && !isPc4Loaded()) loadPc4Herkomst().catch(() => { /* file missing: the factor is skipped there */ });
   if (presetUsesBouw(preset) && !isBouwLoaded()) loadBouwjaar().catch(() => { /* file missing: the factor is skipped there */ });
   if (presetUsesEdu(preset)) ensureEduAreas({ preset });   // gezin weighs eduNearScore: onEduLoaded rescores
-  const rd = peekRotterdamAreas();
+  const rd = peekCityAreas();
   if (rd) {
     assignScore(rd.wijken, 'woonscore');
     assignScore(rd.buurten, 'woonscore', { parents: rd.wijken });
@@ -458,7 +461,7 @@ function applyPersonalScore(score) {
 
 // Bouwstijl landed: add the shares to every loaded wijk/buurt, then rescore if the personal preset uses them.
 onBouwLoaded(() => {
-  const rd = peekRotterdamAreas();
+  const rd = peekCityAreas();
   if (rd) { addBouwShares(rd.wijken); addBouwShares(rd.buurten); }
   const nl = peekNlAreas();
   addBouwShares(nl.wijken); addBouwShares(nl.buurten);
@@ -470,7 +473,7 @@ onBouwLoaded(() => {
 
 // Postcode herkomst landed: add the shares to every loaded wijk/buurt, then rescore if the personal preset uses them.
 onPc4Loaded(() => {
-  const rd = peekRotterdamAreas();
+  const rd = peekCityAreas();
   if (rd) { addPc4Shares(rd.wijken); addPc4Shares(rd.buurten); }
   const nl = peekNlAreas();
   addPc4Shares(nl.wijken); addPc4Shares(nl.buurten);
@@ -483,7 +486,7 @@ onPc4Loaded(() => {
 // Onderwijsprestatie landed (layer, Ranglijst, area panel or a gezin preset): add the values to every
 // loaded area set; rescore when the personal preset weighs eduNearScore; refresh the list and dashboard.
 onEduLoaded(() => {
-  const rd = peekRotterdamAreas();
+  const rd = peekCityAreas();
   if (rd) { addEduValues(rd.wijken); addEduValues(rd.buurten); }
   const nl = peekNlAreas();
   addEduValues(nl.wijken); addEduValues(nl.buurten);
@@ -505,7 +508,7 @@ onStateChange(({ state, changed, source }) => {
   if (changed.includes('view')) { showView(state.view); if (state.view === 'list') ensureEduAreas(); }
   if (changed.includes('scope')) {
     // Fade the map and show the loader before the switch; it hides once the new scope is drawn.
-    scopeRun = withLoader(state.scope === 'nederland' ? 'Nederland laden…' : 'Rotterdam laden…', () => applyScope(state.scope))
+    scopeRun = withLoader(state.scope === 'nederland' ? 'Nederland laden…' : `${CITY.name} laden…`, () => applyScope(state.scope))
       .catch(err => console.warn('scope switch:', err));
     return;
   }

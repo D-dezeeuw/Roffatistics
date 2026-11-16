@@ -24,6 +24,7 @@ import { DATASETS, DATASET_KEYS, resolveLayerKey } from './datasets.js';
 import { BASEMAPS } from './map.js';
 import { THEMES } from './theme.js';
 import { MIN_ZOOM, MAX_ZOOM } from './zoom-plan.js';
+import { CITY } from './city.js';
 
 /** Ranglijst levels per scope (list.js LEVELS; setListOptions checks the scope). */
 export const LIST_LEVELS = Object.freeze(['wijken', 'buurten', 'provincies', 'gemeenten']);
@@ -35,7 +36,7 @@ const VIEW_LABEL = { map: 'Kaart', list: 'Ranglijst', dashboard: 'Dashboard' };
 export const SHARE_GROUPS = Object.freeze([
   Object.freeze({ id: 'weergave', label: 'Weergave', sensitive: false, parts: Object.freeze([
     { key: 'view',    label: 'Weergave (kaart, ranglijst of dashboard)' },
-    { key: 'scope',   label: 'Gebied (Rotterdam of Nederland)' },
+    { key: 'scope',   label: `Gebied (${CITY.name} of Nederland)` },
     { key: 'dataset', label: 'Kaartlaag' },
     { key: 'map',     label: 'Kaartpositie en zoom (bepaalt het niveau op de kaart)' },
     { key: 'area',    label: 'Geselecteerd gebied en open detailvenster' },
@@ -166,7 +167,7 @@ export function partSummary(snap = {}, key) {
   const st = snap.state ?? {};
   switch (key) {
     case 'view':    return VIEW_LABEL[st.view] ?? '';
-    case 'scope':   return st.scope === 'nederland' ? 'Nederland' : st.scope ? 'Rotterdam' : '';
+    case 'scope':   return st.scope === 'nederland' ? 'Nederland' : st.scope ? CITY.name : '';
     case 'dataset': return DATASETS[st.dataset] ? `${DATASETS[st.dataset].label}${st.crime === 'abs' ? ' · aantallen' : ''}` : '';
     case 'map':     return snap.map ? `zoom ${round(snap.map.zoom, 1).toLocaleString('nl-NL')}` : '';
     case 'area':    return st.area ? `${st.area}${snap.modal ? ' · detailvenster open' : ''}` : 'geen gebied geselecteerd';

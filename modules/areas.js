@@ -1,4 +1,4 @@
-// Rotterdam wijken + buurten: CBS "Kerncijfers wijken en buurten 2025"
+// City wijken + buurten (config/cities.json; Rotterdam is the default): CBS "Kerncijfers wijken en buurten 2025"
 // (table 86165NED, per-field fallback to 2024 table 85984NED) joined to
 // pre-cached PDOK geometry in data/ (indeling 2024; all 21 wijk and 91 buurt
 // codes are identical in the 2025 table).
@@ -13,6 +13,7 @@ import { withWoonscore } from './presets.js';
 import { adjacencyFromFeatures, addOmgeving } from './omgeving.js';
 import { loadOvAfstand, withOvValues } from './ov.js';
 import { odataUrl, getRows, POLITIE_ODATA } from './source.js';
+import { CITY, cityCodes } from './city.js';
 
 export { DATASETS, DATASET_KEYS };
 
@@ -102,22 +103,29 @@ export const GROEN_COLUMNS = Object.freeze({
 });
 export const GROEN_SELECT = Object.values(GROEN_COLUMNS).join(',');
 
-// Rotterdam Centraal (station entrance), reference point of distCentrum.
-export const CENTRUM_POINT = Object.freeze([51.9244, 4.4690]);   // [lat, lng]
+// The city's main station (config/cities.json `centrum`, Rotterdam Centraal
+// station entrance for Rotterdam), reference point of distCentrum.
+export const CENTRUM_POINT = Object.freeze([...CITY.centrum.point]);   // [lat, lng]
 
-export const ROTTERDAM = Object.freeze({
-  gemeente:    'GM0599',
-  name:        'Rotterdam',
-  wijkPrefix:  'WK0599',
-  buurtPrefix: 'BU0599',
-});
+/** CBS codes of the city on this page: { gemeente, wijkPrefix, buurtPrefix } (city.js cityCodes). */
+export const CITY_CODES = cityCodes(CITY);
 
-export const GEO_URLS = Object.freeze({
-  gemeente:  './data/rotterdam_gemeente.geojson',
-  wijken:    './data/rotterdam_wijken.geojson',
-  buurten:   './data/rotterdam_buurten.geojson',
-  provinces: './data/provinces.json',
-});
+/** Geometry files of a city (config/cities.json `geo`) plus the province shapes. */
+export const geoUrlsFor = city => Object.freeze({ ...city.geo, provinces: './data/provinces.json' });
+export const GEO_URLS = geoUrlsFor(CITY);
+
+/**
+ * Snapshot keys of the city tables (data/snapshot/<key>.json; registered per
+ * city in scripts/snapshot-sources.mjs): 'cbs/86165NED-rotterdam' and so on.
+ */
+export function citySourceKeys(city = CITY) {
+  const s = city.slug;
+  return Object.freeze({
+    kwb: `cbs/86165NED-${s}`, kwbFallback: `cbs/85984NED-${s}`,
+    nabij: `cbs/86270NED-${s}`, nabijFallback: `cbs/86134NED-${s}`, groen: `cbs/84334NED-${s}`,
+    woz: `cbs/85036NED-${s}-woz`, crimeWijk: `politie/47018NED-${s}-wijk`, crimeBuurt: `politie/47018NED-${s}-buurt`,
+  });
+}
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
@@ -344,7 +352,7 @@ export function haversineKm([lat1, lng1], [lat2, lng2]) {
   return 2 * 6371.0088 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-/** Straight-line km (1 decimal) from a feature's centroid to Rotterdam Centraal, or null. */
+/** Straight-line km (1 decimal) from a feature's centroid to the city's centrum point (Rotterdam Centraal), or null. */
 export function distanceToCentrum(feature, point = CENTRUM_POINT) {
   const c = geoCentroid(feature);
   return c ? +haversineKm(c, point).toFixed(1) : null;
@@ -449,6 +457,7 @@ const rowsByCode = rows => {
  * area whose code is in neither table keeps all-null values ("geen data").
  */
 export function joinAreas(features, rows, fallbackRows = [], nabij = {}) {
+  const centrum = nabij.centrum ?? CENTRUM_POINT;
   const base = rowsByCode(rows), old = rowsByCode(fallbackRows);
   const nBase = rowsByCode(nabij.rows), nOld = rowsByCode(nabij.fallbackRows), green = rowsByCode(nabij.groenRows);
   return features.map(f => {
@@ -462,7 +471,7 @@ export function joinAreas(features, rows, fallbackRows = [], nabij = {}) {
       name:   f.properties?.statnaam ?? code,
       level:  areaLevel(code),
       parent: parentCode(code),
-      values: withOvValues({ ...values, ...near.values, distCentrum: distanceToCentrum(f) }, code, nabij.ov),
+      values: withOvValues({ ...values, ...near.values, distCentrum: distanceToCentrum(f, centrum) }, code, nabij.ov),
       years:  { ...years, ...near.years },
       bounds: geoBounds(f),
     };
@@ -501,22 +510,23 @@ async function getJSON(url, fetcher, storage) {
   return data;
 }
 
-/** Rotterdam gemeente + wijk + buurt rows of a kerncijfers table (default: the 2025 base). */
-export function buildWijkUrl(table = WIJK_TABLE, select = WIJK_SELECT) {
+/** City gemeente + wijk + buurt rows of a kerncijfers table (default: the 2025 base, the page's city). */
+export function buildWijkUrl(table = WIJK_TABLE, select = WIJK_SELECT, city = CITY) {
+  const c = cityCodes(city);
   return odataUrl(table, {
-    filter: `startswith(WijkenEnBuurten,'${ROTTERDAM.gemeente}') or startswith(WijkenEnBuurten,'${ROTTERDAM.wijkPrefix}') or startswith(WijkenEnBuurten,'${ROTTERDAM.buurtPrefix}')`,
+    filter: `startswith(WijkenEnBuurten,'${c.gemeente}') or startswith(WijkenEnBuurten,'${c.wijkPrefix}') or startswith(WijkenEnBuurten,'${c.buurtPrefix}')`,
     select,
   });
 }
 
-/** Rotterdam rows of a nabijheid table (default: the 2025 base, 86270NED). */
-export function buildNabijUrl(table = NABIJ_TABLE) {
-  return buildWijkUrl(table, NABIJ_SELECT);
+/** City rows of a nabijheid table (default: the 2025 base, 86270NED). */
+export function buildNabijUrl(table = NABIJ_TABLE, city = CITY) {
+  return buildWijkUrl(table, NABIJ_SELECT, city);
 }
 
-/** Rotterdam rows of the 2017 green-distance table (84334NED). */
-export function buildGroenUrl() {
-  return buildWijkUrl(GROEN_TABLE, GROEN_SELECT);
+/** City rows of the 2017 green-distance table (84334NED). */
+export function buildGroenUrl(city = CITY) {
+  return buildWijkUrl(GROEN_TABLE, GROEN_SELECT, city);
 }
 
 // ── Newest city WOZ: CBS 85036NED "Gemiddelde WOZ-waarde van woningen; eigendom, regio" ──
@@ -526,9 +536,9 @@ export const WOZ_TABLE    = '85036NED';
 export const WOZ_PERIOD   = '2026JJ00';
 export const WOZ_EIGENDOM = 'T001132';
 
-export function buildCityWozUrl() {
+export function buildCityWozUrl(city = CITY) {
   return odataUrl(WOZ_TABLE, {
-    filter: `RegioS eq '${ROTTERDAM.gemeente}' and Eigendom eq '${WOZ_EIGENDOM}' and Perioden eq '${WOZ_PERIOD}'`,
+    filter: `RegioS eq '${city.gemeente}' and Eigendom eq '${WOZ_EIGENDOM}' and Perioden eq '${WOZ_PERIOD}'`,
     select: 'RegioS,Perioden,GemiddeldeWOZWaardeVanWoningen_1',
   });
 }
@@ -581,16 +591,16 @@ export const CRIME_MIN_POPULATION_BUURT = 200;   // buurten
 const crimeKey = k => String(k ?? '').trim();
 
 /** One 47018NED URL for every area under `prefix` (WK0599 / BU0599): total + categories, two years. */
-export function buildCrimeUrl(prefix = ROTTERDAM.wijkPrefix) {
+export function buildCrimeUrl(prefix = CITY_CODES.wijkPrefix, periods = [CRIME_PERIOD, CRIME_PREV_PERIOD]) {
   const kinds = [...new Set([CRIME_TOTAL, ...Object.values(CRIME_CATEGORIES).flat()])];
   return odataUrl(CRIME_TABLE, {
     base: CRIME_BASE,
-    filter: `startswith(WijkenEnBuurten,'${prefix}') and (Perioden eq '${CRIME_PERIOD}' or Perioden eq '${CRIME_PREV_PERIOD}') and (${kinds.map(k => `SoortMisdrijf eq '${k}'`).join(' or ')})`,
+    filter: `startswith(WijkenEnBuurten,'${prefix}') and (${periods.map(p => `Perioden eq '${p}'`).join(' or ')}) and (${kinds.map(k => `SoortMisdrijf eq '${k}'`).join(' or ')})`,
     select: `WijkenEnBuurten,Perioden,SoortMisdrijf,${CRIME_COLUMN}`,
   });
 }
-export const buildWijkCrimeUrl  = () => buildCrimeUrl(ROTTERDAM.wijkPrefix);
-export const buildBuurtCrimeUrl = () => buildCrimeUrl(ROTTERDAM.buurtPrefix);
+export const buildWijkCrimeUrl  = (city = CITY) => buildCrimeUrl(cityCodes(city).wijkPrefix);
+export const buildBuurtCrimeUrl = (city = CITY) => buildCrimeUrl(cityCodes(city).buurtPrefix);
 
 /** Misdrijven per 1,000 inhabitants (1 decimal), or null when either is unknown or the population is too small. */
 export function crimeRatePer1000(total, population, minPopulation = CRIME_MIN_POPULATION) {
@@ -660,41 +670,44 @@ const defaultStorage = () => { try { return globalThis.sessionStorage; } catch {
 
 let areasPromise = null;
 let indexPromise = null;
-let loadedAreas = null;   // resolved value of areasPromise (peekRotterdamAreas)
+let loadedAreas = null;   // resolved value of areasPromise (peekCityAreas)
 
 /**
- * Loads all Rotterdam wijken and buurten with their values (cached).
+ * Loads all wijken and buurten of the city (default: the page's city) with their values (cached).
  * Resolves to { wijken: Area[], buurten: Area[], city: Area & { woz }, geo: { gemeente, wijken, buurten }, bounds, dataOk, dataYears }
  * where Area = { code, name, level, parent, values: { [datasetKey]: number|null }, years: { [key]: fallbackYear }, bounds }.
  * Geometry failures reject; a CBS failure still resolves (all values null, dataOk false).
  * Crime comes from police table 47018NED, the 2024 fallback from 85984NED and
  * city.woz (2026) from 85036NED; each is best-effort (null values when it fails).
  */
-export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis), storage = defaultStorage() } = {}) {
+export function loadCityAreas({ fetcher = globalThis.fetch?.bind(globalThis), storage = defaultStorage(), city = CITY } = {}) {
   if (areasPromise) return areasPromise;
   areasPromise = (async () => {
+    const geoUrls = geoUrlsFor(city);
+    const keys = citySourceKeys(city);
+    const codes = cityCodes(city);
     const [gemeente, wijkGeo, buurtGeo] = await Promise.all([
-      getJSON(GEO_URLS.gemeente, fetcher, null),
-      getJSON(GEO_URLS.wijken,   fetcher, null),
-      getJSON(GEO_URLS.buurten,  fetcher, null),
+      getJSON(geoUrls.gemeente, fetcher, null),
+      getJSON(geoUrls.wijken,   fetcher, null),
+      getJSON(geoUrls.buurten,  fetcher, null),
     ]);
     let rows = [], dataOk = true;
     // Snapshot keys (data/snapshot/<key>.json, scripts/snapshot-sources.mjs); the URL is the live fallback.
     const src = (key, live) => getRows(key, { live, fetcher, storage });
     const best = (key, live) => src(key, live).catch(() => []);
-    const wijkCrime  = best('politie/47018NED-rotterdam-wijk', buildWijkCrimeUrl());
-    const buurtCrime = best('politie/47018NED-rotterdam-buurt', buildBuurtCrimeUrl());
-    const fallback   = best('cbs/85984NED-rotterdam', buildWijkUrl(WIJK_FALLBACK_TABLE));
-    const cityWoz    = best('cbs/85036NED-rotterdam-woz', buildCityWozUrl()).then(parseCityWoz);
-    const nabijP     = Promise.all([best('cbs/86270NED-rotterdam', buildNabijUrl()), best('cbs/86134NED-rotterdam', buildNabijUrl(NABIJ_FALLBACK_TABLE)), best('cbs/84334NED-rotterdam', buildGroenUrl()), loadOvAfstand({ fetcher })]);
+    const wijkCrime  = best(keys.crimeWijk, buildWijkCrimeUrl(city));
+    const buurtCrime = best(keys.crimeBuurt, buildBuurtCrimeUrl(city));
+    const fallback   = best(keys.kwbFallback, buildWijkUrl(WIJK_FALLBACK_TABLE, WIJK_SELECT, city));
+    const cityWoz    = best(keys.woz, buildCityWozUrl(city)).then(parseCityWoz);
+    const nabijP     = Promise.all([best(keys.nabij, buildNabijUrl(NABIJ_TABLE, city)), best(keys.nabijFallback, buildNabijUrl(NABIJ_FALLBACK_TABLE, city)), best(keys.groen, buildGroenUrl(city)), loadOvAfstand({ fetcher, url: city.ov.afstand })]);
     try {
-      rows = await src('cbs/86165NED-rotterdam', buildWijkUrl());
+      rows = await src(keys.kwb, buildWijkUrl(WIJK_TABLE, WIJK_SELECT, city));
     } catch {
       dataOk = false;
     }
     const oldRows = await fallback;
     const [nabijRows, nabijOld, groenRows, ov] = await nabijP;
-    const nabij = { rows: nabijRows, fallbackRows: nabijOld, groenRows, ov };
+    const nabij = { rows: nabijRows, fallbackRows: nabijOld, groenRows, ov, centrum: city.centrum.point };
     const wijkenCrime = mergeCrime(joinAreas(wijkGeo.features, rows, oldRows, nabij), await wijkCrime, { minPopulation: CRIME_MIN_POPULATION });
     const buurtenCrime = mergeCrime(joinAreas(buurtGeo.features, rows, oldRows, nabij), await buurtCrime, { minPopulation: CRIME_MIN_POPULATION_BUURT });
     // Shared-boundary neighbours from the loaded geometry (once per load; the
@@ -708,11 +721,11 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
     addEduValues(wijkenRaw); addEduValues(buurtenRaw);   // onderwijsprestatie basisscholen, once loaded
     const wijken  = withWoonscore(wijkenRaw);
     const buurten = withWoonscore(buurtenRaw, { parents: wijkenRaw });
-    const [city] = joinAreas([{ properties: { statcode: ROTTERDAM.gemeente, statnaam: ROTTERDAM.name } }], rows, oldRows);
+    const [whole] = joinAreas([{ properties: { statcode: codes.gemeente, statnaam: city.name } }], rows, oldRows, { centrum: city.centrum.point });
     return {
       wijken,
       buurten,
-      city:    { ...city, woz: await cityWoz },
+      city:    { ...whole, woz: await cityWoz },
       geo:     { gemeente, wijken: wijkGeo, buurten: buurtGeo },
       bounds:  geoBounds(gemeente),
       dataOk,
@@ -726,14 +739,14 @@ export function loadRotterdamAreas({ fetcher = globalThis.fetch?.bind(globalThis
 /**
  * Flat search index (cached): Array<{ code, name, level: 'wijk'|'buurt'|'gemeente'|'provincie',
  * scope: 'rotterdam'|'nederland', parent? }>. Provinces come from data/provinces.json,
- * gemeenten from the CBS 86165NED region list, wijken/buurten from loadRotterdamAreas().
+ * gemeenten from the CBS 86165NED region list, wijken/buurten of the city from loadCityAreas().
  * Any source that fails is left out rather than failing the whole index.
  */
 export function getAreaIndex({ fetcher = globalThis.fetch?.bind(globalThis), storage = defaultStorage() } = {}) {
   if (indexPromise) return indexPromise;
   indexPromise = (async () => {
     const [areas, provGeo, gmRows] = await Promise.all([
-      loadRotterdamAreas({ fetcher, storage }).catch(() => ({ wijken: [], buurten: [] })),
+      loadCityAreas({ fetcher, storage }).catch(() => ({ wijken: [], buurten: [] })),
       getJSON(GEO_URLS.provinces, fetcher, null).catch(() => ({ features: [] })),
       getRows('cbs/86165NED-gemeenten', { live: buildGemeenteNamesUrl(), fetcher, storage }).catch(() => []),
     ]);
@@ -747,8 +760,8 @@ export function getAreaIndex({ fetcher = globalThis.fetch?.bind(globalThis), sto
   return indexPromise;
 }
 
-/** The Rotterdam areas once loadRotterdamAreas() has resolved, else null (never starts a load). */
-export function peekRotterdamAreas() { return loadedAreas; }
+/** The city areas once loadCityAreas() has resolved, else null (never starts a load). */
+export function peekCityAreas() { return loadedAreas; }
 
 /** Test hook: forget cached loads. */
 export function _resetAreaCache() { areasPromise = null; indexPromise = null; loadedAreas = null; }

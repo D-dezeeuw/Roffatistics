@@ -4,7 +4,7 @@
 // area-detail.js (pure); this file builds the markup and runs the dialog.
 
 import { getState, setState, onStateChange, serializeHash } from './state.js';
-import { loadRotterdamAreas, areaPanelData, getAreaIndex } from './areas.js';
+import { loadCityAreas, areaPanelData, getAreaIndex } from './areas.js';
 import { loadNlAreas, gemeenteOf } from './nl-areas.js';
 import { buildAreaDetail } from './area-detail.js';
 import { formatValue } from './dashboard-data.js';
@@ -18,6 +18,7 @@ import { outlierLabel } from './scale.js';
 import { scoreKind, scoreLabel } from './wizard-model.js';
 import { scoreResult } from './presets.js';
 import { loadEduAreas, loadEduSchools, loadBuurtCentres, getEduEntry, getEduSchools, getBuurtCentre, eduAreaDetail, eduPanelHtml } from './onderwijs.js';
+import { CITY, isCityAreaCode } from './city.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nl = (v, d = 0) => v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -63,15 +64,15 @@ export const DRILL_EVENT = 'area-drill';
 /** Event the app handles for "Vergelijk": detail { code }. */
 export const COMPARE_EVENT = 'area-compare';
 
-/** True for a wijk/buurt code of Rotterdam (WK0599…/BU0599…). */
-export const isRotterdamCode = code => /^(WK|BU)0599/.test(String(code ?? ''));
+/** True for a wijk/buurt code of the city on this page (WK0599…/BU0599… for Rotterdam). */
+export const isCityCode = code => isCityAreaCode(code);
 
 /**
  * Scope that shows `code`: Rotterdam areas open in the Rotterdam scope (peers
  * within the city), every other NL wijk/buurt in the Nederland drill-down.
  */
 export function scopeForArea(code) {
-  return isRotterdamCode(code) ? 'rotterdam' : 'nederland';
+  return isCityCode(code) ? 'rotterdam' : 'nederland';
 }
 
 /** Shareable link to the area: the current URL with &area=<code>. */
@@ -82,7 +83,7 @@ export function areaLink(code, state = getState(), loc = globalThis.location) {
 
 /** Peer wording per data source: Rotterdam scope ranks within the city, Nederland within all NL. */
 export const PEER_TEXT = Object.freeze({
-  rotterdam: Object.freeze({ adj: 'Rotterdamse', within: 'in Rotterdam' }),
+  rotterdam: Object.freeze({ adj: CITY.adjective, within: `in ${CITY.name}` }),
   nederland: Object.freeze({ adj: 'Nederlandse', within: 'in Nederland' }),
 });
 
@@ -258,7 +259,7 @@ const isOpen = () => !!els && !els.modal.hidden;
 export const isAreaModalOpen = () => isOpen();
 
 /** Nederland scope, or any non-Rotterdam code: the national wijk/buurt set (nl-areas.js); else Rotterdam's. */
-const peersFor = code => (getState().scope === 'nederland' || !isRotterdamCode(code) ? 'nederland' : 'rotterdam');
+const peersFor = code => (getState().scope === 'nederland' || !isCityCode(code) ? 'nederland' : 'rotterdam');
 
 const NATIONAL_WAIT_MS = 8000;   // the splash can open a gemeente before the CBS rows arrive
 
@@ -294,7 +295,7 @@ async function render(code) {
   const peers = peersFor(code);
   let areas;
   try {
-    [areas] = await Promise.all([peers === 'nederland' ? loadNlAreas() : loadRotterdamAreas(), loadPc4Herkomst().catch(() => null), loadGemeenteRegio().catch(() => null), loadOnderwijs(code)]);
+    [areas] = await Promise.all([peers === 'nederland' ? loadNlAreas() : loadCityAreas(), loadPc4Herkomst().catch(() => null), loadGemeenteRegio().catch(() => null), loadOnderwijs(code)]);
   } catch {
     areas = { wijken: [], buurten: [] };
   }
@@ -322,7 +323,7 @@ export async function compareArea(code) {
     return nationalAreaSet(code, national[level], { names: new Map(index.map(e => [e.code, e.name])) }).area;
   }
   try {
-    const areas = isRotterdamCode(code) ? await loadRotterdamAreas() : await loadNlAreas();
+    const areas = isCityCode(code) ? await loadCityAreas() : await loadNlAreas();
     return areas.wijken.find(a => a.code === code) ?? areas.buurten.find(a => a.code === code) ?? null;
   } catch {
     return null;
