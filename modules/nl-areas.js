@@ -127,6 +127,38 @@ export function decodeLevel(data) {
   return addOmgeving(list, typeof data.nb === 'string' ? decodeNeighbours(codes, data.nb) : null);
 }
 
+/**
+ * The compact file object cut down to the areas of gemeente `gm` (code
+ * prefix), fallback indices remapped and the neighbour lists dropped, so
+ * decodeLevel only decodes one city.
+ */
+export function sliceLevel(data, gm) {
+  const digits = String(gm ?? '').replace(/^GM/, '');
+  const keep = [];
+  (data?.codes ?? []).forEach((c, i) => { if (/^(WK|BU)/.test(c) && c.slice(2, 6) === digits) keep.push(i); });
+  const at = new Map(keep.map((i, j) => [i, j]));
+  const cols = Object.fromEntries(Object.entries(data?.cols ?? {}).map(([k, col]) => [k, keep.map(i => col[i] ?? null)]));
+  const fallback = Object.fromEntries(Object.entries(data?.fallback ?? {}).map(([k, f]) =>
+    [k, { year: f.year, idx: f.idx === 'all' ? 'all' : f.idx.filter(i => at.has(i)).map(i => at.get(i)) }]));
+  const { nb, ...rest } = data ?? {};
+  return { ...rest, codes: keep.map(i => data.codes[i]), names: keep.map(i => data.names?.[i] ?? data.codes[i]), cols, fallback };
+}
+
+/**
+ * Third per-field fallback of the city loader (areas.js mergeNlFallback): the
+ * NL-wide `level` file cut to gemeente `gm`, as Map(code → { values, years }).
+ * Same file and decoder as loadNlLevel; cached per level and gemeente.
+ */
+export function loadNlFallback(level, gm, { fetcher = defaultFetcher() } = {}) {
+  if (!NL_DATA_URLS[level]) return Promise.reject(new Error(`nl-areas: unknown level ${level}`));
+  const key = `${level}:${gm}`;
+  if (fallbackPromises.has(key)) return fallbackPromises.get(key);
+  const p = getJSON(NL_DATA_URLS[level], fetcher).then(data => new Map(decodeLevel(sliceLevel(data, gm)).map(a => [a.code, a])));
+  fallbackPromises.set(key, p);
+  p.catch(() => fallbackPromises.delete(key));
+  return p;
+}
+
 /** Areas of `level`-list that lie in gemeente `gm` (by code prefix). */
 export function areasInGemeente(areas, gm) {
   if (!isGemeenteCode(gm)) return [];
@@ -176,6 +208,7 @@ const defaultFetcher = () => globalThis.fetch?.bind(globalThis);
 const yieldToMain = () => new Promise(r => setTimeout(r, 0));
 const levelPromises = new Map();   // 'wijk' | 'buurt' → Promise<Area[]>
 const loaded = { wijk: null, buurt: null };
+const fallbackPromises = new Map(); // 'buurt:GM0363' → Promise<Map(code → area)> (loadNlFallback)
 const geoPromises = new Map();     // 'wijk:GM0599' → Promise<FeatureCollection>
 
 async function getJSON(url, fetcher) {
@@ -240,4 +273,4 @@ export function rescoreNlAreas() {
 }
 
 /** Test hook: forget every cached load. */
-export function _resetNlCache() { levelPromises.clear(); geoPromises.clear(); loaded.wijk = null; loaded.buurt = null; }
+export function _resetNlCache() { levelPromises.clear(); geoPromises.clear(); fallbackPromises.clear(); loaded.wijk = null; loaded.buurt = null; }

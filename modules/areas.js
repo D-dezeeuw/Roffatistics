@@ -478,6 +478,41 @@ export function joinAreas(features, rows, fallbackRows = [], nabij = {}) {
   });
 }
 
+// Keys the NL-wide fallback never fills: crime comes from the police table
+// (mergeCrime, after this step) and the rest is derived later in the load.
+const NL_FALLBACK_SKIP = new Set(['crimeRate', 'totalCrimes', 'crimeTrend', 'crimeDensity', 'crimeNearby', 'woonscore', 'distCentrum']);
+const nlFallbackKey = k => !NL_FALLBACK_SKIP.has(k) && !k.startsWith('crime');
+
+/**
+ * Third per-field fallback (after 86165NED and 85984NED): every value that is
+ * still null takes the NL-wide file's value for the same code (nl-areas.js
+ * loadNlFallback), with that file's year (e.g. income 2023 from 85618NED) in
+ * `years`; a value of the base year gets no year mark. Only keys the city area
+ * already carries; never overwrites a non-null value. Bundles move together.
+ */
+export function mergeNlFallback(areas, nlByCode) {
+  if (!nlByCode?.size) return areas;
+  const bundled = new Set(FALLBACK_BUNDLES.flat());
+  return areas.map(a => {
+    const nl = nlByCode.get(a.code);
+    if (!nl) return a;
+    const values = { ...a.values }, years = { ...a.years };
+    const ok = k => k in values && nlFallbackKey(k) && toNumber(nl.values?.[k]) != null;
+    const take = k => {
+      values[k] = toNumber(nl.values[k]);
+      if (nl.years?.[k] != null) years[k] = nl.years[k]; else delete years[k];
+    };
+    let changed = false;
+    for (const bundle of FALLBACK_BUNDLES) {
+      if (bundle.some(k => values[k] == null) && bundle.every(ok)) { bundle.forEach(take); changed = true; }
+    }
+    for (const k of Object.keys(values)) {
+      if (!bundled.has(k) && values[k] == null && ok(k)) { take(k); changed = true; }
+    }
+    return changed ? { ...a, values, years } : a;
+  });
+}
+
 /** Data object for panel.showPanel (same shape as a normalised gemeente row). */
 export function areaPanelData(area) {
   return area ? { regionCode: area.code, ...area.values, dataYears: describeDataYears(area.years) } : null;
@@ -699,6 +734,10 @@ export function loadCityAreas({ fetcher = globalThis.fetch?.bind(globalThis), st
     const buurtCrime = best(keys.crimeBuurt, buildBuurtCrimeUrl(city));
     const fallback   = best(keys.kwbFallback, buildWijkUrl(WIJK_FALLBACK_TABLE, WIJK_SELECT, city));
     const cityWoz    = best(keys.woz, buildCityWozUrl(city)).then(parseCityWoz);
+    // NL-wide files (data/nl, nl-areas.js), third per-field fallback; lazy import: nl-areas imports this module.
+    const nlP = import('./nl-areas.js')
+      .then(m => Promise.all(['wijk', 'buurt'].map(l => m.loadNlFallback(l, codes.gemeente, { fetcher }).catch(() => new Map()))))
+      .catch(() => [new Map(), new Map()]);
     const nabijP     = Promise.all([best(keys.nabij, buildNabijUrl(NABIJ_TABLE, city)), best(keys.nabijFallback, buildNabijUrl(NABIJ_FALLBACK_TABLE, city)), best(keys.groen, buildGroenUrl(city)), loadOvAfstand({ fetcher, url: city.ov.afstand })]);
     try {
       rows = await src(keys.kwb, buildWijkUrl(WIJK_TABLE, WIJK_SELECT, city));
@@ -708,8 +747,9 @@ export function loadCityAreas({ fetcher = globalThis.fetch?.bind(globalThis), st
     const oldRows = await fallback;
     const [nabijRows, nabijOld, groenRows, ov] = await nabijP;
     const nabij = { rows: nabijRows, fallbackRows: nabijOld, groenRows, ov, centrum: city.centrum.point };
-    const wijkenCrime = mergeCrime(joinAreas(wijkGeo.features, rows, oldRows, nabij), await wijkCrime, { minPopulation: CRIME_MIN_POPULATION });
-    const buurtenCrime = mergeCrime(joinAreas(buurtGeo.features, rows, oldRows, nabij), await buurtCrime, { minPopulation: CRIME_MIN_POPULATION_BUURT });
+    const [nlWijken, nlBuurten] = await nlP;
+    const wijkenCrime = mergeCrime(mergeNlFallback(joinAreas(wijkGeo.features, rows, oldRows, nabij), nlWijken), await wijkCrime, { minPopulation: CRIME_MIN_POPULATION });
+    const buurtenCrime = mergeCrime(mergeNlFallback(joinAreas(buurtGeo.features, rows, oldRows, nabij), nlBuurten), await buurtCrime, { minPopulation: CRIME_MIN_POPULATION_BUURT });
     // Shared-boundary neighbours from the loaded geometry (once per load; the
     // promise is cached): crime per km² and "criminaliteit in de omgeving".
     const wijkenRaw = addOmgeving(wijkenCrime, adjacencyFromFeatures(wijkGeo.features, { decimals: 5 }));

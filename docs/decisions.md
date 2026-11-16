@@ -557,3 +557,11 @@ Operator request: the hamburger only on mobile; on tablet and desktop the menu i
 - **OV per city:** `build-ov-lines.mjs --city amsterdam` writes `data/ov/amsterdam/{bus,afstand}.json` from OpenStreetMap (Overpass), like Rotterdam; the plan's GTFS source and the ferry layer are not built (open).
 - **P2000:** `city.p2000 = false` (Amsterdam) drops the Actueel section and never loads the feed (the Randstad P2000 source covers Rijnmond only).
 - **Brand:** Amsterdam has placeholder brand fields (appName Mokumistics, theme and logo of Rotterdam). Theme, logo, slogan, splash texts are step 3.
+
+## 16 Nov 2026 — City loader: third per-field fallback from the NL-wide files (v0.47.0, no bump)
+
+- **Why:** the city snapshots (86165NED, fallback 85984NED) leave avgIncome empty for most buurten (Amsterdam 17/517), while `data/nl/{wijken,buurten}-2025.json` carry the 85618NED income of 2023 for 414/517.
+- **Rule:** after 86165NED → 85984NED, every value still null takes the NL file's value for the same 2025 code (`mergeNlFallback`, areas.js), with the NL file's year in `years` (income 2023), so the panel and source note show the older year through the existing `describeDataYears`. A base-year NL value gets no year mark. Generic over every key the city area carries; never overwrites a non-null value; the education and herkomst bundles move together. Crime keys (police table, merged afterwards), woonscore and distCentrum are skipped.
+- **Loading:** `loadNlFallback(level, gm)` in nl-areas.js reuses the NL file URL and `decodeLevel`, on a slice of the gemeente (`sliceLevel`, no neighbour lists), cached per level and gemeente. areas.js imports nl-areas.js lazily (`import()`): nl-areas imports areas.js at the top, a static cycle would hit WIJK_YEAR before it is set. A failed NL load just means no third fallback.
+- **Cost:** the city page now also fetches the NL wijk (0.85 MB) and buurt (3.6 MB) files, in parallel with the other tables; the same files the NL scope already loads, so the browser cache shares them.
+- **Effect:** avgIncome Amsterdam wijken 89→109/110, buurten 17→414/517; Rotterdam wijken 13→15/21, buurten 55→76/91. Woonscore buurten Amsterdam 424→427/517 (Rotterdam unchanged 76/91).

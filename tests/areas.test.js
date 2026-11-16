@@ -6,6 +6,7 @@ import {
   valueRange, geoBounds, padBounds, joinAreas, areaPanelData, cleanRegionName, buildAreaIndex,
   buildWijkUrl, loadCityAreas, getAreaIndex, _resetAreaCache, WIJK_COLUMNS, WIJK_TABLE, DATASETS, DATASET_KEYS,
 } from '../modules/areas.js';
+import { _resetNlCache } from '../modules/nl-areas.js';
 
 const C = WIJK_COLUMNS;
 const row = (code, extra = {}) => ({
@@ -180,7 +181,11 @@ describe('loaders (local files, stubbed CBS)', () => {
   });
 
   it('a CBS failure still yields every area, with null values', async () => {
-    const res = await loadCityAreas({ fetcher: localFetch(() => ({ ok: false, status: 500 })), storage: null });
+    // data/nl off too: otherwise the NL-wide fallback (mergeNlFallback) fills the values.
+    const fail = localFetch(() => ({ ok: false, status: 500 }));
+    const fetcher = url => (url.includes('/data/nl/') ? { ok: false, status: 404 } : fail(url));
+    _resetNlCache();
+    const res = await loadCityAreas({ fetcher, storage: null });
     assert.equal(res.dataOk, false);
     assert.equal(res.wijken.length, 21);
     assert.ok(res.wijken.every(a => a.values.population === null));
