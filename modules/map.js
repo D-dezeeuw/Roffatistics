@@ -1,4 +1,5 @@
 import { addOvLayers, pickInitialOv } from './ov.js';
+import { addSchoolPinsLayer, pickInitialSchoolPins } from './school-pins.js';
 
 // ── Basemap configuration (pure data, unit-tested) ───────────────────────────
 // Keyless providers only: OpenFreeMap vector styles (rendered by MapLibre GL
@@ -96,6 +97,7 @@ let map;
 let basemapLayer = null;
 let activeBasemap = null;
 let ovLayers = null;
+let schoolPins = null;
 
 export function initMap() {
   const NL_BOUNDS = L.latLngBounds(NL_BOUNDS_ARR);
@@ -113,6 +115,7 @@ export function initMap() {
   try { storage = window.localStorage; } catch { /* storage blocked */ }
   setBasemap(pickInitialBasemap(storage));
   ovLayers = addOvLayers(L, map);   // basemap, theme and OV are chosen in Instellingen (settings.js)
+  schoolPins = addSchoolPinsLayer(L, map, { storage });   // Basisscholen, also in Instellingen
 
   // invalidateSize fires Leaflet 'resize', which the maplibre layer forwards to its GL canvas.
   window.addEventListener('resize', () => map.invalidateSize());
@@ -154,6 +157,14 @@ export function getOvModes() {
 }
 /** Switches OV lines on/off; the chosen basemap, area layer and P2000 layer stay as they are. */
 export function setOvModes(state) { return ovLayers?.set(state); }
+
+/** Whether the Basisscholen pins are on; before initMap the stored state. */
+export function getSchoolPins() {
+  if (schoolPins) return schoolPins.get();
+  try { return pickInitialSchoolPins(window.localStorage); } catch { return pickInitialSchoolPins(null); }
+}
+/** Switches the school pins on/off (the school file is fetched on first use). */
+export function setSchoolPins(on) { return schoolPins?.set(on); }
 
 export function getMap() { return map; }
 

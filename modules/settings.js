@@ -1,7 +1,8 @@
-// ── Instellingen (header cog): thema, kaart, OV-lijnen ───────────────────────
+// ── Instellingen (header cog): thema, kaart, OV-lijnen, basisscholen ─────────
 // One dialog for the look of the app. The owners stay the source of truth:
 // theme.js (data-theme, key roffatistics.theme), map.js (basemap, key
-// roffatistics.basemap) and ov.js (Metro / Tram / Bus, key roffatistics.ov).
+// roffatistics.basemap), ov.js (Metro / Tram / Bus, key roffatistics.ov) and
+// school-pins.js (Basisscholen, key roffatistics.basisscholen).
 // This module only reads and writes through them. Settings are per device
 // (localStorage, every access in try/catch) and are not part of the share
 // link, except theme and basemap, which "Delen" already offered.
@@ -10,26 +11,28 @@
 import { THEMES, DEFAULT_THEME, THEME_STORAGE_KEY, pickInitialTheme, resolveTheme } from './theme.js';
 import { BASEMAPS, DEFAULT_BASEMAP, BASEMAP_STORAGE_KEY, pickInitialBasemap, resolveBasemap } from './map.js';
 import { OV_MODES, DEFAULT_OV, OV_STORAGE_KEY, pickInitialOv, serializeOvState } from './ov.js';
+import { DEFAULT_SCHOOL_PINS, SCHOOL_PINS_STORAGE_KEY, pickInitialSchoolPins, serializeSchoolPins } from './school-pins.js';
 
-export const SETTINGS_DEFAULTS = Object.freeze({ theme: DEFAULT_THEME, basemap: DEFAULT_BASEMAP, ov: DEFAULT_OV });
-export const SETTINGS_KEYS = Object.freeze({ theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, ov: OV_STORAGE_KEY });
+export const SETTINGS_DEFAULTS = Object.freeze({ theme: DEFAULT_THEME, basemap: DEFAULT_BASEMAP, ov: DEFAULT_OV, schools: DEFAULT_SCHOOL_PINS });
+export const SETTINGS_KEYS = Object.freeze({ theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, ov: OV_STORAGE_KEY, schools: SCHOOL_PINS_STORAGE_KEY });
 
 export const THEME_OPTIONS = Object.freeze(Object.values(THEMES).map(t => Object.freeze({ id: t.id, label: t.label })));
 export const BASEMAP_OPTIONS = Object.freeze(Object.values(BASEMAPS).map(b => Object.freeze({ id: b.id, label: b.label })));
 export const OV_OPTIONS = Object.freeze(Object.values(OV_MODES).map(m => Object.freeze({ id: m.id, label: m.label, hint: m.hint ?? '' })));
 
-/** Normalises any input to { theme, basemap, ov:{metro,tram,bus} }; unknown values fall back to the defaults. */
+/** Normalises any input to { theme, basemap, ov:{metro,tram,bus}, schools }; unknown values fall back to the defaults. */
 export function normalizeSettings(s = {}) {
   return {
     theme: resolveTheme(s?.theme).id,
     basemap: resolveBasemap(s?.basemap).id,
     ov: Object.fromEntries(Object.keys(OV_MODES).map(k => [k, s?.ov ? !!s.ov[k] : DEFAULT_OV[k]])),
+    schools: typeof s?.schools === 'boolean' ? s.schools : DEFAULT_SCHOOL_PINS,
   };
 }
 
 /** The stored settings; a missing or blocked storage gives the defaults. */
 export function loadSettings(storage) {
-  return { theme: pickInitialTheme(storage), basemap: pickInitialBasemap(storage), ov: pickInitialOv(storage) };
+  return { theme: pickInitialTheme(storage), basemap: pickInitialBasemap(storage), ov: pickInitialOv(storage), schools: pickInitialSchoolPins(storage) };
 }
 
 /** Stores the settings under the owners' keys; returns the normalised settings. Never throws. */
@@ -39,6 +42,7 @@ export function saveSettings(settings, storage) {
   put(THEME_STORAGE_KEY, s.theme);
   put(BASEMAP_STORAGE_KEY, s.basemap);
   put(OV_STORAGE_KEY, serializeOvState(s.ov));
+  put(SCHOOL_PINS_STORAGE_KEY, serializeSchoolPins(s.schools));
   return s;
 }
 
@@ -65,6 +69,8 @@ export function settingsDialogHtml(settings = SETTINGS_DEFAULTS) {
           <p class="settings-note">Satelliet: luchtfoto van PDOK, alleen Nederland.</p></fieldset>
         <fieldset class="settings-group"><legend>OV-lijnen</legend><div class="settings-opts">${ov}</div>
           <p class="settings-note">Bus alleen in de regio Rotterdam. Lijnen &copy; OpenStreetMap-bijdragers.</p></fieldset>
+        <fieldset class="settings-group"><legend>Onderwijs</legend><div class="settings-opts"><label class="settings-opt settings-check"><input type="checkbox" name="settings-schools" value="on"${s.schools ? ' checked' : ''}><span class="school-swatch" aria-hidden="true"></span><span>Basisscholen</span></label></div>
+          <p class="settings-note">Een punt per basisschool, gekleurd naar de schoolscore (referentieniveaus 2022–2024, DUO); grijs = geen toetsgegevens.</p></fieldset>
       </div>
     </div>`;
 }
@@ -77,6 +83,7 @@ export function readSettingsForm(root) {
     theme: val('settings-theme'),
     basemap: val('settings-basemap'),
     ov: Object.fromEntries(Object.keys(OV_MODES).map(k => [k, on.has(k)])),
+    schools: !!root.querySelector('input[name="settings-schools"]:checked'),
   });
 }
 
@@ -86,6 +93,7 @@ export function writeSettingsForm(root, settings) {
   for (const i of root.querySelectorAll('input[name="settings-theme"]')) i.checked = i.value === s.theme;
   for (const i of root.querySelectorAll('input[name="settings-basemap"]')) i.checked = i.value === s.basemap;
   for (const i of root.querySelectorAll('input[name="settings-ov"]')) i.checked = !!s.ov[i.value];
+  for (const i of root.querySelectorAll('input[name="settings-schools"]')) i.checked = s.schools;
 }
 
 // ── Dialog logic ──────────────────────────────────────────────────────────────
@@ -93,7 +101,7 @@ export function writeSettingsForm(root, settings) {
 /**
  * modal: the overlay; dialog: the role=dialog box. current() gives the live
  * settings (synced into the form on open); apply(changed, settings) is called
- * on every change with the changed group ('theme' | 'basemap' | 'ov').
+ * on every change with the changed group ('theme' | 'basemap' | 'ov' | 'schools').
  * Returns { open(), close(), isOpen() }.
  */
 export function createSettingsDialog({ modal, dialog, current, apply, doc = globalThis.document }) {
@@ -134,7 +142,7 @@ export function createSettingsDialog({ modal, dialog, current, apply, doc = glob
   });
   dialog.addEventListener('change', e => {
     const name = e.target?.name;
-    const group = name === 'settings-theme' ? 'theme' : name === 'settings-basemap' ? 'basemap' : name === 'settings-ov' ? 'ov' : null;
+    const group = name === 'settings-theme' ? 'theme' : name === 'settings-basemap' ? 'basemap' : name === 'settings-ov' ? 'ov' : name === 'settings-schools' ? 'schools' : null;
     if (group) apply(group, readSettingsForm(dialog));
   });
 
@@ -143,10 +151,10 @@ export function createSettingsDialog({ modal, dialog, current, apply, doc = glob
 
 /**
  * Builds the dialog and binds every `.settings-btn`. The hooks do the work:
- * setTheme(id), setBasemap(id), setOv({metro,tram,bus}); getBasemap() and
- * getOv() give the live state (the basemap can fall back to Satelliet without WebGL).
+ * setTheme(id), setBasemap(id), setOv({metro,tram,bus}), setSchools(bool); getBasemap(),
+ * getOv() and getSchools() give the live state (the basemap can fall back to Satelliet without WebGL).
  */
-export function initSettings({ setTheme, setBasemap, setOv, getBasemap, getOv, doc = globalThis.document } = {}) {
+export function initSettings({ setTheme, setBasemap, setOv, setSchools, getBasemap, getOv, getSchools, doc = globalThis.document } = {}) {
   let storage = null;
   try { storage = globalThis.localStorage ?? null; } catch { storage = null; }
   const live = () => normalizeSettings({
@@ -154,6 +162,7 @@ export function initSettings({ setTheme, setBasemap, setOv, getBasemap, getOv, d
     theme: doc.documentElement?.dataset?.theme,
     ...(getBasemap?.() ? { basemap: getBasemap() } : {}),
     ...(getOv ? { ov: getOv() } : {}),
+    ...(getSchools ? { schools: !!getSchools() } : {}),
   });
 
   const modal = doc.createElement('div');
@@ -171,6 +180,7 @@ export function initSettings({ setTheme, setBasemap, setOv, getBasemap, getOv, d
       if (group === 'theme') setTheme?.(s.theme);
       else if (group === 'basemap') setBasemap?.(s.basemap);
       else if (group === 'ov') setOv?.(s.ov);
+      else if (group === 'schools') setSchools?.(s.schools);
     },
     doc,
   });

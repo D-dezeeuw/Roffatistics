@@ -344,7 +344,9 @@ export const APPLY = Object.freeze({
   levensfase(d, a) {
     const L = EXTRA_THEME_WEIGHTS.leeftijd;
     if (a.levensfase) for (const [key, w] of LIFE_METRICS[a.levensfase]) metric(d, 'leeftijd', key, 'higher', w, L);
-    if (a.levensfase === 'gezin') { metric(d, 'voorzieningen', 'distSchool', 'lower', STRESS_W); metric(d, 'voorzieningen', 'distKinderopvang', 'lower', STRESS_W); }
+    if (a.levensfase === 'gezin') {   // school close by and good (eduNearScore, W31), plus kinderopvang
+      metric(d, 'voorzieningen', 'distSchool', 'lower', STRESS_W); metric(d, 'voorzieningen', 'eduNearScore', 'higher', STRESS_W); metric(d, 'voorzieningen', 'distKinderopvang', 'lower', STRESS_W);
+    }
     if (a.levensfase === 'senior') { metric(d, 'voorzieningen', 'distGP', 'lower', STRESS_W); metric(d, 'voorzieningen', 'distSupermarket', 'lower', 2); }
     if (SOLO_SFEER[a.levensfase] && a.sfeer == null) for (const [key, pref, w] of SOLO_SFEER[a.levensfase]) metric(d, 'sfeer', key, pref, w, SOLO_SFEER_WEIGHT);
     // Bouwstijl (v0.29.0): buildings only, never the people. Living among young

@@ -57,7 +57,7 @@ function safe(fn) { try { return fn(); } catch { return null; } }
 const PRIVACY = `
   <p><strong>Alles blijft op je apparaat.</strong> Roffatistics heeft geen accounts, zet geen cookies, gebruikt geen analytics, trackers of advertenties en heeft geen eigen server die iets van je opslaat.</p>
   <h3>Wat er op je apparaat staat</h3>
-  <p>Je keuzes bewaren we in de opslag van je eigen browser (localStorage), zodat ze er de volgende keer nog zijn: thema, kaartstijl, OV-lijnen, schaal, weergave, ranglijstinstellingen, je recente zoekopdrachten, of het startscherm getoond wordt en je antwoorden uit de wizard. Opgehaalde cijfers staan tijdelijk in sessionStorage en verdwijnen als je het tabblad sluit. Niets hiervan wordt verstuurd.</p>
+  <p>Je keuzes bewaren we in de opslag van je eigen browser (localStorage), zodat ze er de volgende keer nog zijn: thema, kaartstijl, OV-lijnen, basisscholen op de kaart, schaal, weergave, ranglijstinstellingen, je recente zoekopdrachten, of het startscherm getoond wordt en je antwoorden uit de wizard. Opgehaalde cijfers staan tijdelijk in sessionStorage en verdwijnen als je het tabblad sluit. Niets hiervan wordt verstuurd.</p>
   <h3>Deellinks</h3>
   <p>Je wizardantwoorden en andere gevoelige keuzes komen alleen in een link als je ze bij Delen zelf aanvinkt. Zonder vinkje bevat de link alleen de kaartweergave.</p>
   <h3>Welke servers de pagina gebruikt</h3>

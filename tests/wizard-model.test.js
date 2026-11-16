@@ -49,12 +49,14 @@ describe('wizard: skip = Standaard', () => {
 });
 
 describe('wizard: answers → preset', () => {
-  it('levensfase gezin: kids share in Leeftijd, school and kinderopvang stressed', () => {
+  it('levensfase gezin: kids share in Leeftijd, school nearby, its quality and kinderopvang stressed', () => {
     const p = answersToPreset({ levensfase: 'gezin' });
     assert.equal(themeOf(p, 'leeftijd').weight, 15);
     assert.equal(metricOf(p, 'leeftijd', 'hhWithKidsPct').pref, 'higher');
     assert.equal(metricOf(p, 'voorzieningen', 'distSchool').w, STRESS_W);
     assert.equal(metricOf(p, 'voorzieningen', 'distKinderopvang').w, STRESS_W);
+    assert.deepEqual(metricOf(p, 'voorzieningen', 'eduNearScore'), { key: 'eduNearScore', pref: 'higher', w: STRESS_W });
+    assert.equal(metricOf(answersToPreset({ levensfase: 'stel' }), 'voorzieningen', 'eduNearScore'), undefined);
   });
   it('bouwstijl: karakter → more pre-1945 dwellings, modern → more 2005+ (plus newBuildPct); no 65+ rule left', () => {
     const k = answersToPreset({ bouw: 'karakter' });
