@@ -19,6 +19,7 @@ import {
   SUBJECT_KEYS, YEARS, SMALL_N, NEAR_RADIUS_KM, NEAR_BEST_KM,
 } from '../modules/schools.js';
 import { geoCentroid } from '../modules/areas.js';
+import { encodeCentres } from '../modules/onderwijs.js';
 import { NL_GEO_WFS, NL_GEO_TYPES, NL_DATA_YEAR } from '../modules/nl-areas.js';
 
 const CKAN = 'https://onderwijsdata.duo.nl/api/3/action/package_show';
@@ -36,6 +37,7 @@ const PC4 = new URL('../.cache/pc4/', import.meta.url);
 const GEOCACHE = new URL('pdok-geocode.json', DUO);
 const OUT_NAME = 'onderwijs-po-2024.json';
 const SCHOOLS_NAME = 'onderwijs-po-scholen-2024.json';
+const CENTRES_NAME = `buurt-centres-${NL_DATA_YEAR}.json`;
 const r5 = x => (x == null ? null : Math.round(x * 1e5) / 1e5);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -244,11 +246,14 @@ const schoolsOut = { ...head, note: 'gemeente only where buurt is null (else it 
 const text = JSON.stringify(out), schoolsText = JSON.stringify(schoolsOut);
 await writeFile(new URL(OUT_NAME, OUT), text);
 await writeFile(new URL(SCHOOLS_NAME, OUT), schoolsText);
+// Buurt centres for the panel's "Basisscholen binnen 1 km" (the same points as eduNear…).
+const centresText = JSON.stringify({ format: 1, year: NL_DATA_YEAR, built, source: `PDOK gebiedsindelingen ${NL_DATA_YEAR}, ${NL_GEO_TYPES.buurt}; zwaartepunt (areas.geoCentroid), hetzelfde midden als eduNearScore/eduNearBest/eduNearCount in ${OUT_NAME}`, ...encodeCentres(centres) });
+await writeFile(new URL(CENTRES_NAME, OUT), centresText);
 
 // ── Log ──────────────────────────────────────────────────────────────────────
 const pctOf = (a, n) => `${((100 * a) / n).toFixed(1)}%`;
 const n = schools.length, located = n - stats.none;
-console.log(`${OUT_NAME}: ${(text.length / 1e6).toFixed(2)} MB; ${SCHOOLS_NAME}: ${(schoolsText.length / 1e6).toFixed(2)} MB`);
+console.log(`${OUT_NAME}: ${(text.length / 1e6).toFixed(2)} MB; ${SCHOOLS_NAME}: ${(schoolsText.length / 1e6).toFixed(2)} MB; ${CENTRES_NAME}: ${(centresText.length / 1e6).toFixed(2)} MB`);
 console.log(`geocode: buurt ${stats.pc6 + stats.pdok}/${n} = ${pctOf(stats.pc6 + stats.pdok, n)} (pc6huisnr ${stats.pc6}, PDOK ${stats.pdok}), wijk only ${stats.wijkOnly}, none ${stats.none}; area ${pctOf(located, n)}; coordinates ${stats.coords}/${n} (${stats.coordsPostcode} postcode centroid)`);
 const scored = schools.filter(s => s.score != null);
 console.log(`schools: ${n} listed, ${scored.length} scored, ${scored.filter(s => s.small).length} small, ${scored.filter(s => s.estimate).length} with an estimated cell; scored schools without an address: ${scores.size - scored.length}`);

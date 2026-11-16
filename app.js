@@ -34,6 +34,7 @@ import { loadBouwjaar, onBouwLoaded, addBouwShares, isBouwKey, isBouwLoaded, pre
 import { loadPc4Herkomst, onPc4Loaded, addPc4Shares, isPc4Key, isPc4Loaded, presetUsesPc4 } from './modules/herkomst-pc4.js';
 import { loadGemeenteRegio, isRegioLoaded, isRegionMetric, withRegionShares } from './modules/herkomst-regio.js';
 import { showLoader, hideLoader, setLoaderProgress, withLoader } from './modules/loader.js';
+import { isEduKey, isEduLoaded, loadEduAreas, onEduLoaded, addEduValues, withEduRows } from './modules/onderwijs.js';
 import { isP2000Key, isP2000Loaded, loadP2000, setP2000Window, getP2000Window, activeP2000, addP2000Values, withP2000Rows, p2000LegendHtml, P2000_ERROR_TEXT, P2000_LOADING_TEXT } from './modules/p2000.js';
 
 // ── Legend ────────────────────────────────────────────────────────────────────
@@ -148,6 +149,7 @@ fetchCBS(CBS_TABLE, GM_FILTER, CBS_SELECT)
     const ov = await loadOvAfstand();   // prebuilt metro/tram distances per gemeente ({} when it fails)
     gemeenteRows = rowsWithWoonscore(withRegionShares(normalizeProvinces(rawGM).filter(r => r.regionCode).map(r => withOvValues(r, r.regionCode, ov))));   // regions: once loaded
     gemeenteRows = withP2000Rows(gemeenteRows);   // P2000 meldingen (W30) when the layer was opened first
+    gemeenteRows = withEduRows(gemeenteRows);     // onderwijsprestatie basisscholen when already loaded
     setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows);
     refreshMunicipalityView();
     // Merge municipality crime in the background.
@@ -320,6 +322,11 @@ async function activateDataset(key) {
     if (isRegioLoaded() && gemeenteRows.length) { gemeenteRows = withRegionShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
     if (getState().dataset !== key) return;
   }
+  // Onderwijsprestatie basisscholen: the static area file loads on first use; onEduLoaded joins it everywhere.
+  if (isEduKey(key) && !isEduLoaded()) {
+    await loadEduAreas().catch(err => console.warn('onderwijsprestatie:', err));
+    if (getState().dataset !== key) return;
+  }
   // Actuele meldingen (P2000, W30): fetched from Randstad on first use, per 30/7-dagen window.
   if (isP2000Key(key)) {
     syncLegendExtras(key);
@@ -464,6 +471,15 @@ onPc4Loaded(() => {
     applyPersonalScore(getState().score);
     if (DATASETS[getState().dataset]?.unit === 'score') activateDataset(getState().dataset);
   }
+});
+
+// Onderwijsprestatie landed (layer or area panel): add the values to every loaded area set. No score uses them.
+onEduLoaded(() => {
+  const rd = peekRotterdamAreas();
+  if (rd) { addEduValues(rd.wijken); addEduValues(rd.buurten); }
+  const nl = peekNlAreas();
+  addEduValues(nl.wijken); addEduValues(nl.buurten);
+  if (gemeenteRows.length) { gemeenteRows = withEduRows(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
 });
 
 onStateChange(({ state, changed, source }) => {

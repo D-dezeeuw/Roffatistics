@@ -116,6 +116,7 @@ export function formatValue(v, key, mode = 'rate') {
   const unit = datasetFor(key, mode)?.unit;
   if (unit === 'misdrijven') return `${formatNumber(n)} misdrijven`;
   if (unit === 'score')     return `${formatNumber(Math.round(n))} / 100`;
+  if (unit === 'cijfer')    return `${formatNumber(Math.round(n) / 10, 1)} / 10`;   // schoolscore 0–100 shown as a grade
   if (unit === '×€1.000')   return `€ ${formatNumber(Math.round(n * 1000 / 100) * 100)}`;
   if (unit === '%')         return `${formatNumber(n, 1)}%`;
   if (unit === 'per 1.000') return `${formatNumber(n, 1)} per 1.000 inw.`;
@@ -131,6 +132,7 @@ export function formatTick(v, key, mode = 'rate') {
   if (unit === '×€1.000') return `€${formatNumber(v, 1)}k`;
   if (unit === '%')       return `${formatNumber(v, 1)}%`;
   if (unit === 'km')      return `${formatNumber(v, 1)} km`;
+  if (unit === 'cijfer')  return formatNumber(v / 10, 1);
   if (Math.abs(v) >= 10000) return `${formatNumber(v / 1000, 1)}k`;
   return formatNumber(v, 1);
 }
