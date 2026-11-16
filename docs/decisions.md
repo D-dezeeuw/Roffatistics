@@ -656,3 +656,11 @@ Operator request: the hamburger only on mobile; on tablet and desktop the menu i
 - **Hints behind one (i).** `LEVENSTYPE_HINT` and the chosen type's `LEVENSTYPE_HINTS` line (`levenstypeHelp`) sit behind one (i) after "Welk levenstype past het best bij jou?". Only "Kies een kaart. …" stays visible, until a card is chosen.
 - **Toggletip, not hover-only** (`modules/info-tip.js`): shown on pointer hover (`@media (hover: hover)`, so no sticky hover on touch), on keyboard focus (`:focus-visible`) and after a tap/click (`aria-expanded="true"`). Escape hides it first (a focused one gets `data-tip-dismissed` until blur) and only the next Escape closes the wizard; a click elsewhere or leaving the button closes it. The text spans its anchor (the card, or the question line) instead of hanging off the small icon, so it never runs out of the dialog sideways.
 - More room under the step kicker ("Vind jouw ideale woonplek · stap 1 van 5"): 0.5rem.
+
+## 16 Nov 2026 — Levenstype "Zelf samenstellen" met bouwstenen (plan-gui-header-wizard §C, v0.57.0)
+
+- A tenth card, "Zelf samenstellen" (levensfase `custom`), opens seven checkboxes: Kinderen, Levendig, Rustig, Groen & natuur, Ouder worden, Veilig and Bereikbaar. The blocks are cut from the existing PROFILES (gezin, soloMensen, soloRust, senior, starter and VEILIG_STD), so there are no new metrics and no new weights scale.
+- Additive on top of Standaard, not an average of profiles. Each block adds weight only to its own themes and metrics. Without blocks you get exactly Standaard, and two blocks on one theme add up. This keeps the result explainable per block. Formula: algoritmes.md §2a.
+- Levendig and Rustig are mutually exclusive, because they point Sfeer in opposite directions. In the UI, switching one on switches the other off. A crafted link with both drops both, rather than guessing which one was meant.
+- Hash: `lc<letters>`. The letter `c` was free in LF, so old links decode unchanged. `blocks` only exists when the levensfase is `custom`.
+- The personal dashboard focuses on the blocks' own metrics. LIFE_FOCUS has no starter or nieuwkomer row, so the dashboard now guards a missing focus row instead of throwing.

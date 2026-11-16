@@ -16,7 +16,7 @@
 // v0.26.0: Gemeenschap is one detailed group (Nederland included, the broad
 // groups are gone); nothing sensitive goes into a link unless the user ticks
 // it in "Deellink maken" (shareableAnswers / shareableScore).
-import { STANDAARD, GELIJK, THEME_LABELS, ORIGIN_KEYS, PROFILES, PROFILE_THEMES, profileThemes } from './presets.js';
+import { STANDAARD, GELIJK, THEME_LABELS, ORIGIN_KEYS, PROFILES, PROFILE_THEMES, profileThemes, profileOf, BUILDING_BLOCKS, EXCLUSIVE_BLOCKS, normalizeBlocks } from './presets.js';
 import { DETAIL_GROUPS } from './herkomst-gemeente.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
@@ -212,8 +212,28 @@ export const LEVENSTYPE_LINES = Object.freeze({
   soloMensen: 'Alleen, graag levendig en dicht bij het centrum.',
   soloRust:   'Alleen, graag rustig met groen en water.',
 });
+/**
+ * "Zelf samenstellen" (plan-gui-header-wizard §C, v0.57.0): levensfase 'custom'
+ * plus answers.blocks (presets.js BUILDING_BLOCKS). Kept out of LEVENSTYPEN, which
+ * lists the fixed profiles (cards, PROFILES, LIFE_FOCUS all key on it).
+ */
+export const CUSTOM_LEVENSTYPE = 'custom';
+export const CUSTOM_LABEL = 'Zelf samenstellen';
+export const CUSTOM_LINE = 'Kies zelf je bouwstenen: kinderen, groen, rust, veiligheid …';
+export const CUSTOM_HINT = 'Zelf samenstellen: je begint bij Standaard en elke bouwsteen legt extra gewicht op zijn eigen thema’s. Levendig en Rustig sluiten elkaar uit. Je kunt alles bijstellen.';
+/** Display name of a levenstype, incl. "Zelf samengesteld"; null for none. */
+export const levenstypeLabel = k => (k === CUSTOM_LEVENSTYPE ? 'Zelf samengesteld' : LEVENSTYPEN[k] ?? null);
 /** The text behind the (i) next to the levenstype question (v0.56.0): the general hint, plus the chosen type's line. */
-export const levenstypeHelp = levensfase => [LEVENSTYPE_HINT, LEVENSTYPE_HINTS[levensfase]].filter(Boolean).join(' ');
+export const levenstypeHelp = levensfase => [LEVENSTYPE_HINT, levensfase === CUSTOM_LEVENSTYPE ? CUSTOM_HINT : LEVENSTYPE_HINTS[levensfase]].filter(Boolean).join(' ');
+/** Turns block `key` on or off (and selects "Zelf samenstellen"); switching one of an exclusive pair on switches the other off. */
+export function toggleBlock(answers, key) {
+  const a = normalizeAnswers(answers);
+  const cur = a.levensfase === CUSTOM_LEVENSTYPE ? a.blocks : [];
+  if (!Object.hasOwn(BUILDING_BLOCKS, key)) return a;
+  let next = cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key];
+  if (!cur.includes(key)) for (const pair of EXCLUSIVE_BLOCKS) if (pair.includes(key)) next = next.filter(k => k === key || !pair.includes(k));
+  return normalizeAnswers({ ...a, levensfase: CUSTOM_LEVENSTYPE, blocks: next });
+}
 /** Plan-wizard-v2 hint for Nieuwkomer (also part of its LEVENSTYPE_HINTS line and the Buren step). */
 export const NIEUWKOMER_HINT = 'Net in Nederland? Een gemeenschap van mensen met dezelfde achtergrond dichtbij kan veel steun geven; kies bij ‘Waar voel je je thuis?’ eventueel je herkomst.';
 /** One line per levenstype naming its starting weights (presets.js PROFILES), shown once one is chosen. */
@@ -275,7 +295,7 @@ export const AUTO_SFEER_WEIGHT = 8;
 export const STRESS_W = 3;
 
 export const EMPTY_ANSWERS = Object.freeze({
-  levensfase: null, bouw: null, budget: null, vervoer: Object.freeze([]), sfeer: null, veiligheid: Object.freeze([]), weights: Object.freeze({}),
+  levensfase: null, blocks: Object.freeze([]), bouw: null, budget: null, vervoer: Object.freeze([]), sfeer: null, veiligheid: Object.freeze([]), weights: Object.freeze({}),
   gemeenschap: null, situatie: null, importance: Object.freeze({}), dichtbij: null,
 });
 
@@ -324,7 +344,8 @@ export function normalizeAnswers(a = {}) {
   const importance = {};
   for (const [k, v] of Object.entries(a?.importance ?? {})) if (Object.hasOwn(THEME_LABELS, k) && k !== 'gemeenschap' && isNum(v)) importance[k] = Math.round(clamp(v, 0, IMPORTANCE.length - 1));
   return {
-    levensfase: Object.hasOwn(LEVENSTYPEN, a?.levensfase) ? a.levensfase : null,
+    levensfase: Object.hasOwn(LEVENSTYPEN, a?.levensfase) || a?.levensfase === CUSTOM_LEVENSTYPE ? a.levensfase : null,
+    blocks: a?.levensfase === CUSTOM_LEVENSTYPE ? normalizeBlocks(a.blocks) : [],
     // v0.21–0.28 stored `oud`: 'gebouwen' (nieuwe woningen) becomes modern; 'bewoners' (jonge bewoners) is gone.
     bouw: Object.hasOwn(BOUW_OPTIONS, a?.bouw) ? a.bouw : a?.oud === 'gebouwen' ? 'modern' : null,
     budget,
@@ -386,7 +407,7 @@ function metric(d, themeKey, key, pref, w = 1, themeWeight = 0) {
 }
 
 /** Draft themes of a profile (presets.js PROFILES), mutable. */
-const profileDraft = key => profileThemes(key).map(t => [t.key, { key: t.key, label: t.label, weight: t.weight, metrics: new Map(t.metrics.map(m => [m.key, { ...m }])) }]);
+const profileDraft = (key, blocks) => profileThemes(key, blocks).map(t => [t.key, { key: t.key, label: t.label, weight: t.weight, metrics: new Map(t.metrics.map(m => [m.key, { ...m }])) }]);
 
 /** Step appliers, in STEPS order. Each mutates the draft from normalised answers. */
 export const APPLY = Object.freeze({
@@ -396,7 +417,7 @@ export const APPLY = Object.freeze({
   levensfase(d, a) {
     if (a.levensfase) {
       const own = new Set(PROFILE_THEMES);
-      d.themes = new Map([...profileDraft(a.levensfase), ...[...d.themes].filter(([k]) => !own.has(k))]);
+      d.themes = new Map([...profileDraft(a.levensfase, a.blocks), ...[...d.themes].filter(([k]) => !own.has(k))]);
     }
     // Bouwstijl (v0.29.0): buildings only, never the people. Living among young
     // families comes from levenstype Gezin (hhWithKidsPct), busy vs quiet from Sfeer.
@@ -434,7 +455,8 @@ export const APPLY = Object.freeze({
     if (a.sfeer == null) return;
     const s = clamp(a.sfeer + (a.vervoer.includes('auto') ? 15 : 0), 0, 100) / 100;   // 0 = midden in de drukte, 1 = rustig
     // A profile with a Sfeer weight but no direction (Nieuwkomer, v0.46.0) gives that weight; else 20.
-    const S = PROFILES[a.levensfase]?.weights.sfeer > 0 ? PROFILES[a.levensfase].weights.sfeer : EXTRA_THEME_WEIGHTS.sfeer;
+    const pw = a.levensfase ? profileOf(a.levensfase, a.blocks).weights.sfeer : 0;
+    const S = pw > 0 ? pw : EXTRA_THEME_WEIGHTS.sfeer;
     theme(d, 'sfeer', S).metrics.clear();
     metric(d, 'sfeer', 'density', 'target', 2, S);
     metric(d, 'sfeer', 'distCentrum', 'target', 1, S);
@@ -586,6 +608,8 @@ export function guardOrigin(preset) {
 // 'gelijk' / 'standaard' name a fixed preset.
 //   l<s|t|p|g|n|v|r|o|m> levenstype (field levensfase; o/m = solo onder de mensen / op mezelf, v0.30;
 //                       t = starter, n = nieuwkomer, v0.46.0)
+//   lc<block letters>   Zelf samenstellen (v0.57.0): `c` then the BUILDING_BLOCKS codes,
+//                       e.g. lckg = kinderen + groen; `lc` alone = no block (Standaard)
 //                           a<k|m>          bouwstijl = karakter/modern
 //                       (old o<b|g> still read: og = modern, ob = nothing)
 //   b<h|k>[i<n>][p<n>][x] budget        v<f|o|a|l>…     vervoer
@@ -620,6 +644,8 @@ const INC = Object.fromEntries(Object.entries(SITUATIE_INCOME).map(([k, b]) => [
 const DG = Object.fromEntries(Object.entries(DETAIL_GROUPS).map(([k, d]) => [k, d.code]));
 const DB = Object.fromEntries(Object.entries(DICHTBIJ).map(([k, d]) => [k, d.code]));
 const DB_ = inv(DB);
+const BL = Object.fromEntries(Object.entries(BUILDING_BLOCKS).map(([k, b]) => [k, b.code]));
+const BL_ = inv(BL);
 const LF_ = inv(LF), BOUW_ = inv(BOUW), VV_ = inv(VV), CR_ = inv(CR), TH_ = inv(TH), ED_ = inv(ED), INC_ = inv(INC), DG_ = inv(DG);
 
 export const SCORE_RE = /^[a-z0-9.]{1,200}$/;
@@ -629,7 +655,7 @@ export const FIXED_PRESETS = Object.freeze(['standaard', 'gelijk']);
 export function encodeAnswers(answers) {
   const a = normalizeAnswers(answers);
   const seg = [];
-  if (a.levensfase) seg.push(`l${LF[a.levensfase]}`);
+  if (a.levensfase) seg.push(`l${a.levensfase === CUSTOM_LEVENSTYPE ? `c${a.blocks.map(b => BL[b]).join('')}` : LF[a.levensfase]}`);
   if (a.bouw) seg.push(`a${BOUW[a.bouw]}`);
   if (a.budget) seg.push(`b${a.budget.mode === 'huur' ? 'h' : 'k'}${a.budget.income != null ? `i${a.budget.income}` : ''}${a.budget.maxPrice != null ? `p${a.budget.maxPrice}` : ''}${a.budget.hide ? 'x' : ''}`);
   if (a.vervoer.length) seg.push(`v${a.vervoer.map(v => VV[v]).join('')}`);
@@ -651,7 +677,8 @@ export function decodeAnswers(str) {
   if (typeof str !== 'string' || !SCORE_RE.test(str) || FIXED_PRESETS.includes(str)) return normalizeAnswers(out);
   for (const s of str.split('.')) {
     const head = s[0], body = s.slice(1);
-    if (head === 'l') out.levensfase = LF_[body] ?? null;
+    if (head === 'l' && body[0] === 'c') { out.levensfase = CUSTOM_LEVENSTYPE; out.blocks = [...body.slice(1)].map(c => BL_[c]).filter(Boolean); }
+    else if (head === 'l') out.levensfase = LF_[body] ?? null;
     else if (head === 'a') out.bouw = BOUW_[body] ?? null;
     else if (head === 'o') out.bouw = body === 'g' ? 'modern' : out.bouw;   // pre-0.29 "oud": gebouwen → modern, bewoners → nothing
     else if (head === 'b') {
@@ -814,7 +841,8 @@ export function topAreas(items, n = 10) {
 export function describeAnswers(answers) {
   const a = normalizeAnswers(answers);
   const parts = [];
-  if (a.levensfase) parts.push(LEVENSTYPEN[a.levensfase].toLowerCase());
+  if (a.levensfase === CUSTOM_LEVENSTYPE) parts.push(`zelf samengesteld${a.blocks.length ? ` (${a.blocks.map(b => BUILDING_BLOCKS[b].label.toLowerCase()).join(', ')})` : ''}`);
+  else if (a.levensfase) parts.push(LEVENSTYPEN[a.levensfase].toLowerCase());
   if (a.budget) {
     const c = budgetCeiling(a.budget);
     parts.push(a.budget.mode === 'huur' ? 'huur' : c != null ? `koop tot ≈ €${Math.round(c).toLocaleString('nl-NL')}k` : 'koop');

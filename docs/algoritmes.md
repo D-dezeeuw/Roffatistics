@@ -309,6 +309,35 @@ $W_t / \sum_{t'} W_{t'}$ over themes with metrics (`themeShares`).
 - Sfeer quantiles are per peer set: "rustig" differs between city and NL.
 - NL dashboard compares means of wijk scores, not gemeente scores.
 
+### 2a. Zelf samenstellen (building blocks, v0.57.0)
+
+Levenstype `custom` ("Zelf samenstellen") starts from Standaard and adds the
+chosen building blocks (`presets.js BUILDING_BLOCKS`), each cut from a profile
+above. A block gives per theme t an extra weight θ_b(t) and metric tuples with
+shares s_b,m:
+
+| Block | Hash | Theme + weight: metrics (share) | From |
+|---|---|---|---|
+| Kinderen | k | Voorzieningen +20: distSchool 3, eduNearScore 3, distKinderopvang 3; Leeftijd +10: hhWithKidsPct | gezin |
+| Levendig | l | Sfeer +20: SFEER_METRICS.druk | soloMensen |
+| Rustig | r | Sfeer +20: SFEER_METRICS.rustig; Milieu +5: noiseNeighbourPct (optional) | soloRust |
+| Groen & natuur | g | Voorzieningen +15: distGroen 2, distOpenNatuur 1 | soloRust |
+| Ouder worden | o | Voorzieningen +20: distGP 3, distSupermarket 2, distOv 2 | senior |
+| Veilig | v | Veiligheid +15: VEILIG_STD | standaard |
+| Bereikbaar | b | Voorzieningen +15: distStation 2, distOv 2 | starter |
+
+Per metric (`customProfile`):
+
+    W(m) = θ_std(t)·s_std,m / Σ s_std  +  Σ_b θ_b(t)·s_b,m / Σ_m' s_b,m'
+    θ(t) = θ_std(t) + Σ_b θ_b(t)
+
+W(m) (rounded to 4 decimals) becomes the metric's share in the profile tuple, so
+`resolvePreset` gives every metric with data exactly W(m)/ΣW. No block = Standaard.
+A metric in two parts adds up; it stays optional only if optional in every part.
+Levendig and Rustig exclude each other (switching one on switches the other off;
+a hash with both drops both). Hash: `lc` + block letters (`lckg`); old `l<letter>`
+links are unchanged. The importance sliders take θ(t) as their Gemiddeld base.
+
 **Waar vastgelegd.** plan-woonscore §3–5, plan-levenstype-gewichten,
 plan-wizard-v2; decisions W3, W4, v0.23.0, W22, v0.45.0, v0.46.0, v0.54.0.
 

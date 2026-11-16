@@ -215,7 +215,7 @@ describe('wizard step 1: (i) toggletips', () => {
     assert.ok(q.includes('id="wiz-tip-levenstype"'));
     assert.equal((html.match(/class="wiz-hint/g) ?? []).length, 0, 'no visible hint lines once a type is chosen');
     assert.match(levenstypeStepHtml(null), /Kies een kaart\./);
-    assert.equal((html.match(/class="tip-btn"/g) ?? []).length, Object.keys(LEVENSTYPEN).length + 1);
+    assert.equal((html.match(/class="tip-btn"/g) ?? []).length, Object.keys(LEVENSTYPEN).length + 2);   // + Zelf samenstellen (v0.57.0) + the question's (i)
   });
   it('more room under the step kicker', () => {
     const css = readCss(new URL('../style.css', import.meta.url), 'utf8');

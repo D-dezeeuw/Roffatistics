@@ -12,7 +12,7 @@ import { getState, setState, onStateChange, resetScore } from './state.js';
 import { openShareDialog } from './share-dialog.js';
 import { loadCityAreas, peekCityAreas, getAreaIndex } from './areas.js';
 import { getCityLevel } from './city-scope.js';
-import { scoreResult, getPersonalPreset, THEME_LABELS, profileTopThemes } from './presets.js';
+import { scoreResult, getPersonalPreset, THEME_LABELS, profileTopThemes, BUILDING_BLOCKS } from './presets.js';
 import { explain } from './score.js';
 import { openAreaModal } from './area-modal.js';
 import { infoButton } from './explain.js';
@@ -23,7 +23,7 @@ import {
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
   GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS, gemeenschapOptgroups,
   SITUATIE_EDU, SITUATIE_INCOME, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance, themeWeights, DICHTBIJ, DICHTBIJ_LEVELS,
-  LEVENSTYPE_LINES, levenstypeHelp, NIEUWKOMER_HINT, BUURT_DICHTBIJ, VERVOER_DICHTBIJ, OV_DICHTBIJ, normalizePrefill, chooseProfile, markExplicit,
+  LEVENSTYPE_LINES, levenstypeHelp, levenstypeLabel, CUSTOM_LEVENSTYPE, CUSTOM_LABEL, CUSTOM_LINE, toggleBlock, NIEUWKOMER_HINT, BUURT_DICHTBIJ, VERVOER_DICHTBIJ, OV_DICHTBIJ, normalizePrefill, chooseProfile, markExplicit,
   gemeenschapReason, isPrefilled, reconcilePrefill, burenOpen, toggleVervoer, clearStep, loadPrefill, savePrefill,
 } from './wizard-model.js';
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
@@ -94,23 +94,32 @@ const dichtSlider = (item, d, level) => sliderHtml({
 });
 
 /** "voorgesteld bij <profiel>" mark of a prefilled value; it disappears once the user changes the value. */
-const prefillMark = on => (on && answers.levensfase ? `<span class="wiz-prefill">voorgesteld bij ${esc(LEVENSTYPEN[answers.levensfase])}</span>` : '');
+const prefillMark = on => (on && answers.levensfase ? `<span class="wiz-prefill">voorgesteld bij ${esc(levenstypeLabel(answers.levensfase))}</span>` : '');
 const prefillWrap = (field, item, inner) => `<div class="wiz-prefillable" data-prefill="${field}${item ? `:${item}` : ''}">${inner}${prefillMark(isPrefilled(prefilled, field, item))}</div>`;
 
 /** The three heaviest themes of a profile (presets.js PROFILES), e.g. "Veiligheid 30 · Voorzieningen 25 · Sfeer 20". */
-export const profileThemesText = k => profileTopThemes(k, 3).map(t => `${t.label} ${t.weight}`).join(' · ');
+export const profileThemesText = (k, blocks = []) => profileTopThemes(k, 3, blocks).map(t => `${t.label} ${t.weight}`).join(' · ');
 
 /** A profile card: label and one line; its heaviest themes sit behind an (i) toggletip (v0.56.0), also read as the card's description. */
-export const profileCard = (k, label, on) => `<div class="wiz-card-wrap tip-anchor">
+export const profileCard = (k, label, on, line = LEVENSTYPE_LINES[k] ?? '', tip = `Zwaarst: ${profileThemesText(k)}`) => `<div class="wiz-card-wrap tip-anchor">
       <button type="button" class="wiz-card${on ? ' active' : ''}" data-set="levensfase" data-value="${esc(k)}" aria-pressed="${on}" aria-describedby="wiz-tip-${esc(k)}">
       <strong class="wiz-card-label">${esc(label)}</strong>
-      <span class="wiz-card-line">${esc(LEVENSTYPE_LINES[k] ?? '')}</span></button>
-      ${infoTipHtml(`wiz-tip-${k}`, `Zwaarst: ${profileThemesText(k)}`, `Thema's van ${label}`)}</div>`;
+      <span class="wiz-card-line">${esc(line)}</span></button>
+      ${infoTipHtml(`wiz-tip-${k}`, tip, `Thema's van ${label}`)}</div>`;
+
+/** "Zelf samenstellen" (v0.57.0): its card, and once chosen the building-block checkboxes. */
+const customCard = (on, blocks) => profileCard(CUSTOM_LEVENSTYPE, CUSTOM_LABEL, on, CUSTOM_LINE,
+  blocks.length ? `Zwaarst: ${profileThemesText(CUSTOM_LEVENSTYPE, blocks)}` : 'Begint bij Standaard; elke bouwsteen legt extra gewicht op zijn eigen thema’s.');
+export const blocksHtml = blocks => `
+    <fieldset class="wiz-blocks"><legend class="wiz-sub-h">Kies je bouwstenen</legend>
+      ${Object.entries(BUILDING_BLOCKS).map(([k, b]) => `<label class="wiz-block"><input type="checkbox" data-block="${esc(k)}"${blocks.includes(k) ? ' checked' : ''}><span><strong>${esc(b.label)}</strong> <span class="wiz-block-hint">${esc(b.hint)}</span></span></label>`).join('')}
+      <p class="wiz-hint">Geen bouwsteen = Standaard. Levendig en Rustig sluiten elkaar uit.</p>
+    </fieldset>`;
 
 /** Step 1: the question with one (i) for the levenstype hint (+ the chosen type's line), then the cards. */
-export const levenstypeStepHtml = levensfase => `
+export const levenstypeStepHtml = (levensfase, blocks = []) => `
     <p class="wiz-q tip-anchor" id="wiz-q">Welk levenstype past het best bij jou?${infoTipHtml('wiz-tip-levenstype', levenstypeHelp(levensfase), 'Uitleg bij de levenstypes')}</p>
-    <div class="wiz-cards" role="group" aria-labelledby="wiz-q">${Object.entries(LEVENSTYPEN).map(([k, l]) => profileCard(k, l, levensfase === k)).join('')}</div>${levensfase ? '' : `
+    <div class="wiz-cards" role="group" aria-labelledby="wiz-q">${Object.entries(LEVENSTYPEN).map(([k, l]) => profileCard(k, l, levensfase === k)).join('')}${customCard(levensfase === CUSTOM_LEVENSTYPE, blocks)}</div>${levensfase === CUSTOM_LEVENSTYPE ? blocksHtml(blocks) : ''}${levensfase ? '' : `
     <p class="wiz-hint">Kies een kaart. Daarna kun je meteen naar het resultaat, of nog vier korte vragen beantwoorden.</p>`}`;
 
 function situatieBody(st) {
@@ -140,7 +149,7 @@ function gemeenschapBody(g) {
 
 function stepBody(key) {
   const a = answers;
-  if (key === 'levensfase') return levenstypeStepHtml(a.levensfase);
+  if (key === 'levensfase') return levenstypeStepHtml(a.levensfase, a.blocks);
   if (key === 'budget') {
     const b = a.budget ?? { mode: null };
     const ceiling = budgetCeiling(b);
@@ -251,7 +260,7 @@ async function resultItems() {
 function baseHint() {
   const w = Object.entries(themeWeights(answers)).filter(([k, v]) => k !== 'gemeenschap' && v > 0);
   if (!w.length) return '';
-  const who = answers.levensfase ? LEVENSTYPEN[answers.levensfase].toLowerCase() : 'Standaard';
+  const who = answers.levensfase ? levenstypeLabel(answers.levensfase).toLowerCase() : 'Standaard';
   return `<p class="wiz-hint">Startpunt (Gemiddeld) voor ${esc(who)}: ${w.map(([k, v]) => `${esc(THEME_LABELS[k] ?? k)} ${String(v).replace('.', ',')}`).join(', ')}.</p>`;
 }
 
@@ -453,6 +462,10 @@ function onInput(e) {
     const out = outputOf(t);
     if (out) out.textContent = label;
     t.setAttribute('aria-valuetext', label);
+  } else if (t.dataset.block) {
+    answers = toggleBlock(answers, t.dataset.block);
+    if (step === 'result') applyAnswers();
+    render({ focus: `[data-block="${t.dataset.block}"]` });
   } else if (t.dataset.dichtbij) {
     const label = DICHTBIJ_LEVELS[+t.value] ?? '';
     const out = outputOf(t);

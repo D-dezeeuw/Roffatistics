@@ -9,7 +9,7 @@
 // appears when opted in and only as a positive "nabijheid" (plan-woonscore §5).
 import { weightedMean, formatNumber, formatValue } from './dashboard-data.js';
 import { DATASETS } from './datasets.js';
-import { THEME_LABELS, ORIGIN_KEYS, scoreWithPreset } from './presets.js';
+import { THEME_LABELS, ORIGIN_KEYS, scoreWithPreset, BUILDING_BLOCKS } from './presets.js';
 import {
   normalizeAnswers, answersToPreset, themeImportance, gemeenschapLevel, budgetCeiling, describeAnswers,
   CRIMES, SITUATIE_EDU, SITUATIE_INCOME, incomeTarget, DETAIL_GROUPS, GEMEENSCHAP_LABEL, IMPORTANCE_DEFAULT, DICHTBIJ,
@@ -52,6 +52,11 @@ const LIFE_FOCUS = {
   soloMensen: { metrics: [m('horeca1km', 'higher'), m('density', 'higher'), m('distCentrum', 'lower'), m('singleHhPct', 'higher')], third: 'age-bands' },
   soloRust:   { metrics: [m('waterPct', 'higher'), m('density', 'lower'), m('distCentrum', 'higher')], third: 'age-bands' },
 };
+/** Focus of a "Zelf samenstellen" profile: the metrics of its blocks (presets.js BUILDING_BLOCKS); null without blocks. */
+function customFocus(blocks) {
+  const metrics = uniqMetrics((blocks ?? []).flatMap(b => Object.values(BUILDING_BLOCKS[b]?.themes ?? {}).flatMap(([, tuples]) => tuples.map(([k, pref]) => m(k, pref)))));
+  return metrics.length ? { metrics, third: 'age-bands' } : null;
+}
 /** Standaard Voorzieningen, for the Vervoer en sfeer row when neither step was answered. */
 const DEFAULT_REACH = [m('distSupermarket', 'lower'), m('distGP', 'lower'), m('distSchool', 'lower'), m('distStation', 'lower')];
 
@@ -63,8 +68,9 @@ function personalRows(a) {
   const vv = new Set(a.vervoer);
   const crimes = [...a.veiligheid.map(c => CRIMES[c].key), ...(vv.has('fiets') ? ['crimeBike'] : []), ...(vv.has('auto') ? ['crimeVehicle'] : [])];
   if (crimes.length) out.veiligheid = { panels: ['pf-match', 'pf-rank', 'pv-total'], focus: { metrics: uniqMetrics(crimes.map(k => m(k, 'lower'))) } };
-  if (a.levensfase) {
-    const f = LIFE_FOCUS[a.levensfase];
+  // Zelf samenstellen (v0.57.0): the blocks' own metrics; a levenstype without a focus row (starter, nieuwkomer) adds none.
+  const f = a.levensfase === 'custom' ? customFocus(a.blocks) : LIFE_FOCUS[a.levensfase];
+  if (f) {
     out.levenstype = { panels: ['pf-match', 'pf-rank', f.third], focus: { metrics: f.metrics, levenstype: a.levensfase } };
   }
   const ceiling = budgetCeiling(a.budget);

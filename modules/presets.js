@@ -126,6 +126,89 @@ export const PROFILES = Object.freeze({
     leeftijd: [['waterPct', 'higher']],
   },
 });
+/**
+ * "Zelf samenstellen" (plan-gui-header-wizard §C, v0.57.0): building blocks cut
+ * from the PROFILES above. Each block adds, per theme, [extra weight, metric
+ * tuples] on top of Standaard; the tuples' third element is the share inside
+ * the block's part of that theme (as in PROFILES). One data table: tweaking a
+ * number is one edit here. `code` is the block's letter in the hash (`lc…`),
+ * `from` the profile it was cut from. Levendig and Rustig exclude each other
+ * (EXCLUSIVE_BLOCKS). Formula: docs/algoritmes.md §2.
+ */
+export const BUILDING_BLOCKS = Object.freeze({
+  kinderen:   Object.freeze({ code: 'k', label: 'Kinderen', hint: 'basisscholen (en hun kwaliteit), kinderopvang, gezinnen in de buurt', from: 'gezin',
+    themes: Object.freeze({ voorzieningen: [20, [['distSchool', 'lower', 3], ['eduNearScore', 'higher', 3], ['distKinderopvang', 'lower', 3]]], leeftijd: [10, [['hhWithKidsPct', 'higher']]] }) }),
+  levendig:   Object.freeze({ code: 'l', label: 'Levendig', hint: 'drukker, horeca, centrum en podium dichtbij', from: 'soloMensen',
+    themes: Object.freeze({ sfeer: [20, SFEER_METRICS.druk] }) }),
+  rustig:     Object.freeze({ code: 'r', label: 'Rustig', hint: 'lage dichtheid, water, verder van het centrum, weinig geluidhinder', from: 'soloRust',
+    themes: Object.freeze({ sfeer: [20, SFEER_METRICS.rustig], milieu: [5, [['noiseNeighbourPct', 'lower', 1, OPTIONAL]]] }) }),
+  groen:      Object.freeze({ code: 'g', label: 'Groen & natuur', hint: 'park en open natuur dichtbij', from: 'soloRust',
+    themes: Object.freeze({ voorzieningen: [15, [['distGroen', 'lower', 2], ['distOpenNatuur', 'lower']]] }) }),
+  ouder:      Object.freeze({ code: 'o', label: 'Ouder worden', hint: 'huisarts, OV en supermarkt dichtbij', from: 'senior',
+    themes: Object.freeze({ voorzieningen: [20, [['distGP', 'lower', 3], ['distSupermarket', 'lower', 2], ['distOv', 'lower', 2]]] }) }),
+  veilig:     Object.freeze({ code: 'v', label: 'Veilig', hint: 'veiligheid telt zwaarder', from: 'standaard',
+    themes: Object.freeze({ veiligheid: [15, VEILIG_STD] }) }),
+  bereikbaar: Object.freeze({ code: 'b', label: 'Bereikbaar', hint: 'treinstation en OV dichtbij', from: 'starter',
+    themes: Object.freeze({ voorzieningen: [15, [['distStation', 'lower', 2], ['distOv', 'lower', 2]]] }) }),
+});
+/** Pairs of blocks that cannot be on together. */
+export const EXCLUSIVE_BLOCKS = Object.freeze([Object.freeze(['levendig', 'rustig'])]);
+
+/** Known block keys, once each, in BUILDING_BLOCKS order; a pair from EXCLUSIVE_BLOCKS drops out entirely (ambiguous). */
+export function normalizeBlocks(list) {
+  const set = new Set((Array.isArray(list) ? list : []).filter(k => Object.hasOwn(BUILDING_BLOCKS, k)));
+  for (const pair of EXCLUSIVE_BLOCKS) if (pair.every(k => set.has(k))) pair.forEach(k => set.delete(k));
+  return Object.keys(BUILDING_BLOCKS).filter(k => set.has(k));
+}
+
+const round4 = x => Math.round(x * 1e4) / 1e4;
+/**
+ * The profile of "Zelf samenstellen" with `blocks`, in the PROFILES shape:
+ * Standaard plus every block, metric by metric. Within theme t a part with
+ * weight θ and tuples (m, s_m) gives metric m the absolute weight θ·s_m/Σs;
+ * the parts add up: W(m) = W_std(m) + Σ_b W_b(m), and θ(t) = Σ_m W(m). The
+ * tuples carry W(m) as their share, so resolvePreset gives every metric with
+ * data exactly W(m) before its usual normalisation. A theme at weight 0 in
+ * Standaard (Woningmarkt) keeps its metrics and shares at 0, for its slider.
+ */
+export function customProfile(blocks) {
+  const std = PROFILES.standaard;
+  const parts = new Map();   // theme → Map(key → { pref, W, optional })
+  const add = (t, weight, tuples) => {
+    const sum = tuples.reduce((s, [, , w]) => s + (w ?? 1), 0);
+    const m = parts.get(t) ?? new Map();
+    parts.set(t, m);
+    for (const [key, pref, w, opt] of tuples) {
+      const W = (weight * (w ?? 1)) / sum;
+      const cur = m.get(key);
+      if (cur) { cur.W += W; cur.optional = cur.optional && !!opt?.optional; }
+      else m.set(key, { pref, W, optional: !!opt?.optional });
+    }
+  };
+  const weights = {};
+  for (const t of PROFILE_THEMES) {
+    const tuples = t === 'sfeer' ? null : std[t] ?? THEME_METRICS[t];
+    const w = std.weights[t] ?? 0;
+    if (tuples && w > 0) add(t, w, tuples);
+    if (tuples) weights[t] = w;
+  }
+  for (const b of normalizeBlocks(blocks)) {
+    for (const [t, [w, tuples]] of Object.entries(BUILDING_BLOCKS[b].themes)) { add(t, w, tuples); weights[t] = (weights[t] ?? 0) + w; }
+  }
+  const out = { weights };
+  for (const t of PROFILE_THEMES) {
+    const m = parts.get(t);
+    if (m?.size) out[t] = [...m].map(([key, x]) => [key, x.pref, round4(x.W), ...(x.optional ? [OPTIONAL] : [])]);
+    else if (t !== 'sfeer' && (std[t] ?? THEME_METRICS[t])) out[t] = std[t] ?? THEME_METRICS[t];   // weight 0: Standaard's own shares
+  }
+  return out;
+}
+
+/** PROFILES[key], or the custom profile for key 'custom' with `blocks`; unknown key = Standaard. */
+export function profileOf(key, blocks = []) {
+  return key === 'custom' ? customProfile(blocks) : PROFILES[key] ?? PROFILES.standaard;
+}
+
 const LABELS = { veiligheid: 'Veiligheid', welvaart: 'Welvaart', voorzieningen: 'Voorzieningen', opleiding: 'Opleiding', milieu: 'Milieu', woningmarkt: 'Woningmarkt', leeftijd: 'Levenstype', sfeer: 'Sfeer' };
 const toMetric = ([key, pref, w, opt]) => Object.freeze({ key, pref, ...(w == null || (w === 1 && opt) ? {} : { w }), ...(opt?.optional ? { optional: true } : {}) });
 
@@ -135,9 +218,10 @@ const toMetric = ([key, pref, w, opt]) => Object.freeze({ key, pref, ...(w == nu
  * order. A theme without metrics in the profile (Standaard: Levenstype,
  * Sfeer) is left out; a theme at weight 0 stays at 0.
  */
-export function profileThemes(key) {
-  const p = PROFILES[key] ?? PROFILES.standaard;
-  const metricsOf = k => (k === 'sfeer' ? SFEER_METRICS[p.sfeer] : p[k] ?? THEME_METRICS[k]) ?? [];
+export function profileThemes(key, blocks = []) {
+  const p = profileOf(key, blocks);
+  // Sfeer: a direction ('druk'/'rustig') in PROFILES, the metric tuples themselves in the custom profile.
+  const metricsOf = k => (k === 'sfeer' ? (Array.isArray(p.sfeer) ? p.sfeer : SFEER_METRICS[p.sfeer]) : p[k] ?? THEME_METRICS[k]) ?? [];
   return Object.freeze(PROFILE_THEMES
     .filter(k => metricsOf(k).length)
     .map(k => Object.freeze({ key: k, label: LABELS[k], weight: p.weights[k] ?? 0, metrics: Object.freeze(metricsOf(k).map(toMetric)) })));
@@ -147,8 +231,8 @@ export function profileThemes(key) {
  * The `n` heaviest themes of a profile by its weight table (ties in
  * PROFILE_THEMES order), for the wizard's profile cards: [{ key, label, weight }].
  */
-export function profileTopThemes(key, n = 3) {
-  const p = PROFILES[key] ?? PROFILES.standaard;
+export function profileTopThemes(key, n = 3, blocks = []) {
+  const p = profileOf(key, blocks);
   return PROFILE_THEMES.filter(k => (p.weights[k] ?? 0) > 0)
     .map(k => ({ key: k, label: LABELS[k], weight: p.weights[k] }))
     .sort((a, b) => b.weight - a.weight || PROFILE_THEMES.indexOf(a.key) - PROFILE_THEMES.indexOf(b.key))
