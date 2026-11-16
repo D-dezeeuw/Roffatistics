@@ -16,17 +16,17 @@ const boom = { getItem() { throw new Error('blocked'); }, setItem() { throw new 
 
 describe('settings: defaults, load, save', () => {
   it('defaults: Rotterdam theme, dark map, all OV lines off, no school pins', () => {
-    assert.deepEqual(normalizeSettings(SETTINGS_DEFAULTS), { theme: 'rotterdam', basemap: 'dark', ov: { metro: false, tram: false, bus: false }, schools: false });
+    assert.deepEqual(normalizeSettings(SETTINGS_DEFAULTS), { theme: 'rotterdam', basemap: 'dark', palette: 'auto', ov: { metro: false, tram: false, bus: false }, schools: false });
     assert.deepEqual(loadSettings(memStorage()), normalizeSettings(SETTINGS_DEFAULTS));
     assert.deepEqual(loadSettings(null), normalizeSettings(SETTINGS_DEFAULTS));
   });
   it('uses the owners’ storage keys (theme, basemap, ov)', () => {
-    assert.deepEqual({ ...SETTINGS_KEYS }, { theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, ov: OV_STORAGE_KEY, schools: SCHOOL_PINS_STORAGE_KEY });
+    assert.deepEqual({ ...SETTINGS_KEYS }, { theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, palette: 'roffatistics.mapPalette', ov: OV_STORAGE_KEY, schools: SCHOOL_PINS_STORAGE_KEY });
   });
   it('round-trips through storage', () => {
     const st = memStorage();
     const s = saveSettings({ theme: 'klassiek', basemap: 'aerial', ov: { metro: true, bus: true }, schools: true }, st);
-    assert.deepEqual(s, { theme: 'klassiek', basemap: 'aerial', ov: { metro: true, tram: false, bus: true }, schools: true });
+    assert.deepEqual(s, { theme: 'klassiek', basemap: 'aerial', palette: 'auto', ov: { metro: true, tram: false, bus: true }, schools: true });
     assert.equal(st.m.get(OV_STORAGE_KEY), 'metro,bus');
     assert.equal(st.m.get(SCHOOL_PINS_STORAGE_KEY), '1');
     assert.deepEqual(loadSettings(st), s);
@@ -38,7 +38,7 @@ describe('settings: defaults, load, save', () => {
   });
   it('unknown values fall back to the defaults', () => {
     assert.deepEqual(normalizeSettings({ theme: 'neon', basemap: 'osm', ov: { ferry: true }, schools: 'ja' }),
-      { theme: 'rotterdam', basemap: 'dark', ov: { metro: false, tram: false, bus: false }, schools: false });
+      { theme: 'rotterdam', basemap: 'dark', palette: 'auto', ov: { metro: false, tram: false, bus: false }, schools: false });
     assert.deepEqual(normalizeSettings(null), normalizeSettings(SETTINGS_DEFAULTS));
   });
   it('works without storage (blocked or missing): never throws, gives the defaults', () => {
@@ -111,12 +111,23 @@ describe('settings: dialog', () => {
     assert.match(settingsDialogHtml({ schools: true }), /name="settings-schools" value="on" checked/);
     assert.match(html, />Satelliet</);
     assert.match(html, />Paars-oranje</);
+    assert.match(html, /<legend>Kaartkleuren<\/legend>/);
+    assert.match(html, /name="settings-palette" value="auto" checked><span>Volgt thema</);
+    for (const l of ['Rotterdam', 'Paars-oranje', 'Kleurenblind-veilig']) assert.match(html, new RegExp(`name="settings-palette" value="[a-z]+"><span>${l}<`));
+    assert.match(settingsDialogHtml({ palette: 'kleurenblind' }), /name="settings-palette" value="kleurenblind" checked/);
+  });
+  it('Kaartkleuren: stored under its own key, unknown → Volgt thema', () => {
+    const st = memStorage();
+    saveSettings({ palette: 'kleurenblind' }, st);
+    assert.equal(st.m.get('roffatistics.mapPalette'), 'kleurenblind');
+    assert.equal(loadSettings(st).palette, 'kleurenblind');
+    assert.equal(normalizeSettings({ palette: 'regenboog' }).palette, 'auto');
   });
   it('read/write the form', () => {
     const f = fakeDialog(settingsDialogHtml(SETTINGS_DEFAULTS));
     assert.deepEqual(readSettingsForm(f.dialog), normalizeSettings(SETTINGS_DEFAULTS));
     writeSettingsForm(f.dialog, { theme: 'klassiek', basemap: 'light', ov: { metro: true, bus: true }, schools: true });
-    assert.deepEqual(readSettingsForm(f.dialog), { theme: 'klassiek', basemap: 'light', ov: { metro: true, tram: false, bus: true }, schools: true });
+    assert.deepEqual(readSettingsForm(f.dialog), { theme: 'klassiek', basemap: 'light', palette: 'auto', ov: { metro: true, tram: false, bus: true }, schools: true });
   });
   it('opens with the live state, applies each change to its group, Esc closes and returns focus', () => {
     const f = fakeDialog(settingsDialogHtml(SETTINGS_DEFAULTS));
@@ -135,7 +146,7 @@ describe('settings: dialog', () => {
     const bus = f.inputs.find(i => i.value === 'bus');
     bus.checked = true;
     f.listeners.dchange({ target: bus });
-    assert.deepEqual(applied.at(-1), ['ov', { theme: 'rotterdam', basemap: 'aerial', ov: { metro: true, tram: false, bus: true }, schools: false }]);
+    assert.deepEqual(applied.at(-1), ['ov', { theme: 'rotterdam', basemap: 'aerial', palette: 'auto', ov: { metro: true, tram: false, bus: true }, schools: false }]);
     const sch = f.inputs.find(i => i.name === 'settings-schools');
     sch.checked = true;
     f.listeners.dchange({ target: sch });
@@ -146,6 +157,10 @@ describe('settings: dialog', () => {
     f.listeners.dchange({ target: light });
     assert.equal(applied.at(-1)[0], 'basemap');
     assert.equal(applied.at(-1)[1].basemap, 'light');
+    const cvd = f.inputs.find(i => i.name === 'settings-palette' && i.value === 'kleurenblind');
+    f.inputs.filter(i => i.name === 'settings-palette').forEach(i => (i.checked = i === cvd));
+    f.listeners.dchange({ target: cvd });
+    assert.deepEqual([applied.at(-1)[0], applied.at(-1)[1].palette], ['palette', 'kleurenblind']);
     const ev = { key: 'Escape', preventDefault() {}, stopPropagation() {} };
     f.listeners.mkeydown(ev);
     assert.equal(api.isOpen(), false);

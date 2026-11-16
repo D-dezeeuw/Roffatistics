@@ -6,7 +6,8 @@ import { getMap } from './map.js';
 import { addKeyboardNav } from './overlays.js';
 import { areaLevel } from './areas.js';
 import { routeToCompare } from './compare.js';
-import { buildScale, getScaleMethod } from './scale.js';
+import { buildScale, getScaleMethod, scaleAverageText } from './scale.js';
+import { metricKind } from './palette.js';
 import { datasetValue, DATASETS } from './datasets.js';
 import { createScoreLabels } from './score-labels.js';
 import { formatValue } from './dashboard-data.js';
@@ -52,7 +53,7 @@ function makeLayer(geo, lvl) {
       const name = feature.properties.statnaam;
       fl.bindTooltip(() => {
         const a = lookup.get(code);
-        return tooltipHtml(a?.name ?? name, valueOf(a), v => formatValue(v, dataset, crimeMode), scale.outlierSide(valueOf(a)), a ? areaNote(a, dataset) : null);
+        return tooltipHtml(a?.name ?? name, valueOf(a), v => formatValue(v, dataset, crimeMode), scale.outlierSide(valueOf(a)), a ? areaNote(a, dataset) : null, scaleAverageText(valueOf(a), scale, v => formatValue(v, dataset, crimeMode)));
       }, { sticky: true, direction: 'top', className: 'area-tooltip', pane: 'tooltipPane' });
       fl.on({
         mouseover(e) { e.target.setStyle({ weight: 2.5, color: '#ea580c', opacity: 1 }); e.target.bringToFront(); },
@@ -118,7 +119,7 @@ export function drillReadyGemeente() {
 }
 
 function recolor() {
-  scale = buildScale(areas.map(valueOf), { method: getScaleMethod() });   // national peers of the level
+  scale = buildScale(areas.map(valueOf), { method: getScaleMethod(), kind: metricKind(DATASETS[dataset]), scope: 'nederland' });   // national peers of the level
   if (!layer) return;
   const lvl = shown.level;
   const ready = drillReadyGemeente() != null;

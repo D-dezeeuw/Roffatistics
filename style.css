@@ -32,6 +32,13 @@
   --personal-tint:        rgba(47, 123, 216, 0.12);
 }
 
+/* Kaartkleuren (modules/palette.js): Rotterdam defaults; app.js sets the live palette inline on <html>. */
+:root {
+  --map-outlier: #d946ef; --map-outlier-mark: #d946ef; --map-outlier-text: #f0abfc; --map-nodata: #6b7280;
+  --map-good: #22c55e; --map-bad: #ef4444; --map-good-text: #4ade80; --map-bad-text: #f87171;
+  --map-school-ramp: linear-gradient(90deg, #c62828, #e4572e, #f29e4c, #e9c46a, #a7c957, #5fa85a, #1f7a3f);
+}
+
 :root,
 :root[data-theme="rotterdam"] {
   --bg-base:        #111923;
@@ -566,12 +573,14 @@ footer {
 .legend-class.is-median { color: var(--text-primary); }
 .legend-median { font-family: var(--font-ui); font-size: 0.58rem; color: var(--accent-2); }
 .legend-chip { flex: none; width: 16px; height: 9px; border-radius: 2px; }
-.legend-chip.is-outlier { background: rgba(var(--accent-rgb), 0.35); outline: 2px solid #ef4444; outline-offset: -2px; }
+.legend-chip.is-outlier { background: rgba(var(--accent-rgb), 0.35); outline: 2px solid var(--map-outlier, #ef4444); outline-offset: -2px; }
 .legend-meta, .legend-outlier, .legend-empty { margin-top: 0.35rem; font-size: 0.6rem; color: var(--text-muted); }
-.legend-outlier { display: flex; align-items: center; gap: 0.4rem; color: #fca5a5; }
+.legend-outlier { display: flex; align-items: center; gap: 0.4rem; color: var(--map-outlier-text, #fca5a5); }
+.legend-amount { margin-bottom: 0.3rem; font-size: 0.65rem; color: var(--text-muted); }
+.legend-amount-range { opacity: 0.8; }
 .legend-toggle { margin-top: 0.5rem; }
 .legend-toggle .seg-opt { font-size: 0.62rem; }
-.area-tooltip .tt-outlier, .leaflet-popup-content .tt-outlier { color: #fca5a5; font-size: 0.7rem; }
+.area-tooltip .tt-outlier, .leaflet-popup-content .tt-outlier { color: var(--map-outlier-text, #fca5a5); font-size: 0.7rem; }
 
 .legend-nodata {
   display: none;
@@ -1107,7 +1116,7 @@ footer {
 /* Outlier in this column (scale.js): small red marker after the value. */
 .list-outlier {
   display: inline-block; width: 6px; height: 6px; margin-left: 0.3rem; vertical-align: middle;
-  border-radius: 50%; background: #ef4444; box-shadow: 0 0 0 1px rgba(var(--overlay-rgb), 0.8);
+  border-radius: 50%; background: var(--map-outlier-mark, #ef4444); box-shadow: 0 0 0 1px rgba(var(--overlay-rgb), 0.8);
 }
 .list-bar { position: absolute; left: 0; bottom: 0; height: 3px; opacity: 0.85; border-radius: 0 2px 2px 0; }
 .list-table td.is-missing { color: var(--text-muted); }
@@ -1348,7 +1357,7 @@ footer {
 .dash-bar.is-selected .dash-hit { fill: rgba(var(--glow-rgb), 0.16); }
 .dash-dot circle { stroke: var(--bg-base); stroke-width: 1; fill-opacity: 0.9; }
 .dash-dot:hover circle, .dash-dot:focus-visible circle, .dash-dot.is-selected circle { stroke: var(--text-primary); stroke-width: 2; }
-.dash-dot circle.is-outlier { stroke: #ef4444; stroke-width: 1.5; }
+.dash-dot circle.is-outlier { stroke: var(--map-outlier-mark, #ef4444); stroke-width: 1.5; }
 
 /* Composition donuts: chart with its legend beside it, wrapping under it on narrow cards. */
 .dash-donuts {
@@ -1710,16 +1719,16 @@ footer {
 .area-sec-head h3 { margin: 0; }
 .area-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .area-chip { font-size: 0.78rem; padding: 0.25rem 0.6rem; border-radius: 999px; border: 1px solid rgba(var(--accent-rgb), 0.45); background: rgba(var(--accent-rgb), 0.12); }
-.area-chip.is-good { border-color: rgba(34, 197, 94, 0.55); background: rgba(34, 197, 94, 0.12); }
-.area-chip.is-bad { border-color: rgba(239, 68, 68, 0.55); background: rgba(239, 68, 68, 0.12); }
+.area-chip.is-good { border-color: color-mix(in srgb, var(--map-good, #22c55e) 55%, transparent); background: color-mix(in srgb, var(--map-good, #22c55e) 12%, transparent); }
+.area-chip.is-bad { border-color: color-mix(in srgb, var(--map-bad, #ef4444) 55%, transparent); background: color-mix(in srgb, var(--map-bad, #ef4444) 12%, transparent); }
 .area-extras { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.6rem; }
 .area-extra { padding: 0.55rem 0.7rem; border: 1px solid rgba(var(--accent-rgb), 0.2); border-radius: var(--radius); background: var(--bg-surface-alt); font-size: 0.8rem; }
 .area-extra-wide { grid-column: span 2; }
 .area-extra p { margin: 0.2rem 0 0; }
 .area-extra-label { display: block; margin-bottom: 0.25rem; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
 .area-extra strong { font: 700 1.1rem var(--font-data); }
-.area-extra .is-good { color: #4ade80; }
-.area-extra .is-bad { color: #f87171; }
+.area-extra .is-good { color: var(--map-good-text, #4ade80); }
+.area-extra .is-bad { color: var(--map-bad-text, #f87171); }
 .area-edu { display: flex; align-items: center; gap: 0.6rem; }
 .area-edu-legend { list-style: none; margin: 0; padding: 0; font-size: 0.74rem; }
 .area-edu-legend i, .area-children i { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 2px; margin-right: 0.3rem; }
@@ -1902,7 +1911,7 @@ footer {
 .settings-check .ov-swatch { opacity: 1; }
 
 /* Basisscholen pins (modules/school-pins.js): the swatch is the score ramp; the popup is Leaflet's */
-.school-swatch { display: inline-block; width: 0.9rem; height: 0.55rem; border-radius: 2px; background: linear-gradient(90deg, #2e1065, #8c3448, #ea580c); }
+.school-swatch { display: inline-block; width: 0.9rem; height: 0.55rem; border-radius: 2px; background: var(--map-school-ramp, linear-gradient(90deg, #2e1065, #8c3448, #ea580c)); }
 .school-popup { font-size: 0.8rem; line-height: 1.35; min-width: 200px; }
 .school-popup .sp-name { display: block; font-size: 0.9rem; }
 .school-popup .sp-addr, .school-popup .sp-meta, .school-popup .sp-note { color: #64748b; font-size: 0.75rem; }

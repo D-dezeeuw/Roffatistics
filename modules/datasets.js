@@ -838,13 +838,13 @@ export const DATASET_GROUPS = Object.freeze([
   Object.freeze({ key: 'score',          label: 'Woonscore',                     headline: 'woonscore' }),
   Object.freeze({ key: 'bevolking',      label: 'Bevolking & huishoudens',       headline: 'population' }),
   Object.freeze({ key: 'leeftijd',       label: 'Leeftijd',                      headline: 'pop65plus' }),
-  Object.freeze({ key: 'herkomst',       label: 'Herkomst',                      headline: 'originDutchPct' }),
+  Object.freeze({ key: 'herkomst',       label: 'Gemeenschappen',                headline: 'originDutchPct' }),
   Object.freeze({ key: 'criminaliteit',  label: 'Criminaliteit',                 headline: 'crimeRate' }),
   Object.freeze({ key: 'opleiding',      label: 'Opleiding',                     headline: 'highEdu' }),
   Object.freeze({ key: 'welvaart',       label: 'Welvaart & wonen',              headline: 'avgIncome' }),
   Object.freeze({ key: 'voorzieningen',  label: 'Voorzieningen',                 headline: 'distSupermarket' }),
   Object.freeze({ key: 'actueel',        label: 'Actueel: meldingen hulpdiensten', headline: 'p2000Totaal', live: true }),
-  Object.freeze({ key: 'herkomstDetail', label: 'Herkomst (overige indelingen)', headline: null, layer: false }),
+  Object.freeze({ key: 'herkomstDetail', label: 'Gemeenschappen (overige indelingen)', headline: null, layer: false }),
 ]);
 
 /**

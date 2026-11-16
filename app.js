@@ -27,6 +27,7 @@ import { initShare }                      from './modules/share-dialog.js';
 import { parseShareHash, hasShareExtras } from './modules/share-link.js';
 import { applyTheme, pickInitialTheme }   from './modules/theme.js';
 import { initSettings }                   from './modules/settings.js';
+import { setMapPalette, refreshMapPalette } from './modules/scale.js';
 import { initShortcuts }                  from './modules/shortcuts.js';
 import { peekRotterdamAreas }             from './modules/areas.js';
 import { peekNlAreas }                    from './modules/nl-areas.js';
@@ -80,9 +81,11 @@ showLoader('Kaart laden…');   // until the first map data is drawn (end of thi
 setPersonalPreset(presetFromScore(initialState.score));   // before any area is scored (the Woonscore's active preset)
 initMap();
 applyTheme(pickInitialTheme(shareStorage), document);   // theme-color meta (data-theme is set before first paint)
-initSettings({   // header cog "Instellingen": Thema, Kaart, OV-lijnen, Basisscholen; the owners store their own keys
-  setTheme: id => applyTheme(id, document, shareStorage),
+refreshMapPalette({ notify: false });   // Kaartkleuren CSS variables (outlier marks, chips, school swatch)
+initSettings({   // header cog "Instellingen": Thema, Kaart, Kaartkleuren, OV-lijnen, Basisscholen; the owners store their own keys
+  setTheme: id => { applyTheme(id, document, shareStorage); refreshMapPalette(); },   // "Volgt thema" recolours the map
   setBasemap,
+  setPalette: setMapPalette,
   setOv: setOvModes,
   setSchools: setSchoolPins,
   getBasemap: getActiveBasemap,

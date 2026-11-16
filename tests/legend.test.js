@@ -25,7 +25,9 @@ describe('formatLegendValue', () => {
 });
 
 import { legendScaleHtml, scaleToggleHtml } from '../modules/legend.js';
-import { buildScale, CLASS_COLORS } from '../modules/scale.js';
+import { buildScale as buildScaleLive, CLASS_COLORS } from '../modules/scale.js';
+// The original assertions are about the Paars-oranje ramp (klassiek); the live palette has its own tests.
+const buildScale = (v, o = {}) => buildScaleLive(v, { palette: 'klassiek', ...o });
 
 const CRIME = [12, 18, 22, 26, 29, 31, 34, 36, 38, 40, 41, 43, 45, 46, 48, 50, 51, 52, 54, 55,
   56, 58, 59, 61, 62, 64, 65, 66, 68, 70, 71, 73, 75, 77, 79, 81, 83, 85, 88, 90, 310, 420, 505, 550];

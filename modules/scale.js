@@ -9,31 +9,29 @@
 //   outlier of 500 no longer squeezes 26 and 85 into one colour.
 // 'linear': the old continuous min→max ramp, kept for comparison.
 // Outliers (both methods): Tukey fences, see `fences` below.
+// Colours come from the active map palette (palette.js, "Kaartkleuren"): the
+// `kind` option picks the ramp (up/down = good/bad direction, neutral, origin);
+// origin (herkomst, §5) scales never flag outliers. CLASS_COLORS, NO_DATA_COLOR
+// and OUTLIER_COLOR stay the Paars-oranje values.
 
-export const NO_DATA_COLOR = '#4b4658';
-export const OUTLIER_COLOR = '#ef4444';
+import { interpolateColor, PALETTES, activePalette, resolvePalette, rampFor, continuousColor, normalizeKind, storePaletteChoice, applyPaletteVars, mean, averageComparison } from './palette.js';
+
+export { interpolateColor };
+export const NO_DATA_COLOR = PALETTES.klassiek.noData;
+export const OUTLIER_COLOR = PALETTES.klassiek.outlier;
 export const CLASS_COUNT   = 7;
 export const SCALE_METHODS = Object.freeze(['quantile', 'linear']);
 export const SCALE_METHOD_LABELS = Object.freeze({ quantile: 'Kwantiel', linear: 'Lineair' });
 export const SCALE_STORAGE_KEY = 'roffatistics.scale';
 export const SCALE_EVENT = 'scale-method-change';
 
-// Low → #2e1065 (deep purple)  High → #ea580c (orange)
-export function interpolateColor(value, min, max) {
-  const t = max === min ? 0 : (value - min) / (max - min);
-  const r = Math.round(46  + t * (234 - 46));
-  const g = Math.round(16  + t * (88  - 16));
-  const b = Math.round(101 + t * (12  - 101));
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-}
-
-/** The 7 stepped class colours, evenly spaced on the ramp. */
-export const CLASS_COLORS = Object.freeze(Array.from({ length: CLASS_COUNT }, (_, i) => interpolateColor(i, 0, CLASS_COUNT - 1)));
+/** The 7 stepped Paars-oranje class colours, evenly spaced on the ramp. */
+export const CLASS_COLORS = PALETTES.klassiek.directional;
 
 /** Ramp colour for class `i` of `m` classes (m < 7 spreads them over the ramp; 1 class = middle). */
-export function classColor(i, m = CLASS_COUNT) {
-  if (m <= 1) return CLASS_COLORS[Math.floor(CLASS_COUNT / 2)];
-  return CLASS_COLORS[Math.round(i * (CLASS_COUNT - 1) / (m - 1))];
+export function classColor(i, m = CLASS_COUNT, ramp = CLASS_COLORS) {
+  if (m <= 1) return ramp[Math.floor(CLASS_COUNT / 2)];
+  return ramp[Math.round(i * (CLASS_COUNT - 1) / (m - 1))];
 }
 
 const num = v => (typeof v === 'number' && Number.isFinite(v) ? v
@@ -73,16 +71,16 @@ export function fences(sorted) {
   return { lo, hi, log };
 }
 
-function emptyScale(method) {
+function emptyScale(method, extra) {
   return {
-    method, count: 0, classes: [], breaks: [], median: null, q1: null, q3: null, lo: null, hi: null,
+    ...extra, method, count: 0, mean: null, classes: [], breaks: [], median: null, q1: null, q3: null, lo: null, hi: null,
     min: null, max: null, outliers: { high: 0, low: 0 }, logFences: false,
-    colorFor: () => NO_DATA_COLOR, isOutlier: () => false, outlierSide: () => null, classOf: () => null,
+    colorFor: () => extra.noDataColor, isOutlier: () => false, outlierSide: () => null, classOf: () => null,
   };
 }
 
 /** Stepped classes: `breaks` are the inner thresholds; class i holds breaks[i-1] ≤ v < breaks[i]. */
-function quantileClasses(sorted) {
+function quantileClasses(sorted, ramp) {
   const distinct = [...new Set(sorted)];
   let breaks;
   if (distinct.length <= CLASS_COUNT) {
@@ -99,38 +97,57 @@ function quantileClasses(sorted) {
   for (const v of sorted) groups[idx(v)].push(v);
   const kept = groups.filter(g => g.length);         // no empty classes (ties, interpolated thresholds)
   breaks = kept.slice(1).map(g => g[0]);
-  const classes = kept.map((g, i) => ({ from: g[0], to: g[g.length - 1], count: g.length, color: classColor(i, kept.length) }));
+  const classes = kept.map((g, i) => ({ from: g[0], to: g[g.length - 1], count: g.length, color: classColor(i, kept.length, ramp) }));
   return { breaks, classes };
 }
 
 /**
  * Builds the scale over `values` (nulls and non-numbers ignored).
  * @param {Array<number|null>} values
- * @param {{ method?: 'quantile'|'linear' }} [opts]
+ * kind: 'up' | 'down' | 'neutral' | 'origin' or a higherIsBetter flag (palette.js metricKind);
+ * palette: a palette or palette id (default: the live "Kaartkleuren" choice);
+ * scope: 'rotterdam' | 'nederland', carried for the herkomst average text.
+ * @param {{ method?: 'quantile'|'linear', kind?: string|boolean|null, palette?: object|string, scope?: string }} [opts]
  */
-export function buildScale(values, { method = 'quantile' } = {}) {
+export function buildScale(values, { method = 'quantile', kind = 'neutral', palette, scope = null } = {}) {
   if (!SCALE_METHODS.includes(method)) method = 'quantile';
+  const pal = palette == null ? activePalette() : resolvePalette(palette);
+  kind = normalizeKind(kind);
+  const ramp = rampFor(pal, kind);
+  const extra = { kind, scope, palette: pal.id, ramp, noDataColor: pal.noData, outlierColor: pal.outlier };
   const sorted = (values ?? []).map(num).filter(v => v != null).sort((a, b) => a - b);
-  if (!sorted.length) return emptyScale(method);
+  if (!sorted.length) return emptyScale(method, extra);
   const n = sorted.length, min = sorted[0], max = sorted[n - 1];
   const median = quantile(sorted, 0.5), q1 = quantile(sorted, 0.25), q3 = quantile(sorted, 0.75);
-  const f = fences(sorted);
+  // Herkomst counts "how many", never good/bad: no outlier marks (§5).
+  const f = kind === 'origin' ? { lo: -Infinity, hi: Infinity, log: false } : fences(sorted);
   const outlierSide = v => { const x = num(v); return x == null ? null : x > f.hi ? 'high' : x < f.lo ? 'low' : null; };
   const outliers = { high: sorted.filter(v => v > f.hi).length, low: sorted.filter(v => v < f.lo).length };
+  const NO = pal.noData;
 
   let classes = [], breaks = [], classOf, colorFor;
   if (method === 'linear') {
     classOf = () => null;
-    colorFor = v => { const x = num(v); return x == null ? NO_DATA_COLOR : min === max ? classColor(0, 1) : interpolateColor(Math.min(max, Math.max(min, x)), min, max); };
+    colorFor = v => { const x = num(v); return x == null ? NO : min === max ? classColor(0, 1, ramp) : continuousColor(pal, kind, (Math.min(max, Math.max(min, x)) - min) / (max - min)); };
   } else {
-    ({ classes, breaks } = quantileClasses(sorted));
+    ({ classes, breaks } = quantileClasses(sorted, ramp));
     classOf = v => { const x = num(v); if (x == null) return null; let k = 0; while (k < breaks.length && x >= breaks[k]) k++; return k; };
-    colorFor = v => { const k = classOf(v); return k == null ? NO_DATA_COLOR : classes[k].color; };
+    colorFor = v => { const k = classOf(v); return k == null ? NO : classes[k].color; };
   }
   return {
-    method, count: n, classes, breaks, median, q1, q3, lo: f.lo, hi: f.hi, min, max, outliers, logFences: f.log,
+    ...extra, mean: mean(sorted),
+    lo: kind === 'origin' ? null : f.lo, hi: kind === 'origin' ? null : f.hi,
+    method, count: n, classes, breaks, median, q1, q3, min, max, outliers, logFences: f.log,
     colorFor, classOf, outlierSide, isOutlier: v => outlierSide(v) != null,
   };
+}
+
+/**
+ * Herkomst only: "2,5× het Rotterdamse gemiddelde (7%)" for `value` against the
+ * mean of the scale's values (the areas in view); '' for other kinds.
+ */
+export function scaleAverageText(value, scale, format = v => String(v)) {
+  return scale?.kind === 'origin' ? averageComparison(num(value), scale.mean, { scope: scale.scope, format }) : '';
 }
 
 /** Tooltip/panel wording for an outlier side. */
@@ -150,4 +167,20 @@ export function setScaleMethod(method, storage = globalThis.localStorage) {
   try { storage?.setItem(SCALE_STORAGE_KEY, method); } catch { /* storage blocked */ }
   globalThis.document?.dispatchEvent?.(new CustomEvent(SCALE_EVENT, { detail: { method } }));
   return method;
+}
+
+// ── Map palette (Kaartkleuren), persisted in localStorage ───────────────────────
+
+/** Stores the palette choice, updates the CSS variables and recolours every view (SCALE_EVENT). */
+export function setMapPalette(choice, storage = globalThis.localStorage) {
+  const c = storePaletteChoice(choice, storage);
+  refreshMapPalette();
+  return c;
+}
+
+/** Re-applies the live palette (after a theme change under "Volgt thema") and recolours the views. */
+export function refreshMapPalette({ notify = true } = {}) {
+  const id = applyPaletteVars(activePalette());
+  if (notify) globalThis.document?.dispatchEvent?.(new CustomEvent(SCALE_EVENT, { detail: { method: getScaleMethod(), palette: id } }));
+  return id;
 }
