@@ -374,7 +374,7 @@ async function render({ focus = null } = {}) {
   const html = step === 'result' ? await resultHtml() : stepHtml(step);
   if (seq !== renderSeq || !els) return;
   els.dialog.innerHTML = html;
-  const target = (focus && els.dialog.querySelector(focus)) ?? els.dialog.querySelector('.wiz-body .active, .wiz-body button, .wiz-body input') ?? els.dialog.querySelector('[data-wiz="close"]');
+  const target = (focus && els.dialog.querySelector(focus)) ?? els.dialog.querySelector('.wiz-body .active, .wiz-body button:not(.tip-btn), .wiz-body input') ?? els.dialog.querySelector('[data-wiz="close"]');
   target?.focus();
 }
 

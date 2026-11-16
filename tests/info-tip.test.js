@@ -54,3 +54,10 @@ describe('info-tip', () => {
     assert.match(css, /@media \(hover: hover\) \{ \.info-tip:hover > \.info-tip-text \{ display: block; \} \}/);
   });
 });
+
+describe('wizard initial focus', () => {
+  it('never lands on an (i) button, so no tip opens when a step renders', () => {
+    const js = readFileSync(new URL('../modules/wizard.js', import.meta.url), 'utf8');
+    assert.match(js, /\.wiz-body button:not\(\.tip-btn\)/);
+  });
+});
