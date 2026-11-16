@@ -16,17 +16,17 @@ const boom = { getItem() { throw new Error('blocked'); }, setItem() { throw new 
 
 describe('settings: defaults, load, save', () => {
   it('defaults: Rotterdam theme, dark map, all OV lines off, no school pins', () => {
-    assert.deepEqual(normalizeSettings(SETTINGS_DEFAULTS), { theme: 'rotterdam', basemap: 'dark', palette: 'auto', ov: { metro: false, tram: false, bus: false }, schools: false });
+    assert.deepEqual(normalizeSettings(SETTINGS_DEFAULTS), { theme: 'rotterdam', basemap: 'dark', palette: 'auto', ov: { metro: false, tram: false, bus: false }, schools: false, pfas: false });
     assert.deepEqual(loadSettings(memStorage()), normalizeSettings(SETTINGS_DEFAULTS));
     assert.deepEqual(loadSettings(null), normalizeSettings(SETTINGS_DEFAULTS));
   });
   it('uses the owners’ storage keys (theme, basemap, ov)', () => {
-    assert.deepEqual({ ...SETTINGS_KEYS }, { theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, palette: 'roffatistics.mapPalette', ov: OV_STORAGE_KEY, schools: SCHOOL_PINS_STORAGE_KEY });
+    assert.deepEqual({ ...SETTINGS_KEYS }, { theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, palette: 'roffatistics.mapPalette', ov: OV_STORAGE_KEY, schools: SCHOOL_PINS_STORAGE_KEY, pfas: 'roffatistics.pfaspunten' });
   });
   it('round-trips through storage', () => {
     const st = memStorage();
     const s = saveSettings({ theme: 'klassiek', basemap: 'aerial', ov: { metro: true, bus: true }, schools: true }, st);
-    assert.deepEqual(s, { theme: 'klassiek', basemap: 'aerial', palette: 'auto', ov: { metro: true, tram: false, bus: true }, schools: true });
+    assert.deepEqual(s, { theme: 'klassiek', basemap: 'aerial', palette: 'auto', ov: { metro: true, tram: false, bus: true }, schools: true, pfas: false });
     assert.equal(st.m.get(OV_STORAGE_KEY), 'metro,bus');
     assert.equal(st.m.get(SCHOOL_PINS_STORAGE_KEY), '1');
     assert.deepEqual(loadSettings(st), s);
@@ -38,7 +38,7 @@ describe('settings: defaults, load, save', () => {
   });
   it('unknown values fall back to the defaults', () => {
     assert.deepEqual(normalizeSettings({ theme: 'neon', basemap: 'osm', ov: { ferry: true }, schools: 'ja' }),
-      { theme: 'rotterdam', basemap: 'dark', palette: 'auto', ov: { metro: false, tram: false, bus: false }, schools: false });
+      { theme: 'rotterdam', basemap: 'dark', palette: 'auto', ov: { metro: false, tram: false, bus: false }, schools: false, pfas: false });
     assert.deepEqual(normalizeSettings(null), normalizeSettings(SETTINGS_DEFAULTS));
   });
   it('works without storage (blocked or missing): never throws, gives the defaults', () => {
@@ -127,7 +127,7 @@ describe('settings: dialog', () => {
     const f = fakeDialog(settingsDialogHtml(SETTINGS_DEFAULTS));
     assert.deepEqual(readSettingsForm(f.dialog), normalizeSettings(SETTINGS_DEFAULTS));
     writeSettingsForm(f.dialog, { theme: 'klassiek', basemap: 'light', ov: { metro: true, bus: true }, schools: true });
-    assert.deepEqual(readSettingsForm(f.dialog), { theme: 'klassiek', basemap: 'light', palette: 'auto', ov: { metro: true, tram: false, bus: true }, schools: true });
+    assert.deepEqual(readSettingsForm(f.dialog), { theme: 'klassiek', basemap: 'light', palette: 'auto', ov: { metro: true, tram: false, bus: true }, schools: true, pfas: false });
   });
   it('opens with the live state, applies each change to its group, Esc closes and returns focus', () => {
     const f = fakeDialog(settingsDialogHtml(SETTINGS_DEFAULTS));
@@ -146,7 +146,7 @@ describe('settings: dialog', () => {
     const bus = f.inputs.find(i => i.value === 'bus');
     bus.checked = true;
     f.listeners.dchange({ target: bus });
-    assert.deepEqual(applied.at(-1), ['ov', { theme: 'rotterdam', basemap: 'aerial', palette: 'auto', ov: { metro: true, tram: false, bus: true }, schools: false }]);
+    assert.deepEqual(applied.at(-1), ['ov', { theme: 'rotterdam', basemap: 'aerial', palette: 'auto', ov: { metro: true, tram: false, bus: true }, schools: false, pfas: false }]);
     const sch = f.inputs.find(i => i.name === 'settings-schools');
     sch.checked = true;
     f.listeners.dchange({ target: sch });

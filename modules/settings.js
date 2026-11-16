@@ -1,9 +1,10 @@
-// ── Instellingen (header cog): thema, kaart, kaartkleuren, OV-lijnen, basisscholen
+// ── Instellingen (header cog): thema, kaart, kaartkleuren, OV-lijnen, basisscholen, PFAS-punten
 // One dialog for the look of the app. The owners stay the source of truth:
 // theme.js (data-theme, key roffatistics.theme), map.js (basemap, key
 // roffatistics.basemap), palette.js + scale.js (Kaartkleuren, key
 // roffatistics.mapPalette, not in the share link), ov.js (Metro / Tram / Bus, key roffatistics.ov) and
-// school-pins.js (Basisscholen, key roffatistics.basisscholen).
+// school-pins.js (Basisscholen, key roffatistics.basisscholen) and pfas-points.js
+// (PFAS-punten, key roffatistics.pfaspunten).
 // This module only reads and writes through them. Settings are per device
 // (localStorage, every access in try/catch) and are not part of the share
 // link, except theme and basemap, which "Delen" already offered.
@@ -14,17 +15,18 @@ import { BASEMAPS, DEFAULT_BASEMAP, BASEMAP_STORAGE_KEY, pickInitialBasemap, res
 import { OV_MODES, DEFAULT_OV, OV_STORAGE_KEY, pickInitialOv, serializeOvState } from './ov.js';
 import { PALETTE_OPTIONS, DEFAULT_PALETTE_CHOICE, MAP_PALETTE_STORAGE_KEY, parsePaletteChoice, pickInitialPaletteChoice } from './palette.js';
 import { DEFAULT_SCHOOL_PINS, SCHOOL_PINS_STORAGE_KEY, pickInitialSchoolPins, serializeSchoolPins } from './school-pins.js';
+import { DEFAULT_PFAS_PINS, PFAS_PINS_STORAGE_KEY, pickInitialPfasPins, serializePfasPins } from './pfas-points.js';
 import { CITY } from './city.js';
 
-export const SETTINGS_DEFAULTS = Object.freeze({ theme: cityDefaultTheme(), basemap: DEFAULT_BASEMAP, palette: DEFAULT_PALETTE_CHOICE, ov: DEFAULT_OV, schools: DEFAULT_SCHOOL_PINS });
-export const SETTINGS_KEYS = Object.freeze({ theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, palette: MAP_PALETTE_STORAGE_KEY, ov: OV_STORAGE_KEY, schools: SCHOOL_PINS_STORAGE_KEY });
+export const SETTINGS_DEFAULTS = Object.freeze({ theme: cityDefaultTheme(), basemap: DEFAULT_BASEMAP, palette: DEFAULT_PALETTE_CHOICE, ov: DEFAULT_OV, schools: DEFAULT_SCHOOL_PINS, pfas: DEFAULT_PFAS_PINS });
+export const SETTINGS_KEYS = Object.freeze({ theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, palette: MAP_PALETTE_STORAGE_KEY, ov: OV_STORAGE_KEY, schools: SCHOOL_PINS_STORAGE_KEY, pfas: PFAS_PINS_STORAGE_KEY });
 export { PALETTE_OPTIONS };
 
 export const THEME_OPTIONS = Object.freeze(Object.values(THEMES).map(t => Object.freeze({ id: t.id, label: t.label })));
 export const BASEMAP_OPTIONS = Object.freeze(Object.values(BASEMAPS).map(b => Object.freeze({ id: b.id, label: b.label })));
 export const OV_OPTIONS = Object.freeze(Object.values(OV_MODES).map(m => Object.freeze({ id: m.id, label: m.label, hint: m.hint ?? '' })));
 
-/** Normalises any input to { theme, basemap, palette, ov:{metro,tram,bus}, schools }; unknown values fall back to the defaults. */
+/** Normalises any input to { theme, basemap, palette, ov:{metro,tram,bus}, schools, pfas }; unknown values fall back to the defaults. */
 export function normalizeSettings(s = {}) {
   return {
     theme: resolveTheme(s?.theme).id,
@@ -32,12 +34,13 @@ export function normalizeSettings(s = {}) {
     palette: parsePaletteChoice(s?.palette),
     ov: Object.fromEntries(Object.keys(OV_MODES).map(k => [k, s?.ov ? !!s.ov[k] : DEFAULT_OV[k]])),
     schools: typeof s?.schools === 'boolean' ? s.schools : DEFAULT_SCHOOL_PINS,
+    pfas: typeof s?.pfas === 'boolean' ? s.pfas : DEFAULT_PFAS_PINS,
   };
 }
 
 /** The stored settings; a missing or blocked storage gives the defaults. */
 export function loadSettings(storage) {
-  return { theme: pickInitialTheme(storage), basemap: pickInitialBasemap(storage), palette: pickInitialPaletteChoice(storage), ov: pickInitialOv(storage), schools: pickInitialSchoolPins(storage) };
+  return { theme: pickInitialTheme(storage), basemap: pickInitialBasemap(storage), palette: pickInitialPaletteChoice(storage), ov: pickInitialOv(storage), schools: pickInitialSchoolPins(storage), pfas: pickInitialPfasPins(storage) };
 }
 
 /** Stores the settings under the owners' keys; returns the normalised settings. Never throws. */
@@ -49,6 +52,7 @@ export function saveSettings(settings, storage) {
   put(MAP_PALETTE_STORAGE_KEY, s.palette);
   put(OV_STORAGE_KEY, serializeOvState(s.ov));
   put(SCHOOL_PINS_STORAGE_KEY, serializeSchoolPins(s.schools));
+  put(PFAS_PINS_STORAGE_KEY, serializePfasPins(s.pfas));
   return s;
 }
 
@@ -79,6 +83,8 @@ export function settingsDialogHtml(settings = SETTINGS_DEFAULTS) {
           <p class="settings-note">Bus alleen in de ${CITY.ov.busRegion}. Lijnen &copy; OpenStreetMap-bijdragers.</p></fieldset>
         <fieldset class="settings-group"><legend>Onderwijs</legend><div class="settings-opts"><label class="settings-opt settings-check"><input type="checkbox" name="settings-schools" value="on"${s.schools ? ' checked' : ''}><span class="school-swatch" aria-hidden="true"></span><span>Basisscholen</span></label></div>
           <p class="settings-note">Een punt per basisschool, gekleurd naar de schoolscore (referentieniveaus 2022–2024, DUO); grijs = geen toetsgegevens.</p></fieldset>
+        <fieldset class="settings-group"><legend>Milieu</legend><div class="settings-opts"><label class="settings-opt settings-check"><input type="checkbox" name="settings-pfas" value="on"${s.pfas ? ' checked' : ''}><span class="pfas-swatch" aria-hidden="true"></span><span>PFAS-punten</span></label></div>
+          <p class="settings-note">Bodemmetingen (bruin, som PFAS in ng/g) en verdachte bronnen (paars) uit de PFAS Data Hub (CNRS). Er wordt gemeten waar men vervuiling vermoedt: veel punten betekent dat er gezocht is, niet dat het er erger is.</p></fieldset>
       </div>
     </div>`;
 }
@@ -93,6 +99,7 @@ export function readSettingsForm(root) {
     palette: val('settings-palette'),
     ov: Object.fromEntries(Object.keys(OV_MODES).map(k => [k, on.has(k)])),
     schools: !!root.querySelector('input[name="settings-schools"]:checked'),
+    pfas: !!root.querySelector('input[name="settings-pfas"]:checked'),
   });
 }
 
@@ -104,6 +111,7 @@ export function writeSettingsForm(root, settings) {
   for (const i of root.querySelectorAll('input[name="settings-palette"]')) i.checked = i.value === s.palette;
   for (const i of root.querySelectorAll('input[name="settings-ov"]')) i.checked = !!s.ov[i.value];
   for (const i of root.querySelectorAll('input[name="settings-schools"]')) i.checked = s.schools;
+  for (const i of root.querySelectorAll('input[name="settings-pfas"]')) i.checked = s.pfas;
 }
 
 // ── Dialog logic ──────────────────────────────────────────────────────────────
@@ -111,7 +119,7 @@ export function writeSettingsForm(root, settings) {
 /**
  * modal: the overlay; dialog: the role=dialog box. current() gives the live
  * settings (synced into the form on open); apply(changed, settings) is called
- * on every change with the changed group ('theme' | 'basemap' | 'ov' | 'schools').
+ * on every change with the changed group ('theme' | 'basemap' | 'ov' | 'schools' | 'pfas').
  * Returns { open(), close(), isOpen() }.
  */
 export function createSettingsDialog({ modal, dialog, current, apply, doc = globalThis.document }) {
@@ -152,7 +160,7 @@ export function createSettingsDialog({ modal, dialog, current, apply, doc = glob
   });
   dialog.addEventListener('change', e => {
     const name = e.target?.name;
-    const group = name === 'settings-theme' ? 'theme' : name === 'settings-basemap' ? 'basemap' : name === 'settings-palette' ? 'palette' : name === 'settings-ov' ? 'ov' : name === 'settings-schools' ? 'schools' : null;
+    const group = name === 'settings-theme' ? 'theme' : name === 'settings-basemap' ? 'basemap' : name === 'settings-palette' ? 'palette' : name === 'settings-ov' ? 'ov' : name === 'settings-schools' ? 'schools' : name === 'settings-pfas' ? 'pfas' : null;
     if (group) apply(group, readSettingsForm(dialog));
   });
 
@@ -161,10 +169,10 @@ export function createSettingsDialog({ modal, dialog, current, apply, doc = glob
 
 /**
  * Builds the dialog and binds every `.settings-btn`. The hooks do the work:
- * setTheme(id), setBasemap(id), setPalette(choice), setOv({metro,tram,bus}), setSchools(bool); getBasemap(),
- * getOv() and getSchools() give the live state (the basemap can fall back to Satelliet without WebGL).
+ * setTheme(id), setBasemap(id), setPalette(choice), setOv({metro,tram,bus}), setSchools(bool), setPfas(bool);
+ * getBasemap(), getOv(), getSchools() and getPfas() give the live state (the basemap can fall back to Satelliet without WebGL).
  */
-export function initSettings({ setTheme, setBasemap, setPalette, setOv, setSchools, getBasemap, getOv, getSchools, doc = globalThis.document } = {}) {
+export function initSettings({ setTheme, setBasemap, setPalette, setOv, setSchools, setPfas, getBasemap, getOv, getSchools, getPfas, doc = globalThis.document } = {}) {
   let storage = null;
   try { storage = globalThis.localStorage ?? null; } catch { storage = null; }
   const live = () => normalizeSettings({
@@ -173,6 +181,7 @@ export function initSettings({ setTheme, setBasemap, setPalette, setOv, setSchoo
     ...(getBasemap?.() ? { basemap: getBasemap() } : {}),
     ...(getOv ? { ov: getOv() } : {}),
     ...(getSchools ? { schools: !!getSchools() } : {}),
+    ...(getPfas ? { pfas: !!getPfas() } : {}),
   });
 
   const modal = doc.createElement('div');
@@ -192,6 +201,7 @@ export function initSettings({ setTheme, setBasemap, setPalette, setOv, setSchoo
       else if (group === 'palette') setPalette?.(s.palette);
       else if (group === 'ov') setOv?.(s.ov);
       else if (group === 'schools') setSchools?.(s.schools);
+      else if (group === 'pfas') setPfas?.(s.pfas);
     },
     doc,
   });

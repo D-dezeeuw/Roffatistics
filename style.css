@@ -2015,6 +2015,14 @@ footer {
 .school-popup .sp-table td { text-align: right; font-variant-numeric: tabular-nums; }
 .school-popup .sp-table thead th { color: #64748b; font-size: 0.7rem; text-align: right; }
 .school-popup .sp-flag { margin: 0.25rem 0 0; font-weight: 600; color: #b45309; }
+
+/* PFAS-punten (modules/pfas-points.js): fixed colours per kind, never by value */
+.pfas-swatch { display: inline-block; width: 0.9rem; height: 0.55rem; border-radius: 2px; background: linear-gradient(90deg, #b45309 50%, #7c3aed 50%); }
+.pfas-popup { font-size: 0.8rem; line-height: 1.35; min-width: 200px; }
+.pfas-popup .pf-name { display: block; font-size: 0.9rem; }
+.pfas-popup .pf-kind, .pfas-popup .pf-src, .pfas-popup .pf-note, .pfas-popup .pf-count { color: #64748b; font-size: 0.75rem; }
+.pfas-popup .pf-value { margin: 0.35rem 0 0.25rem; }
+.pfas-popup .pf-note { margin: 0.25rem 0 0; }
 .school-popup .sp-note { margin: 0.15rem 0 0; }
 
 /* ─── Loading screen (shown/hidden by modules/loader.js) ─────

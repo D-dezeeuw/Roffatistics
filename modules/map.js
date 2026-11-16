@@ -1,5 +1,6 @@
 import { addOvLayers, pickInitialOv } from './ov.js';
 import { addSchoolPinsLayer, pickInitialSchoolPins } from './school-pins.js';
+import { addPfasPointsLayer, pickInitialPfasPins } from './pfas-points.js';
 import { CITY } from './city.js';
 
 // ── Basemap configuration (pure data, unit-tested) ───────────────────────────
@@ -99,6 +100,7 @@ let basemapLayer = null;
 let activeBasemap = null;
 let ovLayers = null;
 let schoolPins = null;
+let pfasPins = null;
 
 export function initMap() {
   const NL_BOUNDS = L.latLngBounds(NL_BOUNDS_ARR);
@@ -117,6 +119,7 @@ export function initMap() {
   setBasemap(pickInitialBasemap(storage));
   ovLayers = addOvLayers(L, map);   // basemap, theme and OV are chosen in Instellingen (settings.js)
   schoolPins = addSchoolPinsLayer(L, map, { storage });   // Basisscholen, also in Instellingen
+  pfasPins = addPfasPointsLayer(L, map, { storage });     // PFAS-punten (plan-milieu phase 2), in Instellingen
 
   // invalidateSize fires Leaflet 'resize', which the maplibre layer forwards to its GL canvas.
   window.addEventListener('resize', () => map.invalidateSize());
@@ -166,6 +169,14 @@ export function getSchoolPins() {
 }
 /** Switches the school pins on/off (the school file is fetched on first use). */
 export function setSchoolPins(on) { return schoolPins?.set(on); }
+
+/** Whether the PFAS-punten are on; before initMap the stored state. */
+export function getPfasPins() {
+  if (pfasPins) return pfasPins.get();
+  try { return pickInitialPfasPins(window.localStorage); } catch { return pickInitialPfasPins(null); }
+}
+/** Switches the PFAS points on/off (the points file is fetched on first use). */
+export function setPfasPins(on) { return pfasPins?.set(on); }
 
 export function getMap() { return map; }
 

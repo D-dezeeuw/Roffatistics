@@ -13,9 +13,10 @@ export const MILIEU_URL = `./data/nl/milieu-buurt-${MILIEU_YEAR}.json`;
 export const HINDER_YEAR = 2024;
 export const PET_YEAR = 2022;
 export const SHADE_YEAR = 2024;
+export const AIR_YEAR = 2024;      // GCN/NSL jaargemiddelde behind the RIVM *_actueel coverages (keyword rivm_nsl_20260401_gm_*2024)
 
 /** Metric keys, in the order of the Layers dropdown and the area modal. */
-export const MILIEU_KEYS = Object.freeze(['noiseAnyPct', 'noiseRoadPct', 'noiseNeighbourPct', 'heatPet', 'shadePct']);
+export const MILIEU_KEYS = Object.freeze(['noiseAnyPct', 'noiseRoadPct', 'noiseNeighbourPct', 'heatPet', 'shadePct', 'airNo2', 'airPm25', 'pfasSourceKm']);
 export const isMilieuKey = key => MILIEU_KEYS.includes(key);
 
 /** RIVM fields (% volwassenen ernstig gehinderd, the same full record in every *_bu_*_2024 layer). */
@@ -49,6 +50,78 @@ export const rivmValues = rec => ({
   noiseNeighbourPct: round1(cleanValue(rec?.[HINDER_FIELDS.buren])),
   noiseAnyPct: combinedHinder(rec),
 });
+
+// ── Air quality raster → buurt (build, phase 2) ────────────────────────────────
+
+/**
+ * WGS84 (lat, lon) → RD New (EPSG:28992) [x, y], the RD/NAP approximation
+ * series (Schreutelaar; about 1 m off inside NL, plenty for a 100 m raster).
+ */
+const RD_R = [[0, 1, 190094.945], [1, 1, -11832.228], [2, 1, -114.221], [0, 3, -32.391], [1, 0, -0.705], [3, 1, -2.34], [1, 3, -0.608], [0, 2, -0.008], [2, 3, 0.148]];
+const RD_S = [[1, 0, 309056.544], [0, 2, 3638.893], [2, 0, 73.077], [1, 2, -157.984], [3, 0, 59.788], [0, 1, 0.433], [2, 2, -6.439], [1, 1, -0.032], [0, 4, 0.092], [1, 4, -0.054]];
+export function wgs84ToRd(lat, lon) {
+  const dp = 0.36 * (lat - 52.1551744), dl = 0.36 * (lon - 5.38720621);
+  let x = 155000, y = 463000;
+  for (const [p, q, r] of RD_R) x += r * dp ** p * dl ** q;
+  for (const [p, q, r] of RD_S) y += r * dp ** p * dl ** q;
+  return [x, y];
+}
+
+/**
+ * Raster tiles [{ ox, oy, sx, sy, width, height, data, nodata }] (origin = top-left
+ * corner, sy negative) → value at RD (x, y); null outside every tile, on nodata or a negative value.
+ */
+export function rasterValueAt(tiles, x, y) {
+  for (const t of tiles) {
+    const i = Math.floor((x - t.ox) / t.sx), j = Math.floor((y - t.oy) / t.sy);
+    if (i < 0 || j < 0 || i >= t.width || j >= t.height) continue;
+    const v = t.data[j * t.width + i];
+    if (!Number.isFinite(v) || v < 0 || (t.nodata != null && Math.abs(v - t.nodata) <= Math.abs(t.nodata) * 1e-6)) return null;
+    return v;
+  }
+  return null;
+}
+
+/**
+ * Area-weighted mean of a raster over a buurt: the mean of the values at a
+ * regular `step` m grid of RD points inside the polygons (WGS84 rings, converted
+ * to RD); a buurt too small to hold a grid point takes the value at `centre`
+ * ([lon, lat]). null without any value.
+ */
+export function rasterMeanOver(polys, sample, inside, { step = 100, centre = null } = {}) {
+  const rd = polys.map(rings => rings.map(ring => ring.map(([lon, lat]) => wgs84ToRd(lat, lon))));
+  const [x0, y0, x1, y1] = bboxOf(rd);
+  let s = 0, n = 0;
+  for (let x = Math.ceil(x0 / step) * step + step / 2; x < x1; x += step) {
+    for (let y = Math.ceil(y0 / step) * step + step / 2; y < y1; y += step) {
+      if (!rd.some(rings => inside([x, y], rings))) continue;
+      const v = sample(x, y);
+      if (v != null) { s += v; n++; }
+    }
+  }
+  if (!n && centre) { const v = sample(...wgs84ToRd(centre[1], centre[0])); if (v != null) return round1(v); }
+  return n ? round1(s / n) : null;
+}
+
+// ── Afstand tot verdachte PFAS-bron (build, phase 2) ─────────────────────────
+
+/** Great-circle distance in km between [lon, lat] points. */
+export function haversineKm([lon1, lat1], [lon2, lat2]) {
+  const r = Math.PI / 180, dLat = (lat2 - lat1) * r, dLon = (lon2 - lon1) * r;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(dLon / 2) ** 2;
+  return 12742 * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+/** km (0.1) from `point` ([lon, lat]) to the nearest of `sources` ([[lon, lat]]); null without sources. */
+export function nearestKm(point, sources) {
+  let best = Infinity;
+  for (const s of sources) {
+    if (Math.abs(s[1] - point[1]) * 111 > best) continue;   // cheap latitude cut
+    const d = haversineKm(point, s);
+    if (d < best) best = d;
+  }
+  return Number.isFinite(best) ? round1(best) : null;
+}
 
 // ── Buurt 2024 → 2025 (build) ───────────────────────────────────────────────
 
@@ -192,8 +265,11 @@ const ROWS = Object.freeze([
   ['noiseNeighbourPct', 'Ernstige geluidhinder door buren', v => `${nl1(v)}%`],
   ['heatPet', 'Gevoelstemperatuur op een hete dag', v => `${nl1(v)} °C`],
   ['shadePct', 'Schaduw op fiets- en wandelpaden', v => `${nl1(v)}%`],
+  ['airNo2', 'Stikstofdioxide (NO₂), jaargemiddelde', v => `${nl1(v)} µg/m³`],
+  ['airPm25', 'Fijnstof (PM2,5), jaargemiddelde', v => `${nl1(v)} µg/m³`],
+  ['pfasSourceKm', 'Afstand tot verdachte PFAS-bron', v => `${nl1(v)} km`],
 ]);
-export const MILIEU_NOTE = `Geluidhinder: modelschattingen per buurt (GGD Gezondheidsmonitor ${HINDER_YEAR}, RIVM), geen metingen; % volwassenen. Bron: RIVM (publiek domein), Klimaateffectatlas (CC BY 4.0).`;
+export const MILIEU_NOTE = `Geluidhinder: modelschattingen per buurt (GGD Gezondheidsmonitor ${HINDER_YEAR}, RIVM), geen metingen; % volwassenen. Lucht: RIVM-kaart ${AIR_YEAR} (WHO-advies: NO₂ 10, PM2,5 5 µg/m³). PFAS-bron: vermoedelijke bron volgens de PFAS Data Hub (CNRS), geen meting. Bron: RIVM (publiek domein), Klimaateffectatlas (CC BY 4.0), PFAS Data Hub.`;
 
 /** The "Milieu" block of the area modal ('' without an entry). `info` = an (i) button. */
 export function milieuPanelHtml(entry, { info = '' } = {}) {

@@ -2,7 +2,7 @@ import { BOUW_SOURCE_URL, BOUW_MIN_DWELLINGS, OLD_BUILD_BEFORE, MODERN_BUILD_FRO
 import { PC4_GROUPS, PC4_HERKOMST_TABLE, PC4_YEAR, PC4_MIN_POPULATION, pc4RegionComposition, regionAtBuurt } from './herkomst-pc4.js';
 import { REGIONS, REGIO_TABLE, REGIO_YEAR, regionComposition } from './herkomst-regio.js';
 import { P2000_SOURCE_URL, P2000_COVERAGE, P2000_MIN_POPULATION } from './p2000.js';
-import { HINDER_YEAR, PET_YEAR, SHADE_YEAR } from './milieu.js';
+import { HINDER_YEAR, PET_YEAR, SHADE_YEAR, AIR_YEAR } from './milieu.js';
 import { SMALL_N as EDU_SMALL_N, NEAR_RADIUS_KM, NEAR_BEST_KM, YEARS as EDU_YEARS } from './schools.js';
 
 import { odataUrl, getRows } from './source.js';
@@ -184,6 +184,9 @@ const SRC = Object.freeze({
   rivmHinder: Object.freeze({ id: 'RIVM ALO', name: `Ernstig ervaren geluidhinder per buurt ${HINDER_YEAR} (GGD Gezondheidsmonitor, modelschatting), Atlas Leefomgeving`, publisher: 'RIVM / GGD\'en, publiek domein (Public Domain Mark 1.0)', url: 'https://www.nationaalgeoregister.nl/geonetwork/srv/dut/catalog.search#/metadata/64d24969-6abf-4208-b7b4-a8d582382829', scope: 'Nederland (buurten 2024)' }),
   keaPet:  Object.freeze({ id: 'KEA', name: `Gevoelstemperatuur per buurt (hittekaart ${PET_YEAR}), Klimaateffectatlas`, publisher: 'Klimaateffectatlas, 2026 (CC BY 4.0)', url: 'https://www.klimaateffectatlas.nl/nl/data-opvragen', scope: 'Nederland (buurten 2024)' }),
   keaShade: Object.freeze({ id: 'KEA', name: `Schaduw op fiets- en wandelpaden per buurt (${SHADE_YEAR}), Klimaateffectatlas buurtdashboard`, publisher: 'Klimaateffectatlas, 2026 (CC BY 4.0)', url: 'https://www.klimaateffectatlas.nl/nl/data-opvragen', scope: 'Nederland (buurten 2024)' }),
+  // Milieu phase 2: the WMS/WCS capabilities carry no licence for the GCN layers (checked 16 Nov 2026).
+  rivmAir: Object.freeze({ id: 'RIVM GCN', name: `Grootschalige concentratiekaarten Nederland: jaargemiddelde NO₂ en PM2,5 ${AIR_YEAR} (25 m-raster), Atlas Leefomgeving`, publisher: 'RIVM, open data via de Atlas Leefomgeving (licentie niet vermeld in de servicemetadata)', url: 'https://www.atlasleefomgeving.nl/kaarten', scope: 'Nederland (raster)' }),
+  pdh: Object.freeze({ id: 'PDH', name: 'PFAS Data Hub: vermoedelijke PFAS-bronnen en metingen (via de Pfoisened-export)', publisher: 'PFAS Data Hub, CNRS', url: 'https://pdh.cnrs.fr', scope: 'Europa (punten)' }),
   duoAdres: Object.freeze({ id: 'adressen_bo', name: 'Adressen vestigingen basisonderwijs', publisher: 'DUO', url: 'https://onderwijsdata.duo.nl/dataset/adressen_bo', scope: 'Nederland (schoolvestigingen)' }),
 });
 
@@ -259,6 +262,8 @@ const MILIEU_MODEL_NOTE = `Modelschatting, geen meting: RIVM en de GGD'en schatt
 const MILIEU_SMALL_NOTE = 'Voor kleine buurten publiceert het RIVM geen schatting ("geen data").';
 const MILIEU_MAP_NOTE = 'De bronnen gebruiken de buurtindeling 2024. Buurten met dezelfde code in 2025 nemen het cijfer over; een nieuwe of gewijzigde buurt krijgt het cijfer van de buurt uit 2024 waarmee hij het meest overlapt.';
 const MILIEU_AGG_NOTE = 'Wijken, gemeenten en provincies: het gemiddelde van hun buurten, gewogen naar het aantal inwoners.';
+const AIR_NOTE = 'Een modelkaart (metingen plus verspreidingsberekening), geen meting in de buurt zelf. De RIVM-kaart rekent met een raster van 25 m; vlak langs drukke wegen kan het hoger zijn.';
+const AIR_SAMPLE_NOTE = 'Berekend op de buurtindeling 2025: het gemiddelde van de kaart op punten om de 100 m binnen de buurt; een buurt te klein voor een punt krijgt de waarde in zijn middelpunt.';
 const MILIEU_SCORE_NOTE = 'Telt niet mee in de totaalscore van de Ranglijst of de Woonscore; wel te gebruiken in Mijn stapel.';
 const HINDER_DEF = '"Ernstig gehinderd" betekent dat iemand op een schaal van 0 tot 10 een 8, 9 of 10 geeft op de vraag hoeveel hinder hij of zij thuis het afgelopen jaar ondervond.';
 
@@ -298,6 +303,33 @@ const INFO = {
     source: [SRC.keaShade],
     year: `${SHADE_YEAR}, buurtindeling 2024`,
     caveats: ['Buurten zonder fiets- of wandelpaden hebben geen waarde ("geen data").', MILIEU_MAP_NOTE, MILIEU_AGG_NOTE, MILIEU_SCORE_NOTE],
+  },
+  // Milieu phase 2: air quality and PFAS (computed on the buurt indeling 2025 itself).
+  airNo2: {
+    description: `De jaargemiddelde concentratie stikstofdioxide (NO₂) in de buitenlucht, gemiddeld over de buurt. NO₂ komt vooral van verkeer en verbranding. Lager is beter; de WHO adviseert sinds 2021 een jaargemiddelde van hoogstens 10 µg/m³.`,
+    formula: `gemiddelde van de RIVM-concentratiekaart NO₂ ${AIR_YEAR} (µg/m³) over een raster van 100 m binnen de buurt (gewogen naar oppervlakte)`,
+    source: [SRC.rivmAir],
+    year: `${AIR_YEAR} (modelkaart)`,
+    caveats: [AIR_NOTE, AIR_SAMPLE_NOTE, MILIEU_AGG_NOTE, MILIEU_SCORE_NOTE],
+  },
+  airPm25: {
+    description: `De jaargemiddelde concentratie fijnstof kleiner dan 2,5 micrometer (PM2,5), gemiddeld over de buurt. Fijnstof komt voor een groot deel van ver (industrie, landbouw, het buitenland) en verschilt daarom weinig tussen buurten. Lager is beter; de WHO adviseert hoogstens 5 µg/m³.`,
+    formula: `gemiddelde van de RIVM-concentratiekaart PM2,5 ${AIR_YEAR} (µg/m³) over een raster van 100 m binnen de buurt (gewogen naar oppervlakte)`,
+    source: [SRC.rivmAir],
+    year: `${AIR_YEAR} (modelkaart)`,
+    caveats: [AIR_NOTE, AIR_SAMPLE_NOTE, MILIEU_AGG_NOTE, MILIEU_SCORE_NOTE],
+  },
+  pfasSourceKm: {
+    description: 'Hoe ver het dichtstbijzijnde vermoedelijke PFAS-bron ligt: een plek waar PFAS gebruikt is of vrij kan zijn gekomen (vliegveld, militair brandoefenterrein, rioolwaterzuivering, papierfabriek, bedrijf in het Europese emissieregister). Hoger is beter. Het zegt niet dat er PFAS in de bodem of het water van de buurt zit.',
+    formula: 'afstand in km in rechte lijn van het middelpunt van de buurt tot de dichtstbijzijnde vermoedelijke bron in de PFAS Data Hub (ook bronnen over de grens)',
+    source: [SRC.pdh],
+    year: 'PFAS Data Hub, export september 2026',
+    caveats: [
+      'Een verdachte bron is geen gemeten vervuiling. De lijst is niet volledig: kleinere bedrijven en oude brandoefenplaatsen ontbreken vaak.',
+      'Waarom geen kaart met gemeten PFAS per buurt? Er wordt gemeten waar men vervuiling vermoedt (in de ene grote stad honderden bodemmonsters, in de andere een handvol). Een gemiddelde per buurt laat dan vooral zien waar iemand gezocht heeft. De metingen staan wel als punten op de kaart: zet "PFAS-punten" aan bij Instellingen.',
+      'De afstand geldt voor het middelpunt van de buurt; in een grote buurt kan een deel dichter bij de bron liggen.',
+      MILIEU_AGG_NOTE, MILIEU_SCORE_NOTE,
+    ],
   },
   population: {
     description: 'Het aantal inwoners dat op 1 januari in het gebied staat ingeschreven. Een groot getal betekent alleen een groot of dichtbevolkt gebied; het zegt niets over hoe goed het er is.',
@@ -909,6 +941,9 @@ export const DATASETS = Object.freeze({
   noiseNeighbourPct: ds('noiseNeighbourPct', 'Geluidhinder buren',    `Ernstige geluidhinder door buren (% volwassenen, schatting ${HINDER_YEAR})`, '%', false, 'milieu', { inOverall: false, estimated: true }),
   heatPet:          ds('heatPet',          'Gevoelstemperatuur',   `Gevoelstemperatuur op een hete dag (°C, PET ${PET_YEAR})`, '°C', false, 'milieu', { inOverall: false }),
   shadePct:         ds('shadePct',         'Schaduw',              `Schaduw op fiets- en wandelpaden (%, ${SHADE_YEAR})`, '%', true, 'milieu', { inOverall: false }),
+  airNo2:           ds('airNo2',           'Stikstofdioxide (NO₂)', `Stikstofdioxide NO₂, jaargemiddelde (µg/m³, ${AIR_YEAR})`, 'µg/m³', false, 'milieu', { inOverall: false }),
+  airPm25:          ds('airPm25',          'Fijnstof (PM2,5)',      `Fijnstof PM2,5, jaargemiddelde (µg/m³, ${AIR_YEAR})`, 'µg/m³', false, 'milieu', { inOverall: false }),
+  pfasSourceKm:     ds('pfasSourceKm',     'Afstand tot verdachte PFAS-bron', 'Afstand tot de dichtstbijzijnde verdachte PFAS-bron (km)', 'km', true, 'milieu', { inOverall: false }),
   p2000Totaal:      ds('p2000Totaal',      'Alle meldingen',       'Meldingen hulpdiensten (P2000) per 1.000 inw.', 'per 1.000', null, 'actueel', { inOverall: false, live: true }),
   p2000Verkeer:     ds('p2000Verkeer',     'Verkeersongevallen',   'Verkeersongevallen (P2000) per 1.000 inw.', 'per 1.000', null, 'actueel', { inOverall: false, live: true }),
   p2000Brand:       ds('p2000Brand',       'Branden',              'Branden (P2000) per 1.000 inw.',   'per 1.000', null, 'actueel', { inOverall: false, live: true }),

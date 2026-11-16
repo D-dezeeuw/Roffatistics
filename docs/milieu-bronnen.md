@@ -26,7 +26,7 @@ Licence: RIVM Atlas Leefomgeving and Klimaateffectatlas are open government data
 
 | Bron | Uitgever | Endpoint | Formaat | Eenheid | Dekking | Jaar | Aggregatie |
 |---|---|---|---|---|---|---|---|
-| **GCN jaargemiddelde NO2, PM2.5, PM10, EC** | RIVM | RIVM-ALO-WCS: `alo__rivm_jaargemiddeld_NO2_actueel`, `..._PM25_actueel`, `..._PM10_actueel`, `..._EC_actueel`; yearly archive `alo__rivm_nsl_*_gm_NO2<jaar>` (in capabilities; GetCoverage tested only on the geluid layer) | WCS / GeoTIFF | 1 km GCN (the NSL versions go to 25 m near roads) | NL | "actueel" (check the year in the layer metadata; probably 2023 or 2024) | Address-weighted mean µg/m³. Compare against WHO 2021 (NO2 10, PM2.5 5). Differences between buurten are small at 1 km; road-side peaks drop out. |
+| **GCN jaargemiddelde NO2, PM2.5, PM10, EC** | RIVM | RIVM-ALO-WCS: `alo__rivm_jaargemiddeld_NO2_actueel`, `..._PM25_actueel`, `..._PM10_actueel`, `..._EC_actueel`; yearly archive `alo__rivm_nsl_*_gm_NO2<jaar>` (GetCoverage verified 16 Nov 2026: 25 m grid, data year 2024; a whole-NL read is refused above 256 MB, 50 km tiles at scaleFactor 0.25 work) | WCS / GeoTIFF | 1 km GCN (the NSL versions go to 25 m near roads) | NL | "actueel" (check the year in the layer metadata; probably 2023 or 2024) | Address-weighted mean µg/m³. Compare against WHO 2021 (NO2 10, PM2.5 5). Differences between buurten are small at 1 km; road-side peaks drop out. |
 
 ## 3. Geur (odour)
 

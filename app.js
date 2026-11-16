@@ -1,5 +1,5 @@
 import { bindDOM, run, setValue } from 'spektrum';
-import { initMap, getMap, setMapScope, refreshMapSize, setBasemap, getActiveBasemap, getOvModes, setOvModes, getSchoolPins, setSchoolPins, BASEMAP_STORAGE_KEY } from './modules/map.js';
+import { initMap, getMap, setMapScope, refreshMapSize, setBasemap, getActiveBasemap, getOvModes, setOvModes, getSchoolPins, setSchoolPins, getPfasPins, setPfasPins, BASEMAP_STORAGE_KEY } from './modules/map.js';
 import { initOverlays, setOverlaysEnabled, setProvinceData, setMunicipalityData, applyDataset, getActiveTier, focusNederlandArea, drillIntoGemeente, gemeenteName } from './modules/overlays.js';
 import { applyDrillDataset }            from './modules/nl-drill.js';
 import { rescoreNlAreas }               from './modules/nl-areas.js';
@@ -88,15 +88,17 @@ setActiveStack(initialState.stack, initialState.crime);    // Mijn stapel: assig
 initMap();
 applyTheme(pickInitialTheme(shareStorage), document);   // theme-color meta (data-theme is set before first paint)
 refreshMapPalette({ notify: false });   // Kaartkleuren CSS variables (outlier marks, chips, school swatch)
-initSettings({   // header cog "Instellingen": Thema, Kaart, Kaartkleuren, OV-lijnen, Basisscholen; the owners store their own keys
+initSettings({   // header cog "Instellingen": Thema, Kaart, Kaartkleuren, OV-lijnen, Basisscholen, PFAS-punten; the owners store their own keys
   setTheme: id => { applyTheme(id, document, shareStorage); refreshMapPalette(); },   // "Volgt thema" recolours the map
   setBasemap,
   setPalette: setMapPalette,
   setOv: setOvModes,
   setSchools: setSchoolPins,
+  setPfas: setPfasPins,
   getBasemap: getActiveBasemap,
   getOv: getOvModes,
   getSchools: getSchoolPins,
+  getPfas: getPfasPins,
 });
 setLoaderProgress(0.2);
 initSpacePan(document.getElementById('map'));   // hold Space: drag the map, never click a feature
