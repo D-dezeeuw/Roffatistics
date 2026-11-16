@@ -2,14 +2,16 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { areaFillStyle, outlierStroke, buildMaskRings, resolveRotterdamLevel, tooltipHtml, NO_DATA_COLOR, ZOOM_BUURT_RD } from '../modules/rotterdam.js';
 import { buildScale, OUTLIER_COLOR } from '../modules/scale.js';
+import { activePalette, PALETTES } from '../modules/palette.js';
 
 describe('Rotterdam styling', () => {
   it('areas without a value all get the same neutral colour', () => {
-    const scale = buildScale([0, 5, 10]);
+    const scale = buildScale([0, 5, 10], { palette: 'klassiek' });
     assert.equal(areaFillStyle(null, scale).fillColor, NO_DATA_COLOR);
     assert.equal(areaFillStyle(undefined, scale).fillColor, NO_DATA_COLOR);
-    assert.equal(areaFillStyle(5, null).fillColor, NO_DATA_COLOR, 'no scale = no data for the whole dataset');
-    assert.equal(areaFillStyle(5, buildScale([null])).fillColor, NO_DATA_COLOR, 'empty scale = no data');
+    assert.equal(areaFillStyle(5, null).fillColor, activePalette().noData, 'no scale = no data of the live palette');
+    assert.equal(areaFillStyle(5, buildScale([null], { palette: 'klassiek' })).fillColor, NO_DATA_COLOR, 'empty scale = no data');
+    assert.equal(areaFillStyle(5, buildScale([null], { palette: 'rotterdam' })).fillColor, PALETTES.rotterdam.noData, 'per palette');
   });
 
   it('areas with a value use the scale colour', () => {
@@ -19,8 +21,11 @@ describe('Rotterdam styling', () => {
   });
 
   it('outliers get a red border, others none', () => {
-    const scale = buildScale([30, 40, 45, 50, 55, 60, 65, 70, 75, 80, 500]);
+    const scale = buildScale([30, 40, 45, 50, 55, 60, 65, 70, 75, 80, 500], { palette: 'klassiek' });
     assert.deepEqual(outlierStroke(500, scale), { color: OUTLIER_COLOR, weight: 2.5, opacity: 1 });
+    const rtm = buildScale([30, 40, 45, 50, 55, 60, 65, 70, 75, 80, 500], { palette: 'rotterdam', kind: 'down' });
+    assert.equal(outlierStroke(500, rtm).color, PALETTES.rotterdam.outlier, 'Rotterdam: magenta, apart from red = bad');
+    assert.equal(outlierStroke(500, buildScale([30, 40, 45, 50, 55, 60, 65, 70, 75, 80, 500], { kind: 'origin' })), null, 'herkomst: never an outlier');
     assert.equal(outlierStroke(60, scale), null);
     assert.equal(outlierStroke(null, scale), null);
     assert.equal(outlierStroke(500, null), null);

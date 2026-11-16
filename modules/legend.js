@@ -31,7 +31,7 @@ export function legendScaleHtml(scale, key, mode = 'rate') {
   let body;
   if (scale.method === 'linear') {
     const pos = scale.max === scale.min ? 50 : Math.round((scale.median - scale.min) / (scale.max - scale.min) * 1000) / 10;
-    body = `<div class="legend-strip"><span class="legend-median-tick" style="left:${pos}%" title="mediaan"></span></div>
+    body = `<div class="legend-strip" style="background:linear-gradient(to right, ${(scale.ramp ?? []).join(', ')})"><span class="legend-median-tick" style="left:${pos}%" title="mediaan"></span></div>
       <div class="legend-labels"><span>${t(scale.min)}</span><span>${t(scale.max)}</span></div>`;
   } else {
     body = `<ul class="legend-classes">${scale.classes.map((c, i) => `
@@ -44,6 +44,11 @@ export function legendScaleHtml(scale, key, mode = 'rate') {
   if (low)  parts.push(`${low} ${low === 1 ? 'uitschieter' : 'uitschieters'} &lt; ${t(scale.lo)}`);
   const outliers = parts.length
     ? `<div class="legend-outlier"><span class="legend-chip is-outlier" aria-hidden="true"></span>${parts.join(', ')}</div>` : '';
+  if (scale.kind === 'origin') {
+    // Herkomst (§5): how many, never good/bad; no outliers, the average instead of a direction.
+    const avg = scale.mean != null ? ` · gemiddelde ${esc(formatValue(scale.mean, key, mode))}` : '';
+    return `<div class="legend-amount">Gemeenschap: weinig → veel <span class="legend-amount-range">(${t(scale.min)}–${t(scale.max)})</span></div>${body}<div class="legend-meta">mediaan ${esc(formatValue(scale.median, key, mode))}${avg}</div>`;
+  }
   return `${body}<div class="legend-meta">mediaan ${esc(formatValue(scale.median, key, mode))}</div>${outliers}`;
 }
 

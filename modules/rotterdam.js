@@ -5,7 +5,8 @@ import { getMap } from './map.js';
 import { addKeyboardNav } from './overlays.js';
 import { loadRotterdamAreas, toNumber } from './areas.js';
 import { routeToCompare } from './compare.js';
-import { buildScale, getScaleMethod, outlierLabel, NO_DATA_COLOR, OUTLIER_COLOR } from './scale.js';
+import { buildScale, getScaleMethod, outlierLabel, scaleAverageText, NO_DATA_COLOR, OUTLIER_COLOR } from './scale.js';
+import { activePalette, metricKind } from './palette.js';
 import { datasetValue, DATASETS } from './datasets.js';
 import { createScoreLabels } from './score-labels.js';
 import { formatValue } from './dashboard-data.js';
@@ -30,13 +31,13 @@ export function resolveRotterdamLevel(zoom, opts) {
 /** Fill style for one area; null/undefined values (or an empty scale) get the neutral colour. */
 export function areaFillStyle(value, scale, fillOpacity = 0.6) {
   const v = toNumber(value);
-  if (v == null || !scale?.count) return { fillColor: NO_DATA_COLOR, fillOpacity: Math.min(fillOpacity, 0.45) };
+  if (v == null || !scale?.count) return { fillColor: scale?.noDataColor ?? activePalette().noData, fillOpacity: Math.min(fillOpacity, 0.45) };
   return { fillColor: scale.colorFor(v), fillOpacity };
 }
 
-/** Red border on top of the class fill for an outlier; null otherwise. */
+/** Border in the palette's outlier colour on top of the class fill for an outlier; null otherwise. */
 export function outlierStroke(value, scale) {
-  return scale?.isOutlier(toNumber(value)) ? { color: OUTLIER_COLOR, weight: 2.5, opacity: 1 } : null;
+  return scale?.isOutlier(toNumber(value)) ? { color: scale.outlierColor ?? OUTLIER_COLOR, weight: 2.5, opacity: 1 } : null;
 }
 
 /**
@@ -59,12 +60,13 @@ export function buildMaskRings(geojson) {
 }
 
 /** Tooltip HTML: name plus the formatted value or "geen data", and the outlier note for `side` ('high'|'low'). */
-export function tooltipHtml(name, value, format = v => v.toLocaleString('nl-NL'), side = null, note = null) {
+export function tooltipHtml(name, value, format = v => v.toLocaleString('nl-NL'), side = null, note = null, compare = '') {
   const v = toNumber(value);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const mark = v != null && side ? `<br><span class="tt-outlier">${outlierLabel(side)}</span>` : '';
   const extra = note ? `<br><span class="tt-note">${esc(note)}</span>` : '';
-  return `<strong>${esc(name)}</strong><br><span class="tt-value">${v == null ? 'geen data' : esc(format(v))}</span>${mark}${extra}`;
+  const cmp = v != null && compare ? ` · <span class="tt-compare">${esc(compare)}</span>` : '';
+  return `<strong>${esc(name)}</strong><br><span class="tt-value">${v == null ? 'geen data' : esc(format(v))}</span>${cmp}${mark}${extra}`;
 }
 
 // ── Leaflet layers ────────────────────────────────────────────────────────────
@@ -92,7 +94,7 @@ function makeAreaLayer(geojson, list, kind, onSelect) {
     style: () => ({ color: kind === 'wijk' ? ACCENT : '#ea580c', weight: kind === 'wijk' ? 1.2 : 0.6, opacity: 0.7, fillColor: NO_DATA_COLOR, fillOpacity: 0.45 }),
     onEachFeature(feature, fl) {
       const area = lookup.get(feature.properties.statcode);
-      fl.bindTooltip(() => tooltipHtml(area.name, valueOf(area), v => formatValue(v, dataset, crimeMode), scales[kind].outlierSide(valueOf(area)), areaNote(area, dataset)), { sticky: true, direction: 'top', className: 'area-tooltip' });
+      fl.bindTooltip(() => tooltipHtml(area.name, valueOf(area), v => formatValue(v, dataset, crimeMode), scales[kind].outlierSide(valueOf(area)), areaNote(area, dataset), scaleAverageText(valueOf(area), scales[kind], v => formatValue(v, dataset, crimeMode))), { sticky: true, direction: 'top', className: 'area-tooltip' });
       fl.on({
         mouseover(e) { e.target.setStyle({ weight: 2.5, color: '#ea580c', opacity: 1 }); e.target.bringToFront(); },
         mouseout(e)  { e.target.setStyle(strokeFor(kind, area)); },
@@ -172,7 +174,8 @@ function recolor() {
   if (!layers.wijk) return;
   const method = getScaleMethod();
   const values = list => list.map(valueOf);   // the very values the fills and tooltips show
-  scales = { wijk: buildScale(values(areas.wijken), { method }), buurt: buildScale(values(areas.buurten), { method }) };
+  const opts = { method, kind: metricKind(DATASETS[dataset]), scope: 'rotterdam' };
+  scales = { wijk: buildScale(values(areas.wijken), opts), buurt: buildScale(values(areas.buurten), opts) };
   const wijkLookup = new Map(areas.wijken.map(a => [a.code, a]));
   const buurtLookup = new Map(areas.buurten.map(a => [a.code, a]));
   const outliers = [];

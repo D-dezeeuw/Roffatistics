@@ -8,6 +8,7 @@ import {
   schoolsFromFile, schoolGrade, schoolPopupHtml, escapeHtml, addSchoolPinsLayer,
 } from '../modules/school-pins.js';
 import { CLASS_COLORS } from '../modules/scale.js';
+import { PALETTES, activePalette } from '../modules/palette.js';
 import { APP_STORAGE_PREFIX } from '../modules/legal.js';
 import { _setEduData, loadEduSchools, getEduSchools } from '../modules/onderwijs.js';
 
@@ -41,8 +42,11 @@ describe('school pins: colour', () => {
     assert.equal(schoolScoreClass(77), 3);
     assert.equal(schoolScoreClass(90), 6);
     assert.equal(schoolScoreClass(100), 6);
-    assert.equal(schoolColor(95), CLASS_COLORS[6]);
-    assert.equal(schoolColor(50), CLASS_COLORS[0]);
+    assert.equal(schoolColor(95, PALETTES.klassiek), CLASS_COLORS[6]);
+    assert.equal(schoolColor(50, PALETTES.klassiek), CLASS_COLORS[0]);
+    assert.equal(schoolColor(95, PALETTES.rotterdam), PALETTES.rotterdam.directional[6], 'Rotterdam: best schools green');
+    assert.equal(schoolColor(50, PALETTES.rotterdam), PALETTES.rotterdam.directional[0], 'Rotterdam: weakest red');
+    assert.equal(schoolColor(95), activePalette().directional[6], 'default: the live palette');
     for (let s = 50; s < 100; s += 5) assert.ok(schoolScoreClass(s + 5) >= schoolScoreClass(s), 'monotone');
   });
   it('grey without a score', () => {

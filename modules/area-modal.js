@@ -212,7 +212,7 @@ export function areaModalHtml(d, { dataYears = '', personal = false, peers = 'ro
       <td>${esc(formatValue(e.value, e.key, d.mode))}</td>
       <td title="${esc(e.text)}">#${e.rank} <small>/ ${e.of}</small></td>
       <td class="area-pbar-cell"><span class="area-pbar" title="${e.higherIsBetter == null ? 'percentiel (hoog = hoge waarde)' : 'percentielscore (hoog = beter)'}: ${Math.round(e.bar)}"><i style="width:${Math.max(3, Math.round(e.bar))}%"></i></span></td>
-      <td>${e.diff ? esc(e.diff.text) : '—'}</td>
+      <td>${e.average ? esc(e.average) : e.diff ? esc(e.diff.text) : '—'}</td>
     </tr>`).join('');
   const table = d.entries.length ? `<section class="area-sec">
       <div class="area-sec-head"><h3>Alle cijfers</h3>${hasCrime ? crimeToggleHtml(d.mode) : ''}</div>

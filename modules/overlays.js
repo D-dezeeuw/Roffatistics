@@ -2,6 +2,7 @@ import { getMap } from './map.js';
 import { DATASETS } from './datasets.js';
 import { createScoreLabels } from './score-labels.js';
 import { buildScale, getScaleMethod, outlierLabel, OUTLIER_COLOR } from './scale.js';
+import { metricKind } from './palette.js';
 import { pointInRings, labelPoint } from './score-labels.js';
 import { showDrill, hideDrill, getDrillStatus, focusDrillArea } from './nl-drill.js';
 import { gemeenteOf } from './nl-areas.js';
@@ -87,7 +88,7 @@ function choroplethOpacity(code) {
 
 export function applyDataset(data, valueKey, method = getScaleMethod()) {
   const lookup = Object.fromEntries(data.map(d => [d.regionCode, d[valueKey]]));
-  const scale  = buildScale(data.map(d => d[valueKey]), { method });   // empty for a Rotterdam-only dataset
+  const scale  = buildScale(data.map(d => d[valueKey]), { method, kind: metricKind(DATASETS[valueKey]), scope: 'nederland' });   // empty for a Rotterdam-only dataset
   activeColorState = { lookup, scale };
 
   // Color the municipality layer — it is visible at the municipality, wijk and buurt tiers.
@@ -135,7 +136,7 @@ function restoreStyle(code) {
   const value = activeColorState.lookup[code];
   if (value == null) return base;
   const { scale } = activeColorState;
-  return { ...base, fillColor: scale.colorFor(value), fillOpacity: choroplethOpacity(code), ...(!drilled && scale.isOutlier(value) ? STYLE_OUTLIER : {}) };
+  return { ...base, fillColor: scale.colorFor(value), fillOpacity: choroplethOpacity(code), ...(!drilled && scale.isOutlier(value) ? { ...STYLE_OUTLIER, color: scale.outlierColor ?? OUTLIER_COLOR } : {}) };
 }
 
 /** Popup HTML: the name, plus the outlier note when the value is one. */

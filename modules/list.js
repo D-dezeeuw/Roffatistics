@@ -18,7 +18,8 @@ function withScorePreset(ds) {
   const score = getState().score;
   return ds?.unit === 'score' && scoreKind(score) !== 'standaard' ? { ...ds, title: scoreTitle(score, ds.title), personal: scoreKind(score) } : ds;
 }
-import { buildScale, getScaleMethod, outlierLabel, SCALE_EVENT } from './scale.js';
+import { buildScale, getScaleMethod, outlierLabel, scaleAverageText, SCALE_EVENT } from './scale.js';
+import { metricKind } from './palette.js';
 import { scoreAreas, rankRows, sortRows, defaultSortDir, formatValue, formatScore, scoreHeader, applyRankMode, sortDrivesRank, RANK_MODES, rankKeyAfterDatasetChange } from './ranking.js';
 
 const LEVELS = {
@@ -455,8 +456,9 @@ function tableHtml(rows, datasets, level, rankKey, sortDs = null, all = datasets
   // Same colour scale as the map (scale.js), built per column from the listed rows:
   // bar width = score/percentile, bar colour = the value's map class, red mark = outlier.
   const method = getScaleMethod();
-  const scales = Object.fromEntries(datasets.map(d => [d.key, buildScale(rows.map(r => r.values[d.key]), { method })]));
-  const scoreScale = buildScale(rows.map(r => r.score), { method });
+  const scope = getState().scope === 'nederland' ? 'nederland' : 'rotterdam';
+  const scales = Object.fromEntries(datasets.map(d => [d.key, buildScale(rows.map(r => r.values[d.key]), { method, kind: metricKind(d), scope })]));
+  const scoreScale = buildScale(rows.map(r => r.score), { method, kind: 'up', scope });
   const body = rows.map(r => {
     const scoreColor = r.score != null ? scoreScale.colorFor(r.score) : null;
     const cells = datasets.map(d => {
@@ -466,7 +468,8 @@ function tableHtml(rows, datasets, level, rankKey, sortDs = null, all = datasets
         ? `<span class="list-bar" style="width:${Math.max(4, Math.round(s))}%;background:${scales[d.key].colorFor(v)}"></span>` : '';
       const side = scales[d.key].outlierSide(v);
       const mark = side ? `<span class="list-outlier" title="${outlierLabel(side)}" aria-label="${outlierLabel(side)}"></span>` : '';
-      const tip = s != null && d.higherIsBetter != null ? ` title="Score ${formatScore(s)}${side ? ` · ${outlierLabel(side)}` : ''}"` : side ? ` title="${outlierLabel(side)}"` : '';
+      const cmp = scaleAverageText(v, scales[d.key], x => formatValue(x, d.unit));   // herkomst: against the scope average
+      const tip = cmp ? ` title="${esc(`${formatValue(v, d.unit)} · ${cmp}`)}"` : s != null && d.higherIsBetter != null ? ` title="Score ${formatScore(s)}${side ? ` · ${outlierLabel(side)}` : ''}"` : side ? ` title="${outlierLabel(side)}"` : '';
       return `<td class="col-data${v == null ? ' is-missing' : ''}${side ? ' is-outlier' : ''}${rankKey === d.key ? ' is-rank-key' : ''}"${tip}><span class="list-val">${formatValue(v, d.unit)}${mark}</span>${bar}</td>`;
     }).join('');
     const status = rowStatus(r);

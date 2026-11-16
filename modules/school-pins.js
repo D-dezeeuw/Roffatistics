@@ -9,7 +9,8 @@
 // addSchoolPinsLayer draws the Leaflet layer.
 // Data: DUO open onderwijsdata (referentieniveaus 2022-2024).
 
-import { CLASS_COLORS, CLASS_COUNT } from './scale.js';
+import { CLASS_COUNT, SCALE_EVENT } from './scale.js';
+import { activePalette, rampFor } from './palette.js';
 import { EDU_SCHOOLS_URL, decodeSchools, formatGrade, loadEduSchools } from './onderwijs.js';
 
 export const SCHOOLS_URL = EDU_SCHOOLS_URL;
@@ -50,10 +51,10 @@ export function schoolScoreClass(score, [lo, hi] = SCHOOL_SCORE_RANGE) {
   return Math.max(0, Math.min(CLASS_COUNT - 1, Math.floor(t * CLASS_COUNT)));
 }
 
-/** Pin fill: the app's 7-class purple→orange ramp (high = orange), grey without a score. */
-export function schoolColor(score) {
+/** Pin fill: the good/bad ramp of the map palette (high = good, e.g. green under Rotterdam), grey without a score. */
+export function schoolColor(score, palette = activePalette()) {
   const c = schoolScoreClass(score);
-  return c == null ? SCHOOL_NO_SCORE_COLOR : CLASS_COLORS[c];
+  return c == null ? SCHOOL_NO_SCORE_COLOR : rampFor(palette, 'up')[c];
 }
 
 /** Pin radius (px) for a zoom level. */
@@ -126,10 +127,16 @@ export function addSchoolPinsLayer(L, map, { storage = null } = {}) {
     if (!schools) { loading = null; return null; }
     group ??= L.layerGroup(pinnableSchools(schools).map(s => L.circleMarker([s.lat, s.lon], {
       renderer, pane: SCHOOL_PINS_PANE, radius, bubblingMouseEvents: false,
-      color: '#ffffff', weight: 0.8, opacity: 0.9, fillColor: schoolColor(s.score), fillOpacity: 0.95,
+      color: '#ffffff', weight: 0.8, opacity: 0.9, fillColor: schoolColor(s.score), fillOpacity: 0.95, schoolScore: s.score,
     }).bindPopup(() => schoolPopupHtml(s), { className: 'school-popup-wrap', maxWidth: 300 })));
     return group;
   }
+  // Kaartkleuren changed (scale.js setMapPalette / theme under "Volgt thema"): recolour the pins in place.
+  globalThis.document?.addEventListener?.(SCALE_EVENT, () => {
+    if (!group) return;
+    const pal = activePalette();
+    group.eachLayer(l => l.setStyle?.({ fillColor: schoolColor(l.options?.schoolScore, pal) }));
+  });
   async function refresh() {
     if (!on) {
       if (group && map.hasLayer(group)) { group.remove(); map.attributionControl?.removeAttribution(DUO_ATTRIBUTION); }

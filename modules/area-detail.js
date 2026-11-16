@@ -6,6 +6,8 @@
 import { DATASETS, DATASET_KEYS, datasetFor, datasetValue, crimeAreas, isCrimeDataset } from './datasets.js';
 import { scoreAreas, rankRows } from './ranking.js';
 import { buildScale } from './scale.js';
+import { metricKind, averageComparison, mean } from './palette.js';
+import { formatValue } from './dashboard-data.js';
 import { originSplit } from './herkomst.js';
 import { explain, scoreRank } from './score.js';
 import { themeBreakdown } from './presets.js';
@@ -188,7 +190,10 @@ export function buildAreaDetail(area, areas, { mode = 'rate' } = {}) {
       bar: ds.higherIsBetter == null ? r.pct : r.score,
       extreme: isExtreme(ph.sideRank, r.of),
       median: med, diff: formatDiff(value, med, ds.unit),
-      outlier: buildScale(peerValues).outlierSide(value),
+      outlier: buildScale(peerValues, { kind: metricKind(DATASETS[key]) }).outlierSide(value),   // none for herkomst
+      // Herkomst (§5): no good/bad, but the value against the Rotterdam average of the peers.
+      average: metricKind(DATASETS[key]) === 'origin'
+        ? averageComparison(value, mean(peerValues), { scope: 'rotterdam', format: v => formatValue(v, key, mode) }) : '',
     });
   }
   const notable = !woongebied.residential ? [] : entries.filter(e => e.extreme)

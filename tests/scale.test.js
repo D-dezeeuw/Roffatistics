@@ -1,9 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildScale, quantile, fences, classColor, interpolateColor, outlierLabel, getScaleMethod, setScaleMethod,
+  buildScale as buildScaleLive, quantile, fences, classColor, interpolateColor, outlierLabel, getScaleMethod, setScaleMethod,
   CLASS_COLORS, CLASS_COUNT, NO_DATA_COLOR, SCALE_STORAGE_KEY,
 } from '../modules/scale.js';
+// The original assertions are about the Paars-oranje ramp (klassiek); the live palette has its own tests.
+const buildScale = (v, o = {}) => buildScaleLive(v, { palette: 'klassiek', ...o });
 
 // Crime-like: most buurten 10–90 per 1.000, a few public spaces 300–550 (Centrum, station, Zuidplein).
 const CRIME = [
