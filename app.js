@@ -38,6 +38,7 @@ import { showLoader, hideLoader, setLoaderProgress, withLoader } from './modules
 import { isEduKey, isEduLoaded, loadEduAreas, onEduLoaded, addEduValues, withEduRows, presetUsesEdu, eduAreasWanted } from './modules/onderwijs.js';
 import { isP2000Key, isP2000Loaded, loadP2000, setP2000Window, getP2000Window, activeP2000, addP2000Values, withP2000Rows, p2000LegendHtml, P2000_ERROR_TEXT, P2000_LOADING_TEXT } from './modules/p2000.js';
 import { CITY, applyCityToDocument } from './modules/city.js';
+import { STACK_KEY, setActiveStack, getActiveStack, assignStack, assignStackRows, stackUsesCrime } from './modules/stapel.js';
 
 // ── Legend ────────────────────────────────────────────────────────────────────
 setValue('legend.title',           '');
@@ -81,6 +82,7 @@ applyCityToDocument();   // title, meta and scope label from config/cities.json 
 const initialState = initState();
 showLoader('Kaart laden…');   // until the first map data is drawn (end of this file)
 setPersonalPreset(presetFromScore(initialState.score));   // before any area is scored (the Woonscore's active preset)
+setActiveStack(initialState.stack, initialState.crime);    // Mijn stapel: assigned with the Woonscore (presets.js)
 initMap();
 applyTheme(pickInitialTheme(shareStorage), document);   // theme-color meta (data-theme is set before first paint)
 refreshMapPalette({ notify: false });   // Kaartkleuren CSS variables (outlier marks, chips, school swatch)
@@ -459,12 +461,44 @@ function applyPersonalScore(score) {
   rescoreNlAreas();   // NL wijken/buurten of the drill-down, when loaded
 }
 
+// Mijn stapel (docs/plan-laagstapel.md): a new stack or crime mode recomputes
+// values.stapel / row.stapel on every loaded area set in place (each list on
+// its own: city wijken, city buurten, NL wijken, NL buurten, provincies,
+// gemeenten). Loading the Woonscore anywhere assigns it too (presets.js).
+function applyStack({ redraw = true } = {}) {
+  const { stack, crime } = getState();
+  setActiveStack(stack, crime);
+  ensureStackData(getActiveStack());
+  const rd = peekCityAreas();
+  if (rd) { assignStack(rd.wijken); assignStack(rd.buurten); }
+  const nl = peekNlAreas();
+  assignStack(nl.wijken); assignStack(nl.buurten);
+  if (provinceRows.length) { assignStackRows(provinceRows); setProvinceData(provinceRows); setNationalRows('provincie', provinceRows); setNationalAreas('provincie', provinceRows); }
+  if (gemeenteRows.length) { assignStackRows(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
+  if (redraw && getState().dataset === STACK_KEY) activateDataset(STACK_KEY);
+}
+// Stacked layers whose data loads on first use: fetched here; their onLoaded handlers recompute the stack.
+function ensureStackData(items) {
+  if (!items) return;
+  const keys = items.map(i => i.key);
+  if (keys.some(isPc4Key) && !isPc4Loaded()) loadPc4Herkomst().catch(() => { /* file missing: the layer has no value there */ });
+  if (keys.some(isBouwKey) && !isBouwLoaded()) loadBouwjaar().catch(() => { /* idem */ });
+  if (keys.some(isEduKey)) ensureEduAreas({ dataset: keys.find(isEduKey) });
+  if (keys.some(isRegionMetric) && !isRegioLoaded()) {
+    loadGemeenteRegio().then(() => {
+      if (gemeenteRows.length) { gemeenteRows = withRegionShares(gemeenteRows); setMunicipalityData(gemeenteRows); setNationalRows('gemeente', gemeenteRows); setNationalAreas('gemeente', gemeenteRows); }
+      applyStack();
+    }).catch(() => { /* idem */ });
+  }
+}
+
 // Bouwstijl landed: add the shares to every loaded wijk/buurt, then rescore if the personal preset uses them.
 onBouwLoaded(() => {
   const rd = peekCityAreas();
   if (rd) { addBouwShares(rd.wijken); addBouwShares(rd.buurten); }
   const nl = peekNlAreas();
   addBouwShares(nl.wijken); addBouwShares(nl.buurten);
+  if (getActiveStack()) applyStack();
   if (presetUsesBouw(presetFromScore(getState().score))) {
     applyPersonalScore(getState().score);
     if (DATASETS[getState().dataset]?.unit === 'score') activateDataset(getState().dataset);
@@ -477,6 +511,7 @@ onPc4Loaded(() => {
   if (rd) { addPc4Shares(rd.wijken); addPc4Shares(rd.buurten); }
   const nl = peekNlAreas();
   addPc4Shares(nl.wijken); addPc4Shares(nl.buurten);
+  if (getActiveStack()) applyStack();
   if (presetUsesPc4(presetFromScore(getState().score))) {
     applyPersonalScore(getState().score);
     if (DATASETS[getState().dataset]?.unit === 'score') activateDataset(getState().dataset);
@@ -496,6 +531,7 @@ onEduLoaded(() => {
     applyPersonalScore(getState().score);
     if (DATASETS[getState().dataset]?.unit === 'score') activateDataset(getState().dataset);
   }
+  if (getActiveStack()) applyStack();
   refreshList();        // Rotterdam scope: the list reads the areas changed in place
   refreshDashboard();
 });
@@ -504,6 +540,14 @@ onStateChange(({ state, changed, source }) => {
   if (changed.includes('score')) {
     applyPersonalScore(state.score);
     if (DATASETS[state.dataset]?.unit === 'score' && !changed.includes('dataset') && !changed.includes('scope')) activateDataset(state.dataset);
+  }
+  // Mijn stapel: recomputed on a new stack, and on a crime switch when it holds a crime layer.
+  if (changed.includes('stack') || (changed.includes('crime') && stackUsesCrime(getActiveStack()))) {
+    applyStack({ redraw: !changed.includes('dataset') && !changed.includes('scope') });
+  } else if (changed.includes('crime')) {
+    setActiveStack(state.stack, state.crime);   // later loads use the new mode; no crime layer, so no values change
+  } else if (changed.includes('score') && state.dataset === STACK_KEY && !changed.includes('dataset') && !changed.includes('scope') && getActiveStack()?.some(i => i.key === 'woonscore')) {
+    activateDataset(STACK_KEY);   // the Woonscore in the stack was rescored with it (presets.js)
   }
   if (changed.includes('view')) { showView(state.view); if (state.view === 'list') ensureEduAreas(); }
   if (changed.includes('scope')) {

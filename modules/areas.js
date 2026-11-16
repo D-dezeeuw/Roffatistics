@@ -480,7 +480,7 @@ export function joinAreas(features, rows, fallbackRows = [], nabij = {}) {
 
 // Keys the NL-wide fallback never fills: crime comes from the police table
 // (mergeCrime, after this step) and the rest is derived later in the load.
-const NL_FALLBACK_SKIP = new Set(['crimeRate', 'totalCrimes', 'crimeTrend', 'crimeDensity', 'crimeNearby', 'woonscore', 'distCentrum']);
+const NL_FALLBACK_SKIP = new Set(['crimeRate', 'totalCrimes', 'crimeTrend', 'crimeDensity', 'crimeNearby', 'woonscore', 'stapel', 'distCentrum']);
 const nlFallbackKey = k => !NL_FALLBACK_SKIP.has(k) && !k.startsWith('crime');
 
 /**

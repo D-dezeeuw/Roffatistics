@@ -34,7 +34,7 @@ const CRIME_KEYS = Object.keys(CRIME_CATEGORIES);
 /** Value keys derived in the browser (never stored): the crime rates. */
 export const DERIVED_KEYS = Object.freeze(['crimeRate', ...CRIME_KEYS]);
 /** Keys never stored: derived, scored, or Rotterdam-only. */
-const SKIP_KEYS = new Set([...DERIVED_KEYS, 'woonscore', 'distCentrum', 'crimeDensity', 'crimeNearby', 'distOvHalte', 'distOv']);
+const SKIP_KEYS = new Set([...DERIVED_KEYS, 'woonscore', 'stapel', 'distCentrum', 'crimeDensity', 'crimeNearby', 'distOvHalte', 'distOv']);
 
 export const minPopulationFor = level => (level === 'buurt' ? CRIME_MIN_POPULATION_BUURT : CRIME_MIN_POPULATION);
 

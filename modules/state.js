@@ -6,6 +6,7 @@ import { DATASET_KEYS, CRIME_MODES, resolveLayerKey } from './datasets.js';
 import { shareableScore, restoreLocalScore, isShareOf, SHARE_NONE } from './wizard-model.js';
 import { sanitizeCmp } from './compare.js';
 import { CITY, CITY_SLUGS } from './city.js';
+import { normalizeStack } from './stapel.js';
 
 export const SCOPES = Object.freeze(['rotterdam', 'nederland']);
 export const VIEWS  = Object.freeze(['map', 'dashboard', 'list']);
@@ -19,10 +20,12 @@ export const LIST_VIEW_STORAGE_KEY = 'roffatistics.listView';
 /** Active Woonscore preset (#score=…, see wizard-model.js); restored when the hash has none. */
 export const SCORE_STORAGE_KEY = 'roffatistics.score';
 const SCORE_RE = /^[a-z0-9.]{1,120}$/;
+/** Mijn stapel (docs/plan-laagstapel.md, #stack=wozValue.l,crimeRate.l2): canonical spec or null; restored when the hash has none. */
+export const STACK_STORAGE_KEY = 'roffatistics.stack';
 /** Retired layer keys still accepted in links: `jouwscore` is now the Woonscore with the `score` preset (v0.22.0). */
 export const LEGACY_DATASETS = Object.freeze({ jouwscore: 'woonscore' });
 // crime: 'rate' (per 1.000 inwoners) | 'abs' (registered offences); see datasets.js datasetFor().
-export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate', score: null, dtab: 'algemeen', listView: 'simple' });
+export const DEFAULT_STATE = Object.freeze({ scope: 'rotterdam', view: 'map', dataset: 'woonscore', area: null, crime: 'rate', score: null, dtab: 'algemeen', listView: 'simple', stack: null });
 
 const AREA_RE = /^(PV\d{2}|GM\d{4}|WK\d{4}[0-9A-Z]{2}|BU\d{4}[0-9A-Z]{4})$/;   // Amsterdam: WK0363AA, BU0363AA01
 
@@ -42,6 +45,7 @@ export function sanitizePatch(patch = {}) {
     if (sc === '') out.score = null;
     else if (SCORE_RE.test(sc)) out.score = sc;
   }
+  if ('stack' in patch) out.stack = patch.stack == null || patch.stack === '' ? null : normalizeStack(patch.stack);   // invalid or < 2 layers → no stack
   if ('cmp' in patch) out.cmp = sanitizeCmp(patch.cmp);   // Vergelijken columns (compare.js); not in DEFAULT_STATE
   if ('area' in patch) {
     const a = patch.area == null ? '' : String(patch.area).trim().toUpperCase();
@@ -55,7 +59,7 @@ export function sanitizePatch(patch = {}) {
 export function parseHash(hash) {
   const params = new URLSearchParams(String(hash ?? '').replace(/^#/, ''));
   const raw = {};
-  for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score', 'dtab', 'cmp']) if (params.has(key)) raw[key] = params.get(key);
+  for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score', 'dtab', 'cmp', 'stack']) if (params.has(key)) raw[key] = params.get(key);
   for (const key of ['scope', 'view', 'dataset', 'area', 'crime', 'score']) if (params.has(key)) raw[key] = params.get(key);
   if (params.get('lv') === 'adv') raw.listView = 'adv';   // no lv (every old link) = Eenvoudig default
   if (CITY_SLUGS.includes(raw.scope)) raw.scope = 'rotterdam';   // the URL names the city; internally the city scope id is 'rotterdam'
@@ -80,14 +84,17 @@ export function serializeHash(state, shareOpts = shareChoice, citySlug = CITY.sl
   if (shared) params.set('score', shared);
   if (state.dtab === 'jouw') params.set('dtab', 'jouw');
   if (state.cmp) params.set('cmp', state.cmp);
-  return `#${params}`;
+  // The stack spec is [A-Za-z0-9_.,] only: appended as is, so its commas stay readable (&stack=wozValue.l,crimeRate.l2).
+  const stack = state.stack ? normalizeStack(state.stack) : null;
+  return `#${params}${stack ? `&stack=${stack}` : ''}`;
 }
 
 /** Initial state: defaults < stored scope and crime mode < URL hash. */
 export function resolveInitialState({ hash = '', storage = null } = {}) {
   let stored = {};
-  try { stored = sanitizePatch({ scope: storage?.getItem(SCOPE_STORAGE_KEY), crime: storage?.getItem(CRIME_STORAGE_KEY), listView: storage?.getItem(LIST_VIEW_STORAGE_KEY), score: storage?.getItem(SCORE_STORAGE_KEY) });
-    if (stored.score === null) delete stored.score; } catch { /* storage blocked */ }
+  try { stored = sanitizePatch({ scope: storage?.getItem(SCOPE_STORAGE_KEY), crime: storage?.getItem(CRIME_STORAGE_KEY), listView: storage?.getItem(LIST_VIEW_STORAGE_KEY), score: storage?.getItem(SCORE_STORAGE_KEY), stack: storage?.getItem(STACK_STORAGE_KEY) });
+    if (stored.score === null) delete stored.score;
+    if (stored.stack === null) delete stored.stack; } catch { /* storage blocked */ }
   const fromHash = parseHash(hash);
   const out = { ...DEFAULT_STATE, ...stored, ...fromHash };
   if ('score' in stored) out.score = restoreLocalScore(fromHash.score ?? null, stored.score) ?? out.score;
@@ -122,6 +129,9 @@ export function setState(patch, { source = 'app' } = {}) {
   }
   if (changed.includes('score')) {
     try { if (state.score) storageRef?.setItem(SCORE_STORAGE_KEY, state.score); else storageRef?.removeItem(SCORE_STORAGE_KEY); } catch { /* ignore */ }
+  }
+  if (changed.includes('stack')) {
+    try { if (state.stack) storageRef?.setItem(STACK_STORAGE_KEY, state.stack); else storageRef?.removeItem(STACK_STORAGE_KEY); } catch { /* ignore */ }
   }
   writeHash();
   bus.dispatchEvent(new CustomEvent('state-change', { detail: { state: getState(), prev: { ...prev }, changed, source } }));

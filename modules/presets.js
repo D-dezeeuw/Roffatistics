@@ -5,6 +5,7 @@ import { DATASETS, DATASET_KEYS } from './datasets.js';
 import { scoreAreas, MIN_COVERAGE } from './score.js';
 import { ALL_DETAIL_KEYS, withDetailShares } from './herkomst-gemeente.js';
 import { classifyWoongebied } from './woongebied.js';
+import { assignStack, assignStackRows } from './stapel.js';
 
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 
@@ -337,6 +338,7 @@ export function assignScore(list, key, { parents = null, preset = presetFor(key)
     if (r) SCORE_RESULTS[key]?.set(a.code, r);
   }
   if (key === 'woonscore' && list?.length) recordStandaard(list, results, preset, parentMap);
+  if (key === 'woonscore') assignStack(list);   // Mijn stapel may hold the Woonscore: computed after it, on the same list
   return results;
 }
 
@@ -368,6 +370,7 @@ export function rowsWithWoonscore(rows) {
     }
     if (areas.length) recordStandaard(areas, results, preset, null);
   }
+  assignStackRows(out);   // Mijn stapel (row.stapel), after the Woonscore it may hold
   return out;
 }
 

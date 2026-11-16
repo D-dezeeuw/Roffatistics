@@ -582,6 +582,19 @@ const INFO = {
       'Je antwoorden blijven in je browser (localStorage) en in de link; er wordt niets verstuurd.',
     ],
   },
+  stapel: {
+    description: 'Je eigen kaart: kies 2 tot 6 lagen (bijvoorbeeld WOZ waarde en criminaliteit), per laag of hoger of lager beter is en hoe zwaar hij telt (1, 2 of 3). Mijn stapel is het gewogen gemiddelde van die lagen als score van 0 tot 100: 100 = het best op jouw lagen, 0 = het slechtst. Geen profiel, geen correcties: alleen de lagen die je kiest. Hij staat los van de Woonscore en verandert die niet.',
+    formula: 'per gekozen laag de percentielscore 0–100 binnen de getoonde gebieden (omgedraaid bij "lager is beter"); Mijn stapel = Σ gewicht × score / Σ gewicht over de lagen met een waarde. Minder dan de helft van het gewicht (naar boven afgerond) met een waarde = geen data.',
+    source: [SRC.kwb2025, SRC.crime],
+    year: 'zie de gekozen lagen',
+    caveats: [
+      'Relatief: de score vergelijkt binnen wat de kaart toont: in de stadsweergave wijken met wijken en buurten met buurten, in de Nederland-weergave provincies, gemeenten, wijken en buurten elk apart. Een 80 zegt niet hoe groot het verschil in werkelijkheid is.',
+      'Lagen zonder vaste richting (zoals gemeenschappen of afstanden tot cafés) tellen pas mee als je zelf kiest of hoger of lager beter is; geen van beide is goed of slecht.',
+      'WOZ waarde staat in de stapel standaard op "lager is beter" (betaalbaarheid); je kunt hem omzetten.',
+      'Criminaliteitslagen volgen de keuze Per 1000 inwoners / Absoluut.',
+      'Je stapel blijft in je browser (localStorage) en staat in de link (&stack=…); er wordt niets verstuurd.',
+    ],
+  },
   distGP: {
     description: 'De gemiddelde afstand over de weg van de inwoners tot de dichtstbijzijnde huisartsenpraktijk. Lager telt als beter.',
     formula: 'gemiddelde wegafstand in km, gemiddeld over de inwoners (CBS nabijheidsstatistiek)',
@@ -776,6 +789,8 @@ const RTM = { scope: 'rotterdam' };
 
 export const DATASETS = Object.freeze({
   woonscore:        ds('woonscore',        'Woonscore',            'Woonscore (0–100, t.o.v. gelijke gebieden)', 'score', true, 'score', { inOverall: false }),
+  // Laagstapel (docs/plan-laagstapel.md): the user's own combination of layers, modules/stapel.js.
+  stapel:           ds('stapel',           'Mijn stapel',          'Mijn stapel (0–100, jouw gekozen lagen)', 'stapel', true, 'score', { inOverall: false }),
   population:       ds('population',       'Bevolking',            'Inwoners',                        'aantal',    null,  'bevolking'),
   density:          ds('density',          'Bevolkingsdichtheid',  'Inwoners per km²',                'per km²',   null,  'bevolking'),
   pop15to24:        ds('pop15to24',        '15–24 jaar (%)',       '15 tot 25 jaar (%)',              '%',         null,  'leeftijd', { ...RTM, inOverall: false }),
@@ -995,7 +1010,9 @@ export function crimeValues(values, mode = 'rate') {
   return out;
 }
 
-const absAreaCache = new WeakMap();
+let absAreaCache = new WeakMap();
+/** Forgets the cached Absoluut copies (after values were written in place, e.g. Mijn stapel). */
+export function resetCrimeAreas() { absAreaCache = new WeakMap(); }
 /**
  * Areas ({ values }) as seen in `mode`; 'rate' returns the same array. The
  * 'abs' copy is cached per input array, so repeated calls return the same objects.
