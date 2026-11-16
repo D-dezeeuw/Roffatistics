@@ -129,7 +129,6 @@ export function applyCityToDocument(doc = globalThis.document, city = CITY) {
   set('.nav-title', 'title', m.aboutTitle);
   set('.about-btn', 'aria-label', `Over ${city.appName}`);
   set('.about-btn', 'title', `Over ${city.appName}`);
-  all('.about-btn .nav-menu-label').forEach(el => { el.textContent = `Over ${city.appName}`; });
   all('.nav-title-text, #splash-title').forEach(el => { el.textContent = city.appName; });
   all('.city-disclaimer').forEach(el => { el.textContent = m.disclaimer; });
   if (sloganLines(city).length) all('#splash-tagline').forEach(el => { el.innerHTML = sloganHtml(city); });

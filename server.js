@@ -71,7 +71,6 @@ export function renderIndex(html, city) {
   text(/(<h1 id="splash-title" class="splash-title">)[^<]*(<\/h1>)/, city.appName);
   attr(/(<button class="about-btn[^"]*"[^>]*\baria-label=")[^"]*"/, `Over ${city.appName}`);
   attr(/(<button class="about-btn[^"]*"[^>]*\btitle=")[^"]*"/, `Over ${city.appName}`);
-  text(/(<span class="nav-menu-label">)Over [^<]*(<\/span>)/, `Over ${city.appName}`);
   text(/(<option value="rotterdam">)[^<]*(<\/option>)/, city.name);
   out = out.replace(/(class="[^"]*\bcity-disclaimer\b[^"]*">)[^<]*(<)/g, (_, pre, post) => `${pre}${escText(m.disclaimer)}${post}`);
   if (sloganLines(city).length) out = out.replace(/(<p id="splash-tagline" class="splash-tagline">)[\s\S]*?(<\/p>)/, (_, pre, post) => `${pre}${sloganHtml(city)}${post}`);

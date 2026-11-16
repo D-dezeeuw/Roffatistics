@@ -164,7 +164,7 @@ describe('nav menu (hamburger)', () => {
     const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
     const list = html.slice(html.indexOf('id="nav-menu-list"'), html.indexOf('</nav>'));
     const items = [...list.matchAll(/<button[^>]*class="[^"]*nav-menu-item[^"]*"[^>]*>/g)].map(m => m[0]);
-    assert.ok(items.length >= 9);
+    assert.ok(items.length >= 5);
     for (const b of items.filter(b => !b.includes('nav-menu-search'))) {
       assert.match(b, /aria-label="[^"]+"/, b);
       assert.match(b, /title="[^"]+"/, b);
@@ -174,6 +174,40 @@ describe('nav menu (hamburger)', () => {
     assert.match(cog, /aria-label="Instellingen"/);
     assert.match(cog, /title="Instellingen"/);
     assert.match(cog, /aria-controls="settings-modal"/);
+  });
+
+  it('index.html (v0.56.0): Uitleg, Over, Privacy and Sneltoetsen sit in the footer, not in the header', () => {
+    const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+    const nav = html.slice(html.indexOf('<nav id="topnav"'), html.indexOf('</nav>'));
+    const footer = html.slice(html.indexOf('<footer>'), html.indexOf('</footer>'));
+    for (const cls of ['explain-btn', 'about-btn', 'legal-menu-btn', 'shortcuts-btn', 'data-legal=']) {
+      assert.ok(!nav.includes(cls), `header has no ${cls}`);
+    }
+    const links = [...footer.matchAll(/<button class="([^"]*\bfooter-link\b[^"]*)"[^>]*>([^<]+)<\/button>/g)].map(m => [m[1].split(' ')[0], m[2]]);
+    assert.deepEqual(links, [['explain-btn', 'Uitleg'], ['about-btn', 'Over'], ['legal-link', 'Privacy'], ['shortcuts-btn', 'Sneltoetsen']]);
+    assert.match(footer, /data-legal="privacy"/);
+  });
+
+  it('index.html (v0.56.0): Layers between the left group and the actions, Zoeken the last control', () => {
+    const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+    const nav = html.slice(html.indexOf('<nav id="topnav"'), html.indexOf('</nav>')).replace(/<!--[\s\S]*?-->/g, '');
+    const iLeft = nav.indexOf('class="nav-left"'), iLayers = nav.indexOf('class="nav-layers"'), iActions = nav.indexOf('class="nav-actions"');
+    assert.ok(iLeft < iLayers && iLayers < iActions, 'left · layers · actions');
+    const buttons = [...nav.matchAll(/<(button|select)\b[^>]*>/g)].map(m => m[0]);
+    assert.match(buttons.at(-1), /class="search-btn"/, 'Zoeken is the last control');
+    const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+    assert.match(css, /#topnav \{[^}]*grid-template-columns: 1fr auto 1fr/);
+    assert.match(css, /\.nav-layers \{[^}]*justify-self: center/);
+  });
+
+  it('index.html (v0.56.0): the house button has the visible label "Ideale woonplaats"', () => {
+    const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+    const m = html.match(/<button class="wizard-btn[^"]*"[^>]*>[\s\S]*?<\/button>/);
+    assert.ok(m);
+    assert.match(m[0], /aria-label="Ideale woonplaats"/);
+    assert.match(m[0], /<span class="nav-menu-label nav-wizard-label">Ideale woonplaats<\/span>/);
+    const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+    assert.match(css, /\.nav-menu-list \.wizard-btn \.nav-wizard-label \{\s*position: static/);
   });
 
   it('style.css: ☰ only on phones (≤ NAV_MOBILE_MAX), items inline above it', () => {

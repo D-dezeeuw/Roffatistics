@@ -202,7 +202,7 @@ describe('server.js: index.html per host', () => {
     assert.equal((out.match(/Geen website van de gemeente Amsterdam\./g) ?? []).length, 2);
     assert.match(out, /<option value="rotterdam">Amsterdam<\/option>/);
     assert.match(out, /title="Over Mokumistics \(titelscherm\)"/);
-    assert.match(out, /<span class="nav-menu-label">Over Mokumistics<\/span>/);
+    assert.match(out, /<button class="about-btn footer-link"[^>]*aria-label="Over Mokumistics"[^>]*>Over<\/button>/);
   });
   it('picks the city from ?city=, then the Host header (port dropped), then Rotterdam', () => {
     assert.equal(cityForRequest('/', 'mokumistics.hermes.blockworlds.nl').slug, 'amsterdam');
