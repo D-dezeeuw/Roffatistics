@@ -10,9 +10,10 @@ Status: **plan, 16 Nov 2026 (operator request).** The data mirror phase 1
 
 - **Name:** Mokumistics. Tab title: "Mokumistics — Amsterdam en Nederland in
   cijfers".
-- **Slogan (splash and About):** "Want Amsterdam / is poep op de stoep / en haat
-  in de straat… / Maar toch blijft dit Mokum / voor altijd mijn stad." It is set
-  as a short poem, one line per phrase, in italics.
+- **Slogan (splash and About):** an original slogan of our own (operator to
+  pick, see Open). The Danny de Munk lyric the operator suggested goes in only
+  with the rights holder's permission. It is set as a short poem, one line per
+  phrase, in italics.
 - **Logo:**
   - Three bold black St Andrew's crosses (×), stacked vertically with some space
     between them, as in the city arms.
@@ -140,10 +141,12 @@ here naturally: the city config points at its bundle.
 
 ## Open
 
-- **Slogan source:** is this text the operator's own, or a quote (a song lyric
-  or a poem)? If it is someone else's text, we need permission or a credit
-  line before it goes on the site. The text is a config field, so it can be
-  changed without code.
+- **Slogan source:** the lines are a song lyric by Danny de Munk (operator, 16
+  Nov). A slogan is not a quotation under the citaatrecht, and a credit line
+  does not make it allowed, so the lyric goes on the site only with written
+  permission from the rights holder (the publisher, via Buma/Stemra). Until
+  then the site uses an original slogan of our own. The text is a config
+  field, so it can be swapped without code.
 - **Domain:** is `mokumistics.hermes.blockworlds.nl` enough for now, or should
   it get its own domain later?
 - **Amsterdam P2000:** Randstad only covers Rotterdam-Rijnmond. Hide the layer
