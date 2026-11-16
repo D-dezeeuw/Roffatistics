@@ -1877,7 +1877,7 @@ footer .footer-link:focus-visible { outline: 2px solid var(--accent-2); outline-
 .wizard-dialog { width: min(620px, 100%); }
 .wiz-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem 1.1rem 0.7rem; }
 .wiz-head h2 { margin: 0.1rem 0 0; font-size: 1.25rem; color: var(--text-primary); }
-.wiz-kicker { margin: 0; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.wiz-kicker { margin: 0 0 0.5rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
 .wiz-progress { height: 3px; background: rgba(255, 255, 255, 0.07); }
 .wiz-progress i { display: block; height: 100%; background: var(--gradient-accent); transition: width 0.2s ease; }
 .wiz-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0.9rem 1.1rem 1rem; color: var(--text-primary); }
@@ -1904,7 +1904,37 @@ footer .footer-link:focus-visible { outline: 2px solid var(--accent-2); outline-
 .wiz-card:focus-visible, .wiz-sub summary:focus-visible, .wiz-buren summary:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .wiz-card-label { font-size: 0.88rem; }
 .wiz-card-line { font-size: 0.74rem; color: var(--text-muted); line-height: 1.35; }
-.wiz-card-themes { font-size: 0.68rem; font-family: var(--font-data); color: var(--text-muted); overflow-wrap: anywhere; }
+.wiz-card-wrap { display: flex; min-width: 0; }
+.wiz-card-wrap > .wiz-card { flex: 1; padding-right: 1.9rem; }
+.wiz-card-wrap .tip-btn { position: absolute; top: 0.45rem; right: 0.45rem; }
+.wiz-q.tip-anchor .tip-btn { margin-left: 0.4rem; }
+
+/* (i) toggletips (modules/info-tip.js, v0.56.0): hover on pointer devices,
+   keyboard focus, or a tap/click (aria-expanded). The text spans its anchor. */
+.tip-anchor { position: relative; }
+.tip-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.15rem; height: 1.15rem; flex: none; padding: 0; vertical-align: middle;
+  border: 1px solid rgba(var(--accent-rgb), 0.5); border-radius: 50%;
+  background: var(--bg-surface); color: var(--text-muted);
+  font: italic 600 0.66rem/1 var(--font-data); letter-spacing: 0; text-transform: none;
+  cursor: pointer;
+}
+.tip-btn::before { content: ''; position: absolute; inset: -0.5rem; }   /* larger touch target */
+.tip-btn { position: relative; }
+.tip-btn[aria-expanded="true"], .tip-btn:hover { color: var(--accent-2); border-color: var(--accent-2); }
+.tip-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.info-tip-text {
+  display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20;
+  padding: 0.5rem 0.65rem; border-radius: var(--radius);
+  background: var(--bg-surface); border: 1px solid var(--accent-2);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  font: 400 0.76rem/1.45 var(--font-ui); font-style: normal; letter-spacing: 0; text-transform: none; text-align: left;
+  color: var(--text-primary); white-space: normal;
+}
+.tip-btn[aria-expanded="true"] + .info-tip-text,
+.tip-btn:focus-visible:not([data-tip-dismissed]) + .info-tip-text { display: block; }
+@media (hover: hover) { .info-tip:hover > .info-tip-text { display: block; } }
 .wiz-prefillable { display: flex; flex-direction: column; gap: 0.15rem; }
 .wiz-prefill { align-self: flex-start; font-size: 0.68rem; padding: 0.05rem 0.4rem; border-radius: 999px; color: var(--text-primary); background: rgba(var(--glow-rgb), 0.18); border: 1px dashed var(--accent-2); }
 .wiz-sub, .wiz-buren { margin: 0.1rem 0 0.2rem; }

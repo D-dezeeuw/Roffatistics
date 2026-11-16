@@ -212,6 +212,8 @@ export const LEVENSTYPE_LINES = Object.freeze({
   soloMensen: 'Alleen, graag levendig en dicht bij het centrum.',
   soloRust:   'Alleen, graag rustig met groen en water.',
 });
+/** The text behind the (i) next to the levenstype question (v0.56.0): the general hint, plus the chosen type's line. */
+export const levenstypeHelp = levensfase => [LEVENSTYPE_HINT, LEVENSTYPE_HINTS[levensfase]].filter(Boolean).join(' ');
 /** Plan-wizard-v2 hint for Nieuwkomer (also part of its LEVENSTYPE_HINTS line and the Buren step). */
 export const NIEUWKOMER_HINT = 'Net in Nederland? Een gemeenschap van mensen met dezelfde achtergrond dichtbij kan veel steun geven; kies bij ‘Waar voel je je thuis?’ eventueel je herkomst.';
 /** One line per levenstype naming its starting weights (presets.js PROFILES), shown once one is chosen. */

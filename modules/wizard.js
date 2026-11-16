@@ -16,13 +16,14 @@ import { scoreResult, getPersonalPreset, THEME_LABELS, profileTopThemes } from '
 import { explain } from './score.js';
 import { openAreaModal } from './area-modal.js';
 import { infoButton } from './explain.js';
+import { infoTipHtml, bindInfoTips } from './info-tip.js';
 import {
-  STEPS, LEVENSTYPEN, LEVENSTYPE_HINT, LEVENSTYPE_HINTS, SITUATIE_HINT, GEMEENSCHAP_HINT, BUREN_TITLE, BUREN_INTRO, SITUATIE_HEADING, GEMEENSCHAP_HEADING, BOUW_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
+  STEPS, LEVENSTYPEN, SITUATIE_HINT, GEMEENSCHAP_HINT, BUREN_TITLE, BUREN_INTRO, SITUATIE_HEADING, GEMEENSCHAP_HEADING, BOUW_OPTIONS, VERVOER, CRIMES, INCOME_FACTOR, TOO_EXPENSIVE_SHARE,
   EMPTY_ANSWERS, normalizeAnswers, encodeAnswers, decodeAnswers, budgetCeiling, scoreKind,
   loadAnswers, saveAnswers, topAreas, describeAnswers, parseEuroK, scoreLabel,
   GEMEENSCHAP_DEFAULT_PCT, GEMEENSCHAP_LEVEL_PCT, gemeenschapLevel, DETAIL_GROUPS, gemeenschapOptgroups,
   SITUATIE_EDU, SITUATIE_INCOME, IMPORTANCE, IMPORTANCE_DEFAULT, themeImportance, themeWeights, DICHTBIJ, DICHTBIJ_LEVELS,
-  LEVENSTYPE_LINES, NIEUWKOMER_HINT, BUURT_DICHTBIJ, VERVOER_DICHTBIJ, OV_DICHTBIJ, normalizePrefill, chooseProfile, markExplicit,
+  LEVENSTYPE_LINES, levenstypeHelp, NIEUWKOMER_HINT, BUURT_DICHTBIJ, VERVOER_DICHTBIJ, OV_DICHTBIJ, normalizePrefill, chooseProfile, markExplicit,
   gemeenschapReason, isPrefilled, reconcilePrefill, burenOpen, toggleVervoer, clearStep, loadPrefill, savePrefill,
 } from './wizard-model.js';
 import { loadGemeenteGroup, missingDetailGroups } from './herkomst-gemeente.js';
@@ -96,11 +97,21 @@ const dichtSlider = (item, d, level) => sliderHtml({
 const prefillMark = on => (on && answers.levensfase ? `<span class="wiz-prefill">voorgesteld bij ${esc(LEVENSTYPEN[answers.levensfase])}</span>` : '');
 const prefillWrap = (field, item, inner) => `<div class="wiz-prefillable" data-prefill="${field}${item ? `:${item}` : ''}">${inner}${prefillMark(isPrefilled(prefilled, field, item))}</div>`;
 
-/** A profile card: label, one line and its three heaviest themes (presets.js PROFILES). */
-const profileCard = (k, label, on) => `<button type="button" class="wiz-card${on ? ' active' : ''}" data-set="levensfase" data-value="${esc(k)}" aria-pressed="${on}">
+/** The three heaviest themes of a profile (presets.js PROFILES), e.g. "Veiligheid 30 · Voorzieningen 25 · Sfeer 20". */
+export const profileThemesText = k => profileTopThemes(k, 3).map(t => `${t.label} ${t.weight}`).join(' · ');
+
+/** A profile card: label and one line; its heaviest themes sit behind an (i) toggletip (v0.56.0), also read as the card's description. */
+export const profileCard = (k, label, on) => `<div class="wiz-card-wrap tip-anchor">
+      <button type="button" class="wiz-card${on ? ' active' : ''}" data-set="levensfase" data-value="${esc(k)}" aria-pressed="${on}" aria-describedby="wiz-tip-${esc(k)}">
       <strong class="wiz-card-label">${esc(label)}</strong>
-      <span class="wiz-card-line">${esc(LEVENSTYPE_LINES[k] ?? '')}</span>
-      <span class="wiz-card-themes">${profileTopThemes(k, 3).map(t => `${esc(t.label)} ${t.weight}`).join(' · ')}</span></button>`;
+      <span class="wiz-card-line">${esc(LEVENSTYPE_LINES[k] ?? '')}</span></button>
+      ${infoTipHtml(`wiz-tip-${k}`, `Zwaarst: ${profileThemesText(k)}`, `Thema's van ${label}`)}</div>`;
+
+/** Step 1: the question with one (i) for the levenstype hint (+ the chosen type's line), then the cards. */
+export const levenstypeStepHtml = levensfase => `
+    <p class="wiz-q tip-anchor" id="wiz-q">Welk levenstype past het best bij jou?${infoTipHtml('wiz-tip-levenstype', levenstypeHelp(levensfase), 'Uitleg bij de levenstypes')}</p>
+    <div class="wiz-cards" role="group" aria-labelledby="wiz-q">${Object.entries(LEVENSTYPEN).map(([k, l]) => profileCard(k, l, levensfase === k)).join('')}</div>${levensfase ? '' : `
+    <p class="wiz-hint">Kies een kaart. Daarna kun je meteen naar het resultaat, of nog vier korte vragen beantwoorden.</p>`}`;
 
 function situatieBody(st) {
   const eduPos = situatiePos(SITUATIE_EDU, st?.edu), incPos = situatiePos(SITUATIE_INCOME, st?.income);
@@ -129,12 +140,7 @@ function gemeenschapBody(g) {
 
 function stepBody(key) {
   const a = answers;
-  if (key === 'levensfase') return `
-    <p class="wiz-q" id="wiz-q">Welk levenstype past het best bij jou?</p>
-    <div class="wiz-cards" role="group" aria-labelledby="wiz-q">${Object.entries(LEVENSTYPEN).map(([k, l]) => profileCard(k, l, a.levensfase === k)).join('')}</div>
-    <p class="wiz-hint">${esc(LEVENSTYPE_HINT)}</p>${a.levensfase ? `
-    <p class="wiz-hint wiz-lt-hint">${esc(LEVENSTYPE_HINTS[a.levensfase])}</p>` : `
-    <p class="wiz-hint">Kies een kaart. Daarna kun je meteen naar het resultaat, of nog vier korte vragen beantwoorden.</p>`}`;
+  if (key === 'levensfase') return levenstypeStepHtml(a.levensfase);
   if (key === 'budget') {
     const b = a.budget ?? { mode: null };
     const ceiling = budgetCeiling(b);
@@ -557,6 +563,7 @@ export function initWizard({ rows } = {}) {
     <div class="search-dialog area-dialog wizard-dialog" role="dialog" aria-modal="true" aria-labelledby="wizard-title"></div>`;
   document.body.appendChild(modal);
   els = { modal, dialog: modal.querySelector('.wizard-dialog') };
+  bindInfoTips(modal);   // first: a tip's Escape and click must not reach the wizard's own handlers
   modal.addEventListener('click', onClick);
   modal.addEventListener('input', onInput);
   modal.addEventListener('change', onChange);

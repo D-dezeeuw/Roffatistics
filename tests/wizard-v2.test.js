@@ -191,3 +191,34 @@ describe('wizard v2: OV chip absorbs Dichtbij metro/tram', () => {
     assert.equal(decodeAnswers('lp.og').bouw, 'modern');
   });
 });
+
+// plan-gui-header-wizard §B (v0.56.0): themes and hints behind (i) toggletips.
+import { profileCard, levenstypeStepHtml, profileThemesText } from '../modules/wizard.js';
+import { levenstypeHelp, LEVENSTYPE_HINT as LT_HINT } from '../modules/wizard-model.js';
+import { readFileSync as readCss } from 'node:fs';
+
+describe('wizard step 1: (i) toggletips', () => {
+  it('a card shows no theme line; its (i) tooltip holds the heaviest themes and describes the card', () => {
+    const html = profileCard('gezin', 'Gezin met kinderen', false);
+    assert.doesNotMatch(html, /wiz-card-themes/);
+    assert.match(html, /class="wiz-card" data-set="levensfase" data-value="gezin" aria-pressed="false" aria-describedby="wiz-tip-gezin"/);
+    assert.match(html, new RegExp(`id="wiz-tip-gezin">Zwaarst: ${profileThemesText('gezin')}</span>`));
+    assert.match(profileThemesText('student'), /^Sfeer 40 · Voorzieningen 30 · Levenstype 20$/);
+    assert.ok(html.indexOf('</button>') < html.indexOf('class="tip-btn"'), 'the (i) is not nested in the card button');
+  });
+  it('the levenstype hint and the chosen type line sit behind one (i) next to the question', () => {
+    assert.equal(levenstypeHelp(null), LT_HINT);
+    assert.equal(levenstypeHelp('gezin'), `${LT_HINT} ${LEVENSTYPE_HINTS.gezin}`);
+    const html = levenstypeStepHtml('gezin');
+    const q = html.slice(html.indexOf('<p class="wiz-q'), html.indexOf('</p>') + 4);
+    assert.match(q, /Welk levenstype past het best bij jou\?<span class="info-tip">/);
+    assert.ok(q.includes('id="wiz-tip-levenstype"'));
+    assert.equal((html.match(/class="wiz-hint/g) ?? []).length, 0, 'no visible hint lines once a type is chosen');
+    assert.match(levenstypeStepHtml(null), /Kies een kaart\./);
+    assert.equal((html.match(/class="tip-btn"/g) ?? []).length, Object.keys(LEVENSTYPEN).length + 1);
+  });
+  it('more room under the step kicker', () => {
+    const css = readCss(new URL('../style.css', import.meta.url), 'utf8');
+    assert.match(css, /\.wiz-kicker \{ margin: 0 0 0\.5rem;/);
+  });
+});

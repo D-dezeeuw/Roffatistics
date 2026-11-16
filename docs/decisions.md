@@ -649,3 +649,10 @@ Operator request: the hamburger only on mobile; on tablet and desktop the menu i
 - **House button** shows the label "Ideale woonplaats" from 861 px; 641–860 px icon only; in ☰ the label is the menu text. aria-label = the visible label (label-in-name), the old wording stays in the title.
 - **Phones (≤ 640 px) footer**: the four links replace the social icons and the Spektrum credit (both hidden); the brand with the gemeente disclaimer stays on the right, the disclaimer wraps to two lines. Visual check is the operator's.
 - The server's per-city rewrite of the "Over …" menu label is gone with the label; the footer button keeps "Over" as text and gets `Over <app>` as aria-label/title.
+
+## 16 Nov 2026 — Wizard stap 1 compacter: (i) toggletips (plan-gui-header-wizard §B, v0.56.0)
+
+- **Theme line behind (i).** A levenstype card no longer shows `.wiz-card-themes`; an (i) in its top-right corner opens "Zwaarst: Veiligheid 30 · …" (the same `profileTopThemes(k, 3)`). The (i) is a sibling of the card button (a button cannot hold a button) inside `.wiz-card-wrap`; the card is `aria-describedby` that text, so a screen reader hears it on the card too.
+- **Hints behind one (i).** `LEVENSTYPE_HINT` and the chosen type's `LEVENSTYPE_HINTS` line (`levenstypeHelp`) sit behind one (i) after "Welk levenstype past het best bij jou?". Only "Kies een kaart. …" stays visible, until a card is chosen.
+- **Toggletip, not hover-only** (`modules/info-tip.js`): shown on pointer hover (`@media (hover: hover)`, so no sticky hover on touch), on keyboard focus (`:focus-visible`) and after a tap/click (`aria-expanded="true"`). Escape hides it first (a focused one gets `data-tip-dismissed` until blur) and only the next Escape closes the wizard; a click elsewhere or leaving the button closes it. The text spans its anchor (the card, or the question line) instead of hanging off the small icon, so it never runs out of the dialog sideways.
+- More room under the step kicker ("Vind jouw ideale woonplek · stap 1 van 5"): 0.5rem.
