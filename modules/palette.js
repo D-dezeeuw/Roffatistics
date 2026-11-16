@@ -63,6 +63,17 @@ export const PALETTES = Object.freeze({
     good: '#22c55e', bad: '#ef4444', goodText: '#4ade80', badText: '#f87171',
     lerp: t => interpolateColor(t, 0, 1),
   }),
+  // Mokum: good/bad stays red → green as in Rotterdam (one meaning in every city,
+  // so the brand red never reads as "bad" on its own); neutral metrics a grey →
+  // black ramp; herkomst the same indigo; outliers magenta.
+  mokum: freeze({
+    id: 'mokum', label: 'Mokum', flips: true,
+    directional: ['#c62828', '#e4572e', '#f29e4c', '#e9c46a', '#a7c957', '#5fa85a', '#1f7a3f'],
+    neutral:     ['#ececec', '#c8c8c8', '#a3a3a3', '#7f7f7f', '#5c5c5c', '#3a3a3a', '#1a1a1a'],
+    origin:      ['#e0e3f7', '#bcc2ee', '#969fe2', '#737dd4', '#5459c0', '#3d3ea6', '#2c2a85'],
+    noData: '#4b5a78', outlier: '#ff1fce', outlierMark: '#ff1fce', outlierText: '#ff9ce8',
+    good: '#22c55e', bad: '#ef4444', goodText: '#4ade80', badText: '#f87171',
+  }),
   // Kleurenblind-veilig: blue = bad → orange = good (no red/green), neutral grey, herkomst pink-purple.
   kleurenblind: freeze({
     id: 'kleurenblind', label: 'Kleurenblind-veilig', flips: true,
@@ -76,7 +87,7 @@ export const PALETTES = Object.freeze({
 
 export const PALETTE_IDS = Object.freeze(Object.keys(PALETTES));
 /** "Volgt thema": UI theme id → palette id. */
-export const THEME_PALETTE = Object.freeze({ rotterdam: 'rotterdam', klassiek: 'klassiek' });
+export const THEME_PALETTE = Object.freeze({ rotterdam: 'rotterdam', klassiek: 'klassiek', mokum: 'mokum', 'mokum-licht': 'mokum' });
 const FALLBACK_THEME = 'rotterdam';
 
 export const PALETTE_OPTIONS = Object.freeze([

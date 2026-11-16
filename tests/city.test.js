@@ -38,7 +38,7 @@ describe('config/cities.json', () => {
     assert.deepEqual([r.gemeente, r.name, r.adjective, r.appName, r.theme], ['GM0599', 'Rotterdam', 'Rotterdamse', 'Roffatistics', 'rotterdam']);
     assert.deepEqual(r.centre, [51.9225, 4.4792]);
     assert.deepEqual(r.centrum.point, [51.9244, 4.4690]);
-    assert.deepEqual([a.gemeente, a.name, a.adjective, a.nickname, a.appName, a.theme, a.p2000], ['GM0363', 'Amsterdam', 'Amsterdamse', 'Mokum', 'Mokumistics', 'rotterdam', false]);
+    assert.deepEqual([a.gemeente, a.name, a.adjective, a.nickname, a.appName, a.theme, a.p2000], ['GM0363', 'Amsterdam', 'Amsterdamse', 'Mokum', 'Mokumistics', 'mokum', false]);
     assert.ok(a.hosts.includes('mokumistics.hermes.blockworlds.nl'));
   });
 });

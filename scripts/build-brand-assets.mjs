@@ -2,6 +2,7 @@
 // dependencies: the SVGs are written as text, the PNG/ICO files are rasterised
 // here (nonzero scanline fill, 8×8 supersampling) and encoded with node:zlib.
 // Run: node scripts/build-brand-assets.mjs   (writes assets/*, favicon.*, apple-touch-icon.png)
+//      node scripts/build-brand-assets.mjs --city amsterdam   (writes assets/cities/amsterdam/*)
 //
 // The figure is an own abstract drawing after Ossip Zadkine's "De verwoeste stad"
 // (Rotterdam, 1951): a twisted standing figure, both arms flung up, head thrown
@@ -56,6 +57,42 @@ const logoSvg = fill =>
 const MARK_SCALE = 0.84;
 const markSvg = () =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><title>Roffatistics</title><rect width="64" height="64" rx="14" fill="${GREEN}"/><path fill="#fff" transform="translate(32 32) scale(${MARK_SCALE}) translate(-32 -32)" d="${FIGURE_D}"/></svg>\n`;
+
+// ── Mokumistics (--city amsterdam) ───────────────────────────────────────────
+// Three bold St Andrew's crosses (×) stacked vertically, as in the city arms,
+// drawn as our own shapes: two straight bars per cross with square (butt) ends,
+// no shield, not the municipal logo. 64-grid like the figure above.
+export const RED = '#E30613';
+const CROSS = { size: 18, stroke: 5.2, gap: 3 };   // each cross 18×18, 3 units clear between the boxes
+
+/** One bar from (x0,y0) to (x1,y1), `t` thick, square ends, clockwise on screen. */
+function barPoly(x0, y0, x1, y1, t) {
+  const len = Math.hypot(x1 - x0, y1 - y0), nx = -(y1 - y0) / len * t / 2, ny = (x1 - x0) / len * t / 2;
+  const p = [[x0 + nx, y0 + ny], [x1 + nx, y1 + ny], [x1 - nx, y1 - ny], [x0 - nx, y0 - ny]];
+  const area = p.reduce((a, [x, y], i) => { const [u, v] = p[(i + 1) % 4]; return a + x * v - u * y; }, 0);
+  return area < 0 ? p.reverse() : p;
+}
+/** A × of `size` centred on (cx, cy): two bars whose corners stay inside the box. */
+function crossPolys(cx, cy, size, t) {
+  const a = size / 2 - t / (2 * Math.SQRT2);
+  return [barPoly(cx - a, cy - a, cx + a, cy + a, t), barPoly(cx + a, cy - a, cx - a, cy + a, t)];
+}
+const step = CROSS.size + CROSS.gap;
+export const CROSSES = [-step, 0, step].flatMap(dy => crossPolys(32, 32 + dy, CROSS.size, CROSS.stroke));
+const CROSSES_D = CROSSES.map(polyD).join('');
+const CROSS_TITLE = 'Mokumistics';
+/** logo-mark.svg: the three black crosses on a transparent ground. */
+export const crossMarkSvg = () =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><title>${CROSS_TITLE}</title><path fill="#000" d="${CROSSES_D}"/></svg>\n`;
+const TILE_SCALE = 0.84;
+/** favicon.svg: a red tile with the white crosses. */
+export const crossTileSvg = () =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><title>${CROSS_TITLE}</title><rect width="64" height="64" rx="12" fill="${RED}"/><path fill="#fff" transform="translate(32 32) scale(${TILE_SCALE}) translate(-32 -32)" d="${CROSSES_D}"/></svg>\n`;
+/** logo.svg: the mark plus the word "Mokumistics" (glyph outlines from DejaVu Sans Bold, so no web font is needed). */
+export function crossLogoSvg(wordD, wordWidth) {
+  const w = Math.ceil(50 + wordWidth + 4);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} 64" width="${w}" height="64"><title>${CROSS_TITLE}</title><path fill="#000" d="${CROSSES_D}"/><path fill="#000" d="${wordD}"/></svg>\n`;
+}
 
 // ── Raster ───────────────────────────────────────────────────────────────────
 function winding(polys, x, y) {
@@ -124,7 +161,25 @@ export function encodeIco(pngs) {
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+async function buildAmsterdam() {
+  const dir = join(ROOT, 'assets/cities/amsterdam');
+  mkdirSync(dir, { recursive: true });
+  const { loadFont, textPolys } = await import('./build-og-image.mjs');
+  const bold = loadFont(process.env.FONT_BOLD ?? '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf');
+  const word = textPolys(bold, CROSS_TITLE, 30, 50, 43);
+  writeFileSync(join(dir, 'logo-mark.svg'), crossMarkSvg());
+  writeFileSync(join(dir, 'logo.svg'), crossLogoSvg(word.polys.map(p => polyD(p)).join(''), word.width));
+  writeFileSync(join(dir, 'favicon.svg'), crossTileSvg());
+  const tile = [{ polys: [roundRectPoly(0, 0, 64, 64, 12)], color: RED }, { polys: CROSSES, color: '#ffffff', scale: TILE_SCALE }];
+  writeFileSync(join(dir, 'favicon.ico'), encodeIco([16, 32, 48].map(size => ({ size, png: encodePng(size, rasterise(size, tile)) }))));
+  writeFileSync(join(dir, 'apple-touch-icon.png'), encodePng(180, rasterise(180, [{ polys: [[[0, 0], [64, 0], [64, 64], [0, 64]]], color: RED }, { polys: CROSSES, color: '#ffffff', scale: 0.74 }], 4)));
+  console.log('amsterdam brand assets written');
+}
+
+const cityArg = (() => { const i = process.argv.indexOf('--city'); return i > 0 ? process.argv[i + 1] : 'rotterdam'; })();
+if (process.argv[1] === fileURLToPath(import.meta.url) && cityArg === 'amsterdam') buildAmsterdam().catch(e => { console.error(e); process.exitCode = 1; });   // not awaited: build-og-image.mjs imports this module back
+else if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  if (cityArg !== 'rotterdam') throw new Error(`unknown --city ${cityArg}`);
   mkdirSync(join(ROOT, 'assets'), { recursive: true });
   writeFileSync(join(ROOT, 'assets/logo.svg'), logoSvg(GREEN));
   writeFileSync(join(ROOT, 'assets/logo-mark.svg'), markSvg());

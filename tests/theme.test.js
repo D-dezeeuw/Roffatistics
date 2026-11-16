@@ -6,8 +6,8 @@ import {
 } from '../modules/theme.js';
 
 describe('THEMES', () => {
-  it('offers Rotterdam (default) and Paars-oranje', () => {
-    assert.deepEqual(Object.values(THEMES).map(t => t.label), ['Rotterdam', 'Paars-oranje']);
+  it('offers Rotterdam (default), Paars-oranje and the two Mokum themes', () => {
+    assert.deepEqual(Object.values(THEMES).map(t => t.label), ['Rotterdam', 'Paars-oranje', 'Mokum', 'Mokum licht']);
     assert.equal(DEFAULT_THEME, 'rotterdam');
   });
   it('resolves unknown ids to the default', () => {

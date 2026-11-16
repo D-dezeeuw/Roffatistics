@@ -50,7 +50,7 @@ describe('settings: defaults, load, save', () => {
 
 describe('settings: options and basemap mapping', () => {
   it('Thema: Rotterdam / Paars-oranje', () => {
-    assert.deepEqual(THEME_OPTIONS.map(o => [o.id, o.label]), [['rotterdam', 'Rotterdam'], ['klassiek', 'Paars-oranje']]);
+    assert.deepEqual(THEME_OPTIONS.map(o => [o.id, o.label]), [['rotterdam', 'Rotterdam'], ['klassiek', 'Paars-oranje'], ['mokum', 'Mokum'], ['mokum-licht', 'Mokum licht']]);
   });
   it('Kaart: Donker / Licht / Satelliet', () => {
     assert.deepEqual(BASEMAP_OPTIONS.map(o => [o.id, o.label]), [['dark', 'Donker'], ['light', 'Licht'], ['aerial', 'Satelliet']]);
@@ -113,7 +113,7 @@ describe('settings: dialog', () => {
     assert.match(html, />Paars-oranje</);
     assert.match(html, /<legend>Kaartkleuren<\/legend>/);
     assert.match(html, /name="settings-palette" value="auto" checked><span>Volgt thema</);
-    for (const l of ['Rotterdam', 'Paars-oranje', 'Kleurenblind-veilig']) assert.match(html, new RegExp(`name="settings-palette" value="[a-z]+"><span>${l}<`));
+    for (const l of ['Rotterdam', 'Paars-oranje', 'Mokum', 'Kleurenblind-veilig']) assert.match(html, new RegExp(`name="settings-palette" value="[a-z]+"><span>${l}<`));
     assert.match(settingsDialogHtml({ palette: 'kleurenblind' }), /name="settings-palette" value="kleurenblind" checked/);
   });
   it('Kaartkleuren: stored under its own key, unknown → Volgt thema', () => {

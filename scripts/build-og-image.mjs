@@ -5,11 +5,12 @@
 // shape becomes polygons, and a scanline rasteriser (nonzero, 4 sub-rows, exact
 // horizontal coverage) fills them. PNG encoding is build-brand-assets.mjs's.
 // Run: node scripts/build-og-image.mjs   (writes assets/og-image.png; commit it)
+//      node scripts/build-og-image.mjs --city amsterdam   (assets/cities/amsterdam/og-image.png)
 // See docs/decisions.md (15 Nov 2026, link previews).
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { FIGURE, GREEN, roundRectPoly, encodePng } from './build-brand-assets.mjs';
+import { FIGURE, GREEN, RED, CROSSES, roundRectPoly, encodePng } from './build-brand-assets.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const W = 1200, H = 630;
@@ -160,10 +161,10 @@ export function fill(cv, polys, color, alpha = 1, SS = 4) {
 const rect = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
 const hexagon = (cx, cy, r) => Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 6 + i * Math.PI / 3; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; });
 // Green choropleth ramp (light → Rotterdam green → deep), as on the Woonscore layer.
-const RAMP = ['#cfe9c9', '#9dd39a', '#5fb86c', '#009a3e', '#00733a', '#0b4f2e'];
+const GREEN_RAMP = ['#cfe9c9', '#9dd39a', '#5fb86c', '#009a3e', '#00733a', '#0b4f2e'];
 
 /** A stylised hex-map silhouette on the right: a deterministic blob of shaded cells. */
-function mapSilhouette(cv) {
+function mapSilhouette(cv, RAMP = GREEN_RAMP) {
   let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const r = 30, dx = r * Math.sqrt(3), dy = r * 1.5, cx = 1010, cy = 330;
   for (let row = -8; row <= 8; row++) for (let col = -7; col <= 7; col++) {
@@ -196,9 +197,34 @@ export function buildOgImage({ regular, bold }) {
   return encodePng(W, cv.px, H);
 }
 
+// Mokumistics: black ground, grey ramp with a few red cells, the red tile with the white crosses.
+const MOKUM_BG = '#111111';
+const MOKUM_RAMP = ['#e6e6e6', '#bdbdbd', '#8f8f8f', '#e30613', '#5e5e5e', '#a1040d'];
+export function buildOgImageAmsterdam({ regular, bold }) {
+  const cv = makeCanvas(W, H, MOKUM_BG);
+  mapSilhouette(cv, MOKUM_RAMP);
+  for (let i = 0; i < 24; i++) fill(cv, [rect(740 + i * 8, 0, 8, H)], MOKUM_BG, 0.5 * (1 - i / 24));
+  const LX = 80, LY = 84, LS = 132, sc = LS / 64;
+  const to = (p, s = 1) => p.map(([x, y]) => [LX + (32 + (x - 32) * s) * sc, LY + (32 + (y - 32) * s) * sc]);
+  fill(cv, [to(roundRectPoly(0, 0, 64, 64, 12))], RED);
+  fill(cv, CROSSES.map(p => to(p, 0.84)), '#ffffff');
+  fill(cv, textPolys(bold, 'Mokumistics', 100, 76, 340).polys, '#ffffff');
+  fill(cv, [rect(80, 372, 120, 8)], RED);
+  fill(cv, textPolys(regular, 'Amsterdam en Nederland in cijfers —', 38, 80, 440).polys, '#d4d4d4');
+  fill(cv, textPolys(regular, 'vind jouw ideale woonplek', 38, 80, 490).polys, '#d4d4d4');
+  fill(cv, textPolys(bold, 'mokumistics.hermes.blockworlds.nl', 26, 80, 566).polys, '#ff6b73');
+  return encodePng(W, cv.px, H);
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const regular = loadFont(process.env.FONT_REGULAR ?? join(FONT_DIR, 'DejaVuSans.ttf'));
   const bold = loadFont(process.env.FONT_BOLD ?? join(FONT_DIR, 'DejaVuSans-Bold.ttf'));
-  writeFileSync(join(ROOT, 'assets/og-image.png'), buildOgImage({ regular, bold }));
-  console.log('assets/og-image.png written (1200×630)');
+  const i = process.argv.indexOf('--city'), city = i > 0 ? process.argv[i + 1] : 'rotterdam';
+  if (city === 'amsterdam') {
+    writeFileSync(join(ROOT, 'assets/cities/amsterdam/og-image.png'), buildOgImageAmsterdam({ regular, bold }));
+    console.log('assets/cities/amsterdam/og-image.png written (1200×630)');
+  } else if (city === 'rotterdam') {
+    writeFileSync(join(ROOT, 'assets/og-image.png'), buildOgImage({ regular, bold }));
+    console.log('assets/og-image.png written (1200×630)');
+  } else throw new Error(`unknown --city ${city}`);
 }

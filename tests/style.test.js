@@ -74,6 +74,8 @@ describe('contrast (WCAG AA, 4.5:1 for small text), both themes', () => {
   const themes = {
     rotterdam: block(':root\\[data-theme="rotterdam"\\]'),
     klassiek:  block(':root\\[data-theme="klassiek"\\]'),
+    mokum:     block(':root\\[data-theme="mokum"\\]'),
+    'mokum-licht': block(':root\\[data-theme="mokum-licht"\\]'),
   };
   const lum = h => {
     const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255)
@@ -97,6 +99,18 @@ describe('contrast (WCAG AA, 4.5:1 for small text), both themes', () => {
       const stops = css.match(/--gradient-accent:\s*linear-gradient\([^;]*/)[0].match(/#[0-9a-f]{6}/gi);
       if (theme === 'klassiek') return;   // the original palette, kept as it was
       for (const s of stops) assert.ok(ratio('#ffffff', s) >= 4.5, s);
+    });
+  }
+
+  for (const theme of ['mokum', 'mokum-licht']) {
+    const hex = name => themes[theme].match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`, 'i'))[1];
+    it(`${theme}: the accent reads as text, the red header line and brand fill keep white text AA`, () => {
+      for (const bg of ['--bg-base', '--bg-surface', '--bg-surface-alt']) assert.ok(ratio(hex('--accent'), hex(bg)) >= 4.5, `accent on ${bg}: ${ratio(hex('--accent'), hex(bg)).toFixed(2)}`);
+      assert.ok(ratio('#ffffff', '#e30613') >= 4.5, 'white on brand red');
+      assert.equal(hex('--nav-border').toLowerCase(), '#e30613');
+      assert.equal(hex('--rdam-green').toLowerCase(), '#e30613', 'loader ring in brand red');
+      assert.ok(ratio(hex('--text-primary'), hex('--nav-bg')) >= 4.5, 'header text');
+      assert.ok(ratio(hex('--accent-2'), hex('--bg-surface')) >= 3, 'focus ring');
     });
   }
 

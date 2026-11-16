@@ -9,14 +9,14 @@
 // link, except theme and basemap, which "Delen" already offered.
 // Pure parts (load/save/defaults, option lists, markup) are unit-tested.
 
-import { THEMES, DEFAULT_THEME, THEME_STORAGE_KEY, pickInitialTheme, resolveTheme } from './theme.js';
+import { THEMES, cityDefaultTheme, THEME_STORAGE_KEY, pickInitialTheme, resolveTheme } from './theme.js';
 import { BASEMAPS, DEFAULT_BASEMAP, BASEMAP_STORAGE_KEY, pickInitialBasemap, resolveBasemap } from './map.js';
 import { OV_MODES, DEFAULT_OV, OV_STORAGE_KEY, pickInitialOv, serializeOvState } from './ov.js';
 import { PALETTE_OPTIONS, DEFAULT_PALETTE_CHOICE, MAP_PALETTE_STORAGE_KEY, parsePaletteChoice, pickInitialPaletteChoice } from './palette.js';
 import { DEFAULT_SCHOOL_PINS, SCHOOL_PINS_STORAGE_KEY, pickInitialSchoolPins, serializeSchoolPins } from './school-pins.js';
 import { CITY } from './city.js';
 
-export const SETTINGS_DEFAULTS = Object.freeze({ theme: DEFAULT_THEME, basemap: DEFAULT_BASEMAP, palette: DEFAULT_PALETTE_CHOICE, ov: DEFAULT_OV, schools: DEFAULT_SCHOOL_PINS });
+export const SETTINGS_DEFAULTS = Object.freeze({ theme: cityDefaultTheme(), basemap: DEFAULT_BASEMAP, palette: DEFAULT_PALETTE_CHOICE, ov: DEFAULT_OV, schools: DEFAULT_SCHOOL_PINS });
 export const SETTINGS_KEYS = Object.freeze({ theme: THEME_STORAGE_KEY, basemap: BASEMAP_STORAGE_KEY, palette: MAP_PALETTE_STORAGE_KEY, ov: OV_STORAGE_KEY, schools: SCHOOL_PINS_STORAGE_KEY });
 export { PALETTE_OPTIONS };
 

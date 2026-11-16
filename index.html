@@ -27,10 +27,11 @@
   <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-  <!-- Theme before first paint (modules/theme.js: same key, ids and default). -->
   <!-- City boot (docs/plan-mokumistics.md): ?city= → hostname → rotterdam, before the first paint. Keep the slugs and hosts in step with config/cities.json (tests/city.test.js). -->
   <script>try{var s=["rotterdam","amsterdam"],h={"roffatistics.hermes.blockworlds.nl":"rotterdam","d-dezeeuw.github.io":"rotterdam","mokumistics.hermes.blockworlds.nl":"amsterdam"},c=(new URLSearchParams(location.search).get('city')||'').trim().toLowerCase(),n=String(location.hostname).toLowerCase();document.documentElement.dataset.city=s.indexOf(c)>=0?c:Object.prototype.hasOwnProperty.call(h,n)?h[n]:'rotterdam'}catch(e){}</script>
-  <script>try{var t=localStorage.getItem('roffatistics.theme');document.documentElement.dataset.theme=t==='klassiek'||t==='rotterdam'?t:'rotterdam'}catch(e){}</script>
+  <!-- Theme and brand before first paint: the stored theme, else the city's (modules/theme.js); title and icons of the city (config/cities.json). Kept in step by tests/brand.test.js. -->
+  <script>try{var e=document.documentElement,t=null,d={"rotterdam":"rotterdam","amsterdam":"mokum"}[e.dataset.city]||'rotterdam';try{t=localStorage.getItem('roffatistics.theme')}catch(x){}e.dataset.theme=['rotterdam','klassiek','mokum','mokum-licht'].indexOf(t)>=0?t:d}catch(e){}</script>
+  <script>try{var b={"amsterdam":{"t":"Mokumistics — Amsterdam en Nederland in cijfers","ico":"assets/cities/amsterdam/favicon.ico","svg":"assets/cities/amsterdam/favicon.svg","apple":"assets/cities/amsterdam/apple-touch-icon.png"}}[document.documentElement.dataset.city];if(b){document.title=b.t;var q=function(s,v){var l=document.querySelector(s);if(l)l.setAttribute('href',v)};q('link[rel="icon"][sizes]',b.ico);q('link[rel="icon"][type="image/svg+xml"]',b.svg);q('link[rel="apple-touch-icon"]',b.apple)}}catch(e){}</script>
 
   <script type="importmap">
   {
@@ -203,7 +204,7 @@
       </a>
     </div>
 
-    <span class="footer-brand">Neko Media</span>
+    <span class="footer-brand">Neko Media<span class="footer-disclaimer city-disclaimer">Geen website van de gemeente Rotterdam.</span></span>
 
     <a href="https://www.npmjs.com/package/spektrum" target="_blank" rel="noopener" class="footer-powered">
       Powered by Spektrum
@@ -291,6 +292,7 @@
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (OV-lijnen, ODbL) /
           <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a>
         </p>
+        <p class="splash-disclaimer city-disclaimer">Geen website van de gemeente Rotterdam.</p>
         <p class="splash-legal">
           <button type="button" class="legal-link" data-legal="privacy">Privacy</button> &middot;
           <button type="button" class="legal-link" data-legal="disclaimer">Disclaimer</button> &middot;

@@ -10,8 +10,8 @@ Status: **plan, 16 Nov 2026 (operator request).** The data mirror phase 1
 
 - **Name:** Mokumistics. Tab title: "Mokumistics — Amsterdam en Nederland in
   cijfers".
-- **Slogan (splash and About):** an original slogan of our own (operator to
-  pick, see Open). The Danny de Munk lyric the operator suggested goes in only
+- **Slogan (splash and About):** "Liever in Mokum zonder poen, / dan in Parijs
+  met een miljoen." (an old Amsterdam saying; operator, 16 Nov). The Danny de Munk lyric the operator suggested goes in only
   with the rights holder's permission. It is set as a short poem, one line per
   phrase, in italics.
 - **Logo:**

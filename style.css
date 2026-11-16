@@ -92,6 +92,74 @@
   --nodata-bar:     #22202c;
 }
 
+/* Mokum (Mokumistics, docs/plan-mokumistics.md): red #e30613, black and white.
+   Tokens only. Brand red fills carry white text (4.8:1); --accent is a lighter
+   red so it also reads as text on the dark surfaces. --rdam-green(-deep) are the
+   brand slots of the loader ring and stay named after the first city. */
+:root[data-theme="mokum"] {
+  --rdam-green:      #e30613;
+  --rdam-green-deep: #b8050f;
+  --loader-bg:      rgba(0, 0, 0, 0.94);
+  --nav-bg:         #000000;
+  --nav-border:     #e30613;
+  --bg-base:        #121212;
+  --bg-surface:     #1c1c1c;
+  --bg-surface-alt: #161616;
+  --bg-grad-end:    #0a0a0a;
+  --accent:         #ff4d57;
+  --accent-2:       #ffb8bd;
+  --accent-rgb:     255, 77, 87;
+  --glow-rgb:       227, 6, 19;
+  --overlay-rgb:    8, 8, 8;
+  --gradient-accent: linear-gradient(135deg, #e30613, #b8050f);   /* white text >= 4.5:1 on both stops */
+  --gradient-text:   linear-gradient(135deg, #ffffff 0%, #ffb8bd 100%);
+  --text-primary:   #f5f5f5;
+  --text-muted:     #ababab;
+  --cmp-better:     #5fdc8f;
+  --cmp-worse:      #ff8a7a;
+  --row-even:       #181818;
+  --row-key:        #2a1517;
+  --row-key-even:   #261315;
+  --row-hover:      #262626;
+  --row-selected:   #3a1215;
+  --row-flash:      #8f0410;
+  --row-flash-still: #6e030c;
+  --nodata-bar:     #2d2b31;
+}
+
+/* Mokum licht: the light variant (white surfaces, black text, red accents). */
+:root[data-theme="mokum-licht"] {
+  color-scheme: light;
+  --rdam-green:      #e30613;
+  --rdam-green-deep: #b8050f;
+  --loader-bg:      rgba(255, 255, 255, 0.94);
+  --nav-bg:         #ffffff;
+  --nav-border:     #e30613;
+  --bg-base:        #ffffff;
+  --bg-surface:     #f6f6f6;
+  --bg-surface-alt: #efefef;
+  --bg-grad-end:    #ececec;
+  --accent:         #c8050f;
+  --accent-2:       #8a030b;
+  --accent-rgb:     200, 5, 15;
+  --glow-rgb:       227, 6, 19;
+  --overlay-rgb:    40, 40, 40;
+  --gradient-accent: linear-gradient(135deg, #e30613, #b8050f);   /* white text >= 4.5:1 on both stops */
+  --gradient-text:   linear-gradient(135deg, #000000 0%, #b8050f 100%);
+  --text-primary:   #111111;
+  --text-muted:     #545454;
+  --cmp-better:     #17803d;
+  --cmp-worse:      #b3261e;
+  --row-even:       #f9f9f9;
+  --row-key:        #fde8e9;
+  --row-key-even:   #fbe1e3;
+  --row-hover:      #eeeeee;
+  --row-selected:   #fbd5d8;
+  --row-flash:      #f7b2b8;
+  --row-flash-still: #f9c4c9;
+  --nodata-bar:     #d9d9de;
+}
+
 html, body {
   height: 100%;
 }
@@ -115,8 +183,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0 1.25rem;
-  background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
-  border-bottom: 1px solid rgba(var(--accent-rgb), 0.25);
+  background: var(--nav-bg, linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%));
+  border-bottom: 1px solid var(--nav-border, rgba(var(--accent-rgb), 0.25));
   position: relative;
   z-index: 1002;
 }
@@ -507,6 +575,9 @@ footer {
 }
 
 .footer-powered:hover { color: var(--accent); }
+.footer-disclaimer { display: block; margin-top: 0.1rem; font-size: 0.62rem; font-weight: 400; letter-spacing: 0.02em; text-transform: none; }
+.splash-disclaimer { flex-basis: 100%; font-size: 0.72rem; color: var(--text-muted); }
+.splash-tagline .city-slogan { display: inline-block; font-style: italic; line-height: 1.5; }
 @media (max-width: 720px) {
   .footer-powered { font-size: 0.5rem; gap: 0.2rem; letter-spacing: 0.04em; white-space: nowrap; line-height: 1; }
 }

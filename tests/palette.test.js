@@ -23,7 +23,7 @@ const isGreenish = h => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(
 
 describe('palettes', () => {
   it('three palettes with 7 distinct classes per kind, a no-data and an outlier colour of their own', () => {
-    assert.deepEqual(PALETTE_IDS, ['rotterdam', 'klassiek', 'kleurenblind']);
+    assert.deepEqual(PALETTE_IDS, ['rotterdam', 'klassiek', 'mokum', 'kleurenblind']);
     for (const p of Object.values(PALETTES)) {
       for (const kind of ['directional', 'neutral', 'origin']) {
         assert.equal(p[kind].length, 7, `${p.id} ${kind}`);
@@ -128,9 +128,9 @@ describe('choice: Volgt thema, storage', () => {
     assert.equal(resolvePalette(PALETTES.klassiek), PALETTES.klassiek);
   });
   it('parses stored values; unknown → Volgt thema', () => {
-    for (const v of ['auto', 'rotterdam', 'klassiek', 'kleurenblind']) assert.equal(parsePaletteChoice(v), v);
+    for (const v of ['auto', 'rotterdam', 'klassiek', 'mokum', 'kleurenblind']) assert.equal(parsePaletteChoice(v), v);
     for (const v of [null, undefined, '', 'Rotterdam', 'toString', 42]) assert.equal(parsePaletteChoice(v), 'auto');
-    assert.deepEqual(PALETTE_OPTIONS.map(o => o.label), ['Volgt thema', 'Rotterdam', 'Paars-oranje', 'Kleurenblind-veilig']);
+    assert.deepEqual(PALETTE_OPTIONS.map(o => o.label), ['Volgt thema', 'Rotterdam', 'Paars-oranje', 'Mokum', 'Kleurenblind-veilig']);
   });
   it('stores under roffatistics.mapPalette, survives blocked storage', () => {
     const st = memStorage();
@@ -201,5 +201,35 @@ describe('herkomst: against the scope average', () => {
     for (const c of PALETTES.rotterdam.origin) assert.ok(html.includes(c), c);
     const linear = legendScaleHtml(buildScale(vals, { kind: 'up', palette: 'rotterdam', method: 'linear' }), 'woonscore');
     assert.match(linear, /linear-gradient\(to right, #c62828/);
+  });
+});
+
+describe('Mokum palette (Mokumistics)', () => {
+  const p = PALETTES.mokum;
+  const L = h => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const contrast = (a, b) => { const [x, y] = [L(a), L(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+  it('good/bad stays red → green as in Rotterdam; herkomst the same indigo', () => {
+    assert.deepEqual(p.directional, PALETTES.rotterdam.directional);
+    assert.deepEqual(p.origin, PALETTES.rotterdam.origin);
+    assert.equal(p.flips, true);
+    assert.ok(isRedish(rampFor(p, 'up')[0]) && isGreenish(rampFor(p, 'up')[6]));
+    assert.ok(isGreenish(rampFor(p, 'down')[0]), 'lower-is-better: low values green');
+  });
+  it('neutral ramp runs grey → black: colourless and strictly darker per class', () => {
+    for (const h of p.neutral) { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 4, `${h} is grey`); }
+    for (let i = 1; i < 7; i++) assert.ok(contrast(p.neutral[i - 1], p.neutral[i]) >= 1.2, `classes ${i - 1}/${i} tell apart`);
+    assert.ok(L(p.neutral[6]) < 0.02, 'ends near black');
+  });
+  it('outliers magenta, distinct from every ramp; no-data off the grey ramp', () => {
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(p.outlier.slice(i, i + 2), 16));
+    assert.ok(r > 200 && b > 150 && g < 80, 'magenta');
+    for (const k of ['directional', 'neutral', 'origin']) { assert.ok(!p[k].includes(p.outlier)); assert.ok(!p[k].includes(p.noData)); }
+    assert.ok(contrast(p.outlierText, '#1c1c1c') >= 4.5, 'outlier text on the Mokum surface');
+    assert.ok(contrast(p.goodText, '#1c1c1c') >= 4.5 && contrast(p.badText, '#1c1c1c') >= 4.5);
+  });
+  it('"Volgt thema" maps both Mokum themes to it', () => {
+    assert.equal(THEME_PALETTE.mokum, 'mokum');
+    assert.equal(resolvePalette('auto', 'mokum-licht').id, 'mokum');
+    assert.ok(Object.keys(THEMES).every(t => THEME_PALETTE[t]), 'every theme has a palette');
   });
 });

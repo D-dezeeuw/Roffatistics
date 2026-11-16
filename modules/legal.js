@@ -8,7 +8,7 @@
 // createLegalDialog() so it runs against a fake DOM in the tests.
 
 /** Kept equal to package.json "version" (tests/legal.test.js checks it). */
-export const APP_VERSION = '0.47.0';
+export const APP_VERSION = '0.48.0';
 
 export const LEGAL_SECTIONS = Object.freeze(['privacy', 'disclaimer', 'colofon']);
 export const LEGAL_TITLES = Object.freeze({ privacy: 'Privacy', disclaimer: 'Disclaimer', colofon: 'Colofon' });
@@ -16,12 +16,15 @@ export const LEGAL_TITLES = Object.freeze({ privacy: 'Privacy', disclaimer: 'Dis
 /** Every localStorage key of the app starts with this (see splash, theme, state, map, scale, list, legend, search, wizard-model). */
 export const APP_STORAGE_PREFIX = 'roffatistics.';
 
+import { CITY, cityDisclaimer } from './city.js';
+
 const REPO_URL = 'https://github.com/D-dezeeuw/Roffatistics';
 
 // Read at import, before state.js rewrites the address bar.
 const INITIAL_HASH = typeof location !== 'undefined' ? location.hash : '';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const APP = esc(CITY.appName);   // Roffatistics / Mokumistics
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
 
 /** '#legal=colofon' → 'colofon'; anything else → null. */
@@ -55,7 +58,7 @@ function safe(fn) { try { return fn(); } catch { return null; } }
 // ── Texts ────────────────────────────────────────────────────────────────────
 
 const PRIVACY = `
-  <p><strong>Alles blijft op je apparaat.</strong> Roffatistics heeft geen accounts, zet geen cookies, gebruikt geen analytics, trackers of advertenties en heeft geen eigen server die iets van je opslaat.</p>
+  <p><strong>Alles blijft op je apparaat.</strong> ${APP} heeft geen accounts, zet geen cookies, gebruikt geen analytics, trackers of advertenties en heeft geen eigen server die iets van je opslaat.</p>
   <h3>Wat er op je apparaat staat</h3>
   <p>Je keuzes bewaren we in de opslag van je eigen browser (localStorage), zodat ze er de volgende keer nog zijn: thema, kaartstijl, kaartkleuren, OV-lijnen, basisscholen op de kaart, schaal, weergave, ranglijstinstellingen, je recente zoekopdrachten, of het startscherm getoond wordt en je antwoorden uit de wizard. Opgehaalde cijfers staan tijdelijk in sessionStorage en verdwijnen als je het tabblad sluit. Niets hiervan wordt verstuurd.</p>
   <h3>Deellinks</h3>
@@ -72,21 +75,22 @@ const PRIVACY = `
   </ul>
   <p>Die verzoeken vragen alleen om kaartdelen en tabellen. Je zoekterm, postcode en antwoorden gaan niet mee: postcodes en zoeken werken met bestanden die bij de app horen. Zoals bij elke website zien deze servers wel technisch je IP-adres en browser; wat zij daarmee doen staat in hun eigen privacybeleid.</p>
   <h3>Gegevens wissen</h3>
-  <p>Deze knop haalt alle Roffatistics-gegevens uit deze browser en laadt de pagina opnieuw met de standaardinstellingen. Gegevens van andere sites blijven staan.</p>
+  <p>Deze knop haalt alle ${APP}-gegevens uit deze browser en laadt de pagina opnieuw met de standaardinstellingen. Gegevens van andere sites blijven staan.</p>
   <p><button type="button" class="legal-clear">Wis mijn gegevens</button> <span class="legal-clear-status" role="status"></span></p>`;
 
 const DISCLAIMER = `
-  <p>Roffatistics laat openbare, samengevoegde statistieken per gebied zien. De scores zijn een indicatie en zeggen hoe een gebied het doet vergeleken met vergelijkbare gebieden (wijken met wijken, buurten met buurten), niet hoe goed het is in absolute zin.</p>
+  <p>${APP} laat openbare, samengevoegde statistieken per gebied zien. De scores zijn een indicatie en zeggen hoe een gebied het doet vergeleken met vergelijkbare gebieden (wijken met wijken, buurten met buurten), niet hoe goed het is in absolute zin.</p>
   <ul>
     <li>De cijfers komen van verschillende bronnen en uit verschillende jaren. Meestal 2023 tot 2025, maar de afstand tot groen en natuur is nog van 2017. In de Uitleg staat per cijfer welk jaar en welke tabel.</li>
     <li>Herkomstcijfers zijn CBS-totalen per gebied. Ze beschrijven geen personen en geen gedrag.</li>
     <li>Dit is geen advies over kopen, huren of verhuizen. Bekijk een buurt ook zelf en gebruik officiële bronnen voor een besluit.</li>
     <li>Aan de cijfers, scores en teksten kunnen geen rechten worden ontleend. Er kunnen fouten in zitten, bij de bron of bij ons.</li>
   </ul>
+  <p class="city-disclaimer-text">${esc(cityDisclaimer())} De gemeente is niet betrokken bij deze site; logo en vormgeving zijn van ons, niet van de gemeente.</p>
   <p>Zie je een fout? Meld het via ${link(REPO_URL + '/issues', 'GitHub')}.</p>`;
 
 const COLOFON = `
-  <p><strong>Roffatistics</strong> versie ${esc(APP_VERSION)}. Gemaakt door Danny de Zeeuw, Neko Media.</p>
+  <p><strong>${APP}</strong> versie ${esc(APP_VERSION)}. Gemaakt door Danny de Zeeuw, Neko Media.</p>
   <h3>Gebouwd met</h3>
   <ul>
     <li>${link('https://www.npmjs.com/package/spektrum', 'Spektrum')}</li>

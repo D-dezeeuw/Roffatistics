@@ -61,20 +61,79 @@ export const centrumCoords = (city = CITY) => `${coord(city.centrum.point[0])} N
 /** Tab title of the city: "Roffatistics — Rotterdam en Nederland in cijfers". */
 export const cityTitle = (city = CITY) => `${city.appName} — ${city.name} en Nederland in cijfers`;
 
+/** "Geen website van de gemeente Amsterdam." (About, footer, Disclaimer). */
+export const cityDisclaimer = (city = CITY) => `Geen website van de gemeente ${city.name}.`;
+
+/** The slogan as lines (config: null, one string or an array of lines). */
+export const sloganLines = (city = CITY) => (city.slogan == null ? [] : [].concat(city.slogan).map(String));
+
+const escHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** The slogan as a short poem (one line per phrase, italics); '' without a slogan. */
+export function sloganHtml(city = CITY) {
+  const lines = sloganLines(city);
+  return lines.length ? `<em class="city-slogan">${lines.map(escHtml).join('<br>')}</em>` : '';
+}
+
 /**
- * Fills the head and the scope picker from the city config. For the default
- * city every value equals the static index.html, so nothing changes there.
+ * Head values of a city: tab title, descriptions, the absolute OG image and the
+ * icons. For the default city they equal the static index.html (tested), so
+ * server.js can write them per host without changing the Rotterdam page.
+ */
+export function cityMeta(city = CITY) {
+  const lead = 'Kaarten, ranglijsten en een persoonlijke Woonscore per buurt, wijk en gemeente.';
+  const slogan = sloganLines(city).join(' ');
+  const pre = slogan ? `${slogan} ` : '';
+  return Object.freeze({
+    title: cityTitle(city),
+    description: `${city.name} en Nederland in cijfers: kaarten, ranglijsten en een persoonlijke Woonscore per buurt, wijk en gemeente. Vind jouw ideale woonplek.`,
+    ogDescription: `${pre}${lead} Vind jouw ideale woonplek.`,
+    twitterDescription: `${pre}${lead}`,
+    siteName: city.appName,
+    canonical: city.canonical,
+    ogImage: new URL(city.og, city.canonical).href,
+    ogImageAlt: city.ogImageAlt,
+    icons: city.icons,
+    logo: city.logo,
+    aboutTitle: `Over ${city.appName} (titelscherm)`,
+    disclaimer: cityDisclaimer(city),
+  });
+}
+
+/**
+ * Fills the head, the brand (logo, name, slogan, disclaimer) and the scope
+ * picker from the city config. For the default city every value equals the
+ * static index.html, so nothing changes there.
  */
 export function applyCityToDocument(doc = globalThis.document, city = CITY) {
   if (!doc?.documentElement) return;
   doc.documentElement.dataset.city = city.slug;
   if (city.slug === DEFAULT_CITY) return;
-  const title = cityTitle(city);
-  doc.title = title;
-  const set = (sel, attr, v) => doc.querySelectorAll(sel).forEach(el => el.setAttribute(attr, v));
-  set('meta[property="og:title"], meta[name="twitter:title"]', 'content', title);
+  const m = cityMeta(city);
+  doc.title = m.title;
+  const all = sel => doc.querySelectorAll?.(sel) ?? [];
+  const set = (sel, attr, v) => { if (v != null) all(sel).forEach(el => el.setAttribute(attr, v)); };
+  set('meta[property="og:title"], meta[name="twitter:title"]', 'content', m.title);
+  set('meta[name="description"]', 'content', m.description);
+  set('meta[property="og:description"]', 'content', m.ogDescription);
+  set('meta[name="twitter:description"]', 'content', m.twitterDescription);
+  set('meta[property="og:site_name"]', 'content', m.siteName);
+  set('meta[property="og:image"], meta[name="twitter:image"]', 'content', m.ogImage);
+  set('meta[property="og:image:alt"]', 'content', m.ogImageAlt);
   if (city.canonical) { set('meta[property="og:url"]', 'content', city.canonical); set('link[rel="canonical"]', 'href', city.canonical); }
-  doc.querySelectorAll('.scope-select option[value="rotterdam"]').forEach(el => { el.textContent = city.name; });
+  set('link[rel="icon"][sizes]', 'href', m.icons?.ico);
+  set('link[rel="icon"][type="image/svg+xml"]', 'href', m.icons?.svg);
+  set('link[rel="apple-touch-icon"]', 'href', m.icons?.apple);
+  set('.nav-logo, .splash-logo', 'src', m.logo?.ui);
+  set('.app-loader__logo', 'src', m.logo?.loader);
+  set('.nav-title', 'title', m.aboutTitle);
+  set('.about-btn', 'aria-label', `Over ${city.appName}`);
+  set('.about-btn', 'title', `Over ${city.appName}`);
+  all('.about-btn .nav-menu-label').forEach(el => { el.textContent = `Over ${city.appName}`; });
+  all('.nav-title-text, #splash-title').forEach(el => { el.textContent = city.appName; });
+  all('.city-disclaimer').forEach(el => { el.textContent = m.disclaimer; });
+  if (sloganLines(city).length) all('#splash-tagline').forEach(el => { el.innerHTML = sloganHtml(city); });
+  all('.scope-select option[value="rotterdam"]').forEach(el => { el.textContent = city.name; });
 }
 
 /** Neighbouring gemeenten as text: "Schiedam, Capelle, Barendrecht", or with `conj` "Schiedam, Capelle of Barendrecht". */
