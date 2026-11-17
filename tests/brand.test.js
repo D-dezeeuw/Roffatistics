@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { request } from 'node:http';
 import vm from 'node:vm';
-import { CITIES, cityMeta, sloganLines, sloganHtml, cityDisclaimer, applyCityToDocument } from '../modules/city.js';
+import { CITIES, cityMeta, sloganLines, sloganHtml, cityDisclaimer, applyCityToDocument, cityTourUrl } from '../modules/city.js';
 import { THEMES, MAP_COLORS, cityDefaultTheme, pickInitialTheme, THEME_STORAGE_KEY } from '../modules/theme.js';
 import { THEME_PALETTE, resolvePalette } from '../modules/palette.js';
 import { renderIndex, cityForRequest, createAppServer } from '../server.js';
@@ -76,6 +76,14 @@ describe('city brand', () => {
     assert.equal(nodes.get('#splash-tagline')[0].innerHTML, sloganHtml(a));
     assert.equal(nodes.get('.city-disclaimer')[0].textContent, 'Geen website van de gemeente Amsterdam.');
     assert.equal(nodes.get('meta[property="og:site_name"]')[0].attrs.content, 'Mokumistics');
+    assert.equal(nodes.get('.splash-tour-link')[0].attrs.href, 'https://flightroutes.hermes.blockworlds.nl/#/tour/tijdreis-schiphol');
+    assert.equal(nodes.get('.splash-tour-title')[0].textContent, 'Tijdreis Schiphol');
+  });
+  it('each city links its own time-travel tour; the static page is Rotterdam', () => {
+    assert.equal(cityTourUrl(CITIES.rotterdam), 'https://flightroutes.hermes.blockworlds.nl/#/tour/tijdreis-rotterdam');
+    assert.equal(cityTourUrl(CITIES.amsterdam), 'https://flightroutes.hermes.blockworlds.nl/#/tour/tijdreis-schiphol');
+    assert.match(html, new RegExp(`class="splash-more-link splash-tour-link" href="${cityTourUrl(CITIES.rotterdam).replace(/[.?#/]/g, '\\$&')}"`));
+    assert.match(html, new RegExp(`<strong class="splash-tour-title">${CITIES.rotterdam.tour.title}</strong>`));
   });
 });
 
