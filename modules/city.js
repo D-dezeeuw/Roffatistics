@@ -133,6 +133,8 @@ export function applyCityToDocument(doc = globalThis.document, city = CITY) {
   all('.city-disclaimer').forEach(el => { el.textContent = m.disclaimer; });
   if (sloganLines(city).length) all('#splash-tagline').forEach(el => { el.innerHTML = sloganHtml(city); });
   all('.scope-select option[value="rotterdam"]').forEach(el => { el.textContent = city.name; });
+  all('.city-name').forEach(el => { el.textContent = city.name; });
+  all('.city-app-name').forEach(el => { el.textContent = city.appName; });
   if (city.tour?.id) {
     set('.splash-tour-link', 'href', cityTourUrl(city));
     all('.splash-tour-title').forEach(el => { el.textContent = city.tour.title; });

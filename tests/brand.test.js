@@ -78,6 +78,11 @@ describe('city brand', () => {
     assert.equal(nodes.get('meta[property="og:site_name"]')[0].attrs.content, 'Mokumistics');
     assert.equal(nodes.get('.splash-tour-link')[0].attrs.href, 'https://flightroutes.hermes.blockworlds.nl/#/tour/tijdreis-schiphol');
     assert.equal(nodes.get('.splash-tour-title')[0].textContent, 'Tijdreis Schiphol');
+    assert.equal(nodes.get('.city-name')[0].textContent, 'Amsterdam', 'splash: "Niet alleen Amsterdam."');
+    assert.equal(nodes.get('.city-app-name')[0].textContent, 'Mokumistics');
+  });
+  it('the splash note names the city through .city-name and .city-app-name', () => {
+    assert.match(html, /Niet alleen <span class="city-name">Rotterdam<\/span>\.<\/strong> <span class="city-app-name">Roffatistics<\/span> begint bij <span class="city-name">Rotterdam<\/span>/);
   });
   it('each city links its own time-travel tour; the static page is Rotterdam', () => {
     assert.equal(cityTourUrl(CITIES.rotterdam), 'https://flightroutes.hermes.blockworlds.nl/#/tour/tijdreis-rotterdam');
