@@ -80,6 +80,11 @@ describe('city brand', () => {
     assert.equal(nodes.get('.splash-tour-title')[0].textContent, 'Tijdreis Schiphol');
     assert.equal(nodes.get('.city-name')[0].textContent, 'Amsterdam', 'splash: "Niet alleen Amsterdam."');
     assert.equal(nodes.get('.city-app-name')[0].textContent, 'Mokumistics');
+    assert.equal(nodes.get('.splash-p2000-item')[0].attrs.hidden, '', 'Amsterdam: no Randstad P2000 link');
+  });
+  it('the splash P2000 link is marked so another city can hide it', () => {
+    assert.match(html, /<li class="splash-more-item splash-p2000-item">\s*<a class="splash-more-link" href="https:\/\/randstad\.hermes\.blockworlds\.nl\/"/);
+    assert.equal(CITIES.amsterdam.p2000, false);
   });
   it('the splash note names the city through .city-name and .city-app-name', () => {
     assert.match(html, /Niet alleen <span class="city-name">Rotterdam<\/span>\.<\/strong> <span class="city-app-name">Roffatistics<\/span> begint bij <span class="city-name">Rotterdam<\/span>/);

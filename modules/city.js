@@ -135,6 +135,8 @@ export function applyCityToDocument(doc = globalThis.document, city = CITY) {
   all('.scope-select option[value="rotterdam"]').forEach(el => { el.textContent = city.name; });
   all('.city-name').forEach(el => { el.textContent = city.name; });
   all('.city-app-name').forEach(el => { el.textContent = city.appName; });
+  // P2000 (Randstad) covers only Rotterdam-Rijnmond: no link on the splash of another city.
+  if (city.p2000 === false) all('.splash-p2000-item').forEach(el => { el.hidden = true; el.setAttribute('hidden', ''); });
   if (city.tour?.id) {
     set('.splash-tour-link', 'href', cityTourUrl(city));
     all('.splash-tour-title').forEach(el => { el.textContent = city.tour.title; });

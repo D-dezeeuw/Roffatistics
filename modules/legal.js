@@ -8,7 +8,7 @@
 // createLegalDialog() so it runs against a fake DOM in the tests.
 
 /** Kept equal to package.json "version" (tests/legal.test.js checks it). */
-export const APP_VERSION = '0.58.3';
+export const APP_VERSION = '0.58.4';
 
 export const LEGAL_SECTIONS = Object.freeze(['privacy', 'disclaimer', 'colofon']);
 export const LEGAL_TITLES = Object.freeze({ privacy: 'Privacy', disclaimer: 'Disclaimer', colofon: 'Colofon' });
@@ -25,6 +25,7 @@ const INITIAL_HASH = typeof location !== 'undefined' ? location.hash : '';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const APP = esc(CITY.appName);   // Roffatistics / Mokumistics
+const P2000_ON = CITY.p2000 !== false;   // P2000 (Randstad) only where the city has it: Rotterdam
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
 
 /** '#legal=colofon' → 'colofon'; anything else → null. */
@@ -71,7 +72,7 @@ const PRIVACY = `
     <li>OpenFreeMap (tiles.openfreemap.org): kaarttegels en kaartlettertypen;</li>
     <li>PDOK (service.pdok.nl): de luchtfoto (kaart Satelliet);</li>
     <li>De statistieken, politiecijfers en gebiedsgrenzen (van CBS, politie, DUO en PDOK) staan als kopie bij de app zelf. Alleen als zo'n kopie ontbreekt, haalt je browser ze rechtstreeks bij CBS (opendata.cbs.nl, dataderden.cbs.nl) of PDOK;</li>
-    <li>Randstad (randstad.hermes.blockworlds.nl): de actuele meldingen hulpdiensten (P2000), alleen als je de laag Actueel opent. Er gaat niets over jou mee, alleen een gewoon verzoek om de tabel.</li>
+${P2000_ON ? `    <li>Randstad (randstad.hermes.blockworlds.nl): de actuele meldingen hulpdiensten (P2000), alleen als je de laag Actueel opent. Er gaat niets over jou mee, alleen een gewoon verzoek om de tabel.</li>` : ''}
   </ul>
   <p>Die verzoeken vragen alleen om kaartdelen en tabellen. Je zoekterm, postcode en antwoorden gaan niet mee: postcodes en zoeken werken met bestanden die bij de app horen. Zoals bij elke website zien deze servers wel technisch je IP-adres en browser; wat zij daarmee doen staat in hun eigen privacybeleid.</p>
   <h3>Gegevens wissen</h3>
@@ -103,7 +104,7 @@ const COLOFON = `
     <li>${link('https://data.politie.nl/', 'Politie')}, geregistreerde misdrijven (open data, via CBS)</li>
     <li>${link('https://www.pdok.nl/', 'PDOK')}: CBS wijk- en buurtkaart en luchtfoto Beeldmateriaal Nederland (open data)</li>
     <li>Kaartgegevens © ${link('https://www.openstreetmap.org/copyright', 'OpenStreetMap')}-bijdragers (ODbL)</li>
-    <li>${link('https://randstad.hermes.blockworlds.nl/', 'Randstad')}: actuele meldingen hulpdiensten (P2000), live per buurt, wijk en gemeente</li>
+${P2000_ON ? `    <li>${link('https://randstad.hermes.blockworlds.nl/', 'Randstad')}: actuele meldingen hulpdiensten (P2000), live per buurt, wijk en gemeente</li>` : ''}
   </ul>
   <h3>Broncode en contact</h3>
   <p>De broncode staat op ${link(REPO_URL, 'GitHub')} (MIT-licentie). Vragen of fouten: open daar een issue of zie ${link('https://github.com/d-dezeeuw', 'github.com/d-dezeeuw')}.</p>`;
